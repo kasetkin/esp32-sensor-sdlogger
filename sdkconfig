@@ -723,7 +723,7 @@ CONFIG_IDF_TARGET_ARCH="riscv"
 # default:
 CONFIG_IDF_TARGET="esp32c6"
 # default:
-CONFIG_IDF_INIT_VERSION="6.0.0"
+CONFIG_IDF_INIT_VERSION="$IDF_INIT_VERSION"
 # default:
 CONFIG_IDF_TARGET_ESP32C6=y
 # default:
@@ -1058,20 +1058,17 @@ CONFIG_PARTITION_TABLE_MD5=y
 #
 # SD SPI Example Configuration
 #
-# default:
-# CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED is not set
-# default:
+CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED=y
 # CONFIG_EXAMPLE_FORMAT_SD_CARD is not set
+CONFIG_EXAMPLE_PIN_MOSI=18
+CONFIG_EXAMPLE_PIN_MISO=20
+CONFIG_EXAMPLE_PIN_CLK=19
+CONFIG_EXAMPLE_PIN_CS=21
+CONFIG_EXAMPLE_DEBUG_PIN_CONNECTIONS=y
 # default:
-CONFIG_EXAMPLE_PIN_MOSI=4
+# CONFIG_EXAMPLE_ENABLE_ADC_FEATURE is not set
 # default:
-CONFIG_EXAMPLE_PIN_MISO=6
-# default:
-CONFIG_EXAMPLE_PIN_CLK=5
-# default:
-CONFIG_EXAMPLE_PIN_CS=1
-# default:
-# CONFIG_EXAMPLE_DEBUG_PIN_CONNECTIONS is not set
+CONFIG_EXAMPLE_ADC_UNIT=1
 # end of SD SPI Example Configuration
 
 #
@@ -1155,18 +1152,6 @@ CONFIG_COMPILER_CXX_GLIBCXX_CONSTEXPR_NO_CHANGE=y
 
 #
 # Component config
-#
-
-#
-# !!! MINIMAL_BUILD is enabled !!!
-#
-
-#
-# Only common components and those transitively required by the main component are listed
-#
-
-#
-# If a component configuration is missing, please add it to the main component's requirements
 #
 
 #
