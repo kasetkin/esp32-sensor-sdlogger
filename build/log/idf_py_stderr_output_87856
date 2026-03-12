@@ -1,0 +1,9 @@
+Command: cmake -G Ninja -B /home/kasetkin/my_media/projects/DIY/esp32-sensor-sdlogger/build -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/kasetkin/.espressif/tools/python/release-v6.0/venv/bin/python3 -DESP_PLATFORM=1 -DSDKCONFIG='/home/kasetkin/my_media/projects/DIY/esp32-sensor-sdlogger/sdkconfig' -DCCACHE_ENABLE=False /home/kasetkin/my_media/projects/DIY/esp32-sensor-sdlogger
+Configuration Report               
+ ───────────────────────────────── 
+   Parser Version: 1               
+   Verbosity: default              
+   Defaults policy: sdkconfig      
+   Status: Finished successfully   
+                                   
+ ───────────────────────────────── 

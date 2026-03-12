@@ -1,0 +1,2 @@
+source /home/kasetkin/my_media/projects/DIY/esp32-sensor-sdlogger/build/bootloader/gdbinit/symbols
+source /home/kasetkin/my_media/projects/DIY/esp32-sensor-sdlogger/build/bootloader/gdbinit/connect
