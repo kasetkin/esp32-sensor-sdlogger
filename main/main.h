@@ -1,0 +1,14 @@
+#ifndef MAINH
+#define MAINH
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void app_main(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif //MAINH
