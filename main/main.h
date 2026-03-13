@@ -1,5 +1,4 @@
-#ifndef MAINH
-#define MAINH
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,5 +9,3 @@ void app_main(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif //MAINH
