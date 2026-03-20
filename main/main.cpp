@@ -36,7 +36,7 @@ extern "C" void app_main(void)
     const char *file_hello = "/hello.txt";
     char data[EXAMPLE_MAX_CHAR_SIZE];
     snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Hello", card->cid.name);
-    ret = writeFile(file_hello, data);
+    ret = my_sdcard.writeFile(file_hello, data);
     if (ret != ESP_OK) {
         return;
     }
@@ -57,7 +57,7 @@ extern "C" void app_main(void)
         return;
     }
 
-    ret = readFile(file_foo);
+    ret = my_sdcard.readFile(file_foo);
     if (ret != ESP_OK) {
         return;
     }
@@ -65,13 +65,13 @@ extern "C" void app_main(void)
     const std::string file_nihao = "/nihao.txt";
     memset(data, 0, EXAMPLE_MAX_CHAR_SIZE);
     snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Nihao", card->cid.name);
-    ret = writeFile(file_nihao, data);
+    ret = my_sdcard.writeFile(file_nihao, data);
     if (ret != ESP_OK) {
         return;
     }
 
     //Open file for reading
-    ret = readFile(file_nihao);
+    ret = my_sdcard.readFile(file_nihao);
     if (ret != ESP_OK) {
         return;
     }

@@ -12,12 +12,11 @@
 #define PIN_NUM_CLK   GPIO_NUM_19
 #define PIN_NUM_CS    GPIO_NUM_21
 
-static std::string MOUNT_POINT = "/sdcard";
 static const char *TAGSD = "example";
 
-esp_err_t writeFile(const std::string &path, char *data)
+esp_err_t SdCard::writeFile(const std::string &path, char *data)
 {
-    const std::string pathWithMount = MOUNT_POINT + path;
+    const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Opening file %s", path);
     FILE *f = fopen(pathWithMount.c_str(), "w");
     if (f == NULL) {
@@ -31,9 +30,9 @@ esp_err_t writeFile(const std::string &path, char *data)
     return ESP_OK;
 }
 
-esp_err_t readFile(const std::string &path)
+esp_err_t SdCard::readFile(const std::string &path)
 {
-    const std::string pathWithMount = MOUNT_POINT + path;
+    const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Reading file %s", path);
     FILE *f = fopen(pathWithMount.c_str(), "r");
     if (f == NULL) {
@@ -54,7 +53,7 @@ esp_err_t readFile(const std::string &path)
     return ESP_OK;
 }
 
-esp_err_t SdCard::mountFilesystem()
+esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
 {
     esp_err_t ret;
 
@@ -113,7 +112,7 @@ esp_err_t SdCard::mountFilesystem()
     slot_config.host_id = spiDevice;
 
     ESP_LOGI(TAGSD, "Mounting filesystem");
-    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &card);
+    ret = esp_vfs_fat_sdspi_mount(mountPoint.c_str(), &host, &slot_config, &mount_config, &card);
 
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
@@ -129,23 +128,26 @@ esp_err_t SdCard::mountFilesystem()
 
     m_card = std::unique_ptr<sdmmc_card_t>(card);
     m_spiDevice = spiDevice;
+    m_mountPoint = mountPoint;
     return ESP_OK;
 }
 
 esp_err_t SdCard::unmount()
 {
     // All done, unmount partition and disable SPI peripheral
-    esp_vfs_fat_sdcard_unmount(MOUNT_POINT.c_str(), m_card.get());
+    esp_vfs_fat_sdcard_unmount(m_mountPoint.c_str(), m_card.get());
     m_card.reset();
+    m_mountPoint = "";
     ESP_LOGI(TAGSD, "Card unmounted");
 
     //deinitialize the bus after all devices are removed
     spi_bus_free(m_spiDevice);
     m_spiDevice = SPI_HOST_MAX;
+
     return ESP_OK;
 }
 
-sdmmc_card_t *SdCard::card()
+sdmmc_card_t *SdCard::card() const
 {
     if (m_card) 
         return m_card.get();
@@ -153,10 +155,15 @@ sdmmc_card_t *SdCard::card()
         return nullptr;
 }
 
+std::string SdCard::mountPoint() const
+{
+    return m_mountPoint;
+}
+
 esp_err_t SdCard::format()
 {
     // Format FATFS
-    esp_err_t ret = esp_vfs_fat_sdcard_format(MOUNT_POINT.c_str(), m_card.get());
+    esp_err_t ret = esp_vfs_fat_sdcard_format(m_mountPoint.c_str(), m_card.get());
     if (ret != ESP_OK) {
         ESP_LOGE(TAGSD, "Failed to format FATFS (%s)", esp_err_to_name(ret));
         return ESP_FAIL;
