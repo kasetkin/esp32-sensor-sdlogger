@@ -8,16 +8,16 @@
 class SdCard
 {
 public:
-    esp_err_t format_sdcard();
-    esp_err_t mount_sdcard_filesystem();
-    esp_err_t unmount_sdcard();
+    esp_err_t format();
+    esp_err_t mountFilesystem();
+    esp_err_t unmount();
 
     sdmmc_card_t *card();
 private:
     std::unique_ptr<sdmmc_card_t> m_card;
-    spi_host_device_t m_spi_device = SPI_HOST_MAX;
+    spi_host_device_t m_spiDevice = SPI_HOST_MAX;
 
 };
 
-esp_err_t s_example_write_file(const std::string &path, char *data);
-esp_err_t s_example_read_file(const std::string &path);
+esp_err_t writeFile(const std::string &path, char *data);
+esp_err_t readFile(const std::string &path);

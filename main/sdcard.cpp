@@ -15,7 +15,7 @@
 static std::string MOUNT_POINT = "/sdcard";
 static const char *TAGSD = "example";
 
-esp_err_t s_example_write_file(const std::string &path, char *data)
+esp_err_t writeFile(const std::string &path, char *data)
 {
     const std::string pathWithMount = MOUNT_POINT + path;
     ESP_LOGI(TAGSD, "Opening file %s", path);
@@ -31,7 +31,7 @@ esp_err_t s_example_write_file(const std::string &path, char *data)
     return ESP_OK;
 }
 
-esp_err_t s_example_read_file(const std::string &path)
+esp_err_t readFile(const std::string &path)
 {
     const std::string pathWithMount = MOUNT_POINT + path;
     ESP_LOGI(TAGSD, "Reading file %s", path);
@@ -54,7 +54,7 @@ esp_err_t s_example_read_file(const std::string &path)
     return ESP_OK;
 }
 
-esp_err_t SdCard::mount_sdcard_filesystem()
+esp_err_t SdCard::mountFilesystem()
 {
     esp_err_t ret;
 
@@ -99,8 +99,8 @@ esp_err_t SdCard::mount_sdcard_filesystem()
         .intr_flags = 0
     };
 
-    const auto spi_device = static_cast<spi_host_device_t>(host.slot);
-    ret = spi_bus_initialize(spi_device, &bus_cfg, SDSPI_DEFAULT_DMA);
+    const auto spiDevice = static_cast<spi_host_device_t>(host.slot);
+    ret = spi_bus_initialize(spiDevice, &bus_cfg, SDSPI_DEFAULT_DMA);
     if (ret != ESP_OK) {
         ESP_LOGE(TAGSD, "Failed to initialize bus.");
         return ESP_FAIL;
@@ -110,7 +110,7 @@ esp_err_t SdCard::mount_sdcard_filesystem()
     // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = PIN_NUM_CS;
-    slot_config.host_id = spi_device;
+    slot_config.host_id = spiDevice;
 
     ESP_LOGI(TAGSD, "Mounting filesystem");
     ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &card);
@@ -128,11 +128,11 @@ esp_err_t SdCard::mount_sdcard_filesystem()
     ESP_LOGI(TAGSD, "Filesystem mounted");
 
     m_card = std::unique_ptr<sdmmc_card_t>(card);
-    m_spi_device = spi_device;
+    m_spiDevice = spiDevice;
     return ESP_OK;
 }
 
-esp_err_t SdCard::unmount_sdcard()
+esp_err_t SdCard::unmount()
 {
     // All done, unmount partition and disable SPI peripheral
     esp_vfs_fat_sdcard_unmount(MOUNT_POINT.c_str(), m_card.get());
@@ -140,8 +140,8 @@ esp_err_t SdCard::unmount_sdcard()
     ESP_LOGI(TAGSD, "Card unmounted");
 
     //deinitialize the bus after all devices are removed
-    spi_bus_free(m_spi_device);
-    m_spi_device = SPI_HOST_MAX;
+    spi_bus_free(m_spiDevice);
+    m_spiDevice = SPI_HOST_MAX;
     return ESP_OK;
 }
 
@@ -153,7 +153,7 @@ sdmmc_card_t *SdCard::card()
         return nullptr;
 }
 
-esp_err_t SdCard::format_sdcard()
+esp_err_t SdCard::format()
 {
     // Format FATFS
     esp_err_t ret = esp_vfs_fat_sdcard_format(MOUNT_POINT.c_str(), m_card.get());
