@@ -20,13 +20,22 @@ extern "C" void app_main(void)
 {
     esp_err_t ret;
 
+    ESP_LOGI(TAG, "configure GPS module");
+    ret = gpstask.configure();
+    if (ret != ESP_OK) 
+        return;
+
+    /// test code. will block other code
+    ESP_LOGI(TAG, "listen from GPS module");
+    gpstask.executeTask();
+
     SdCard my_sdcard;
     ret = my_sdcard.mountFilesystem();
     if (ret != ESP_OK) 
         return;
 
     my_sdcard.printInfoToStdout();
-    
+
     const auto card = my_sdcard.card();
     if (card == nullptr)
         return;
