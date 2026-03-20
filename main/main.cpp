@@ -6,8 +6,8 @@
 #include <sys/stat.h>
 
 #include "main.h"
+#include "common_utils.h"
 #include "sdcard.h"
-
 #include "gpstask.h"
 
 static const char *TAG = "example";
@@ -20,14 +20,23 @@ extern "C" void app_main(void)
 {
     esp_err_t ret;
 
-    ESP_LOGI(TAG, "configure GPS module");
-    ret = gpstask.configure();
+    ret = initNvsFlash();
+    if (ret != ESP_OK)
+        return;
+
+    enableRf(true);
+    enableExtAntenna(false);
+    registerWakeupTimer(100 * 1000);
+
+    ESP_LOGI(TAG, "configure GPS module UART");
+    ret = gpstask.configureUart();
     if (ret != ESP_OK) 
         return;
 
-    /// test code. will block other code
-    ESP_LOGI(TAG, "listen from GPS module");
-    gpstask.executeTask();
+    ESP_LOGI(TAG, "configure TinyGPS");
+    ret = gpstask.configureTinyGps();
+    if (ret != ESP_OK) 
+        return;
 
     SdCard my_sdcard;
     ret = my_sdcard.mountFilesystem();
@@ -40,51 +49,67 @@ extern "C" void app_main(void)
     if (card == nullptr)
         return;
 
-    // Use POSIX and C standard library functions to work with files.
+    ESP_LOGI(TAG, "listen from GPS module, start task");
+    xTaskCreate([](void *)
+    { 
+        gpstask.executeTask();
+    }, "gps_task", 4096, nullptr, 6, nullptr);
 
-    // First create a file.
-    const char *file_hello = "/hello.txt";
-    char data[EXAMPLE_MAX_CHAR_SIZE];
-    snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Hello", card->cid.name);
-    ret = my_sdcard.writeFile(file_hello, data);
-    if (ret != ESP_OK) {
+    ESP_LOGI(TAG, "configure GPS module settings");
+    ret = gpstask.configureUM980();
+    if (ret != ESP_OK) 
         return;
-    }
 
-    const char *file_foo = "/foo.txt";
 
-    // Check if destination file exists before renaming
-    struct stat st;
-    if (stat(file_foo, &st) == 0) {
-        // Delete it if it exists
-        unlink(file_foo);
-    }
 
-    // Rename original file
-    ESP_LOGI(TAG, "Renaming file %s to %s", file_hello, file_foo);
-    if (rename(file_hello, file_foo) != 0) {
-        ESP_LOGE(TAG, "Rename failed");
-        return;
-    }
 
-    ret = my_sdcard.readFile(file_foo);
-    if (ret != ESP_OK) {
-        return;
-    }
 
-    const std::string file_nihao = "/nihao.txt";
-    memset(data, 0, EXAMPLE_MAX_CHAR_SIZE);
-    snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Nihao", card->cid.name);
-    ret = my_sdcard.writeFile(file_nihao, data);
-    if (ret != ESP_OK) {
-        return;
-    }
 
-    //Open file for reading
-    ret = my_sdcard.readFile(file_nihao);
-    if (ret != ESP_OK) {
-        return;
-    }
+    // // Use POSIX and C standard library functions to work with files.
 
-    my_sdcard.unmount();
+    // // First create a file.
+    // const char *file_hello = "/hello.txt";
+    // char data[EXAMPLE_MAX_CHAR_SIZE];
+    // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Hello", card->cid.name);
+    // ret = my_sdcard.writeFile(file_hello, data);
+    // if (ret != ESP_OK) {
+    //     return;
+    // }
+
+    // const char *file_foo = "/foo.txt";
+
+    // // Check if destination file exists before renaming
+    // struct stat st;
+    // if (stat(file_foo, &st) == 0) {
+    //     // Delete it if it exists
+    //     unlink(file_foo);
+    // }
+
+    // // Rename original file
+    // ESP_LOGI(TAG, "Renaming file %s to %s", file_hello, file_foo);
+    // if (rename(file_hello, file_foo) != 0) {
+    //     ESP_LOGE(TAG, "Rename failed");
+    //     return;
+    // }
+
+    // ret = my_sdcard.readFile(file_foo);
+    // if (ret != ESP_OK) {
+    //     return;
+    // }
+
+    // const std::string file_nihao = "/nihao.txt";
+    // memset(data, 0, EXAMPLE_MAX_CHAR_SIZE);
+    // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Nihao", card->cid.name);
+    // ret = my_sdcard.writeFile(file_nihao, data);
+    // if (ret != ESP_OK) {
+    //     return;
+    // }
+
+    // //Open file for reading
+    // ret = my_sdcard.readFile(file_nihao);
+    // if (ret != ESP_OK) {
+    //     return;
+    // }
+
+    // my_sdcard.unmount();
 }
