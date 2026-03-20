@@ -1,0 +1,4 @@
+[submodule "modules/TinyGPSPlus"]
+	path = modules/TinyGPSPlus
+	url = https://github.com/kasetkin/TinyGPSPlus
+	branch = master
