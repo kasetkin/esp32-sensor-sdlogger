@@ -147,6 +147,13 @@ esp_err_t SdCard::unmount()
     return ESP_OK;
 }
 
+void SdCard::printInfoToStdout()
+{
+    // Card has been initialized, print its properties
+    if (m_card)
+        sdmmc_card_print_info(stdout, m_card.get());
+}
+
 sdmmc_card_t *SdCard::card() const
 {
     if (m_card) 

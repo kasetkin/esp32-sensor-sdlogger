@@ -3,17 +3,17 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
-#include <sys/unistd.h>
 #include <sys/stat.h>
-#include "sdmmc_cmd.h"
 
 #include "main.h"
 #include "sdcard.h"
 
-#include "TinyGPS++.h"
+#include "gpstask.h"
 
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
+
+static GpsTask gpstask;
 
 
 extern "C" void app_main(void)
@@ -25,10 +25,11 @@ extern "C" void app_main(void)
     if (ret != ESP_OK) 
         return;
 
+    my_sdcard.printInfoToStdout();
+    
     const auto card = my_sdcard.card();
-    // const auto &card = 
-    // Card has been initialized, print its properties
-    sdmmc_card_print_info(stdout, card);
+    if (card == nullptr)
+        return;
 
     // Use POSIX and C standard library functions to work with files.
 

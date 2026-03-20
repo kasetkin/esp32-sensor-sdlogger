@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.22)
 
 project(tinygpsplus)
 
-set(srcs TinyGPSPlus/src/TinyGPS++.cpp)
+set(srcs 
+  TinyGPSPlus/src/TinyGPS++.cpp
+  TinyGPSPlus/src/unicore.cpp
+)
 
 # Create a static library target
 add_library(${PROJECT_NAME} STATIC ${srcs})

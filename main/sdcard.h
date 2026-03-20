@@ -11,6 +11,7 @@ public:
     esp_err_t format();
     esp_err_t mountFilesystem(const std::string &mountPoint = "/sdcard");
     esp_err_t unmount();
+    void printInfoToStdout();
 
     std::string mountPoint() const;
     sdmmc_card_t *card() const;
