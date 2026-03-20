@@ -1,11 +1,13 @@
 #include "gpstask.h"
 
+#include <ctime>
+#include <chrono>
 #include <array>
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
 #include "common_utils.h"
-
+#include "unicore.h"
 
 
 esp_err_t GpsTask::configureUart()
@@ -181,10 +183,95 @@ void GpsTask::executeTask()
                 ESP_LOGI(RX_TASK_TAG, "Valid location from GPS");
         }
 
+        const bool newLocation = hasNewLocation();
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
     }
 }
 
+bool GpsTask::hasLock()
+{
+    // Using GPGGA fix quality indicator
+    const TinyGPSLocation::Quality fixQuality = m_gps.location.FixQuality();
+    if (fixQuality == TinyGPSLocation::Quality::GPS
+        || fixQuality == TinyGPSLocation::Quality::DGPS
+        || fixQuality == TinyGPSLocation::Quality::PPS
+        || fixQuality == TinyGPSLocation::Quality::RTK
+        || fixQuality == TinyGPSLocation::Quality::FloatRTK) {
+        // Use GPGSA fix type 2D/3D (better) if available
+        // 0 -- no data,
+        // 1 -- Fix not available
+        // 2 -- 2D fix, good or not enough ???
+        // 3 -- 3D fix
+        if (fixType == 3 || fixType == 2 || fixType == 0)
+            return true;
+    }
+
+    return false;
+}
+
+bool GpsTask::hasNewLocation()
+{
+    fixType = atoi(gsafixtype.value()); // will set to zero if no data
+    if (!hasLock())
+        return false;
+    
+    if (!m_gps.location.isUpdated() && !m_gps.altitude.isUpdated())
+        return false;
+
+    /// maybe log something like 'no coords at time XXX'
+    if (!m_gps.location.isValid())
+        return false;
+
+    const uint32_t GPS_SOLUTION_MAX_AGE_MS = 10 * 1000;
+    if ((m_gps.location.age() > GPS_SOLUTION_MAX_AGE_MS)
+          || (gsafixtype.age() > GPS_SOLUTION_MAX_AGE_MS)
+          || (m_gps.time.age() > GPS_SOLUTION_MAX_AGE_MS) 
+          || (m_gps.date.age() > GPS_SOLUTION_MAX_AGE_MS)) {
+        // LOG_WARN("SOME data is TOO OLD: LOC %u, TIME %u, DATE %u", reader.location.age(), reader.time.age(), reader.date.age());
+        return false;
+    }
+
+    // We know the solution is fresh and valid, so just read the data
+    auto &loc = m_gps.location;
+
+    // positional timestamp
+    struct tm t;
+    t.tm_sec = m_gps.time.second();
+    t.tm_min = m_gps.time.minute();
+    t.tm_hour = m_gps.time.hour();
+    t.tm_mday = m_gps.date.day();
+    t.tm_mon = m_gps.date.month() - 1;
+    t.tm_year = m_gps.date.year() - 1900;
+    t.tm_isdst = false;
+    const auto timestamp = std::mktime(&t);
+    const auto point = std::chrono::high_resolution_clock::from_time_t(timestamp);
+
+    const int32_t PDOP = TinyGPSPlus::parseDecimal(gsapdop.value());
+    const int32_t HDOP = TinyGPSPlus::parseDecimal(gsahdop.value());
+    const int32_t VDOP = TinyGPSPlus::parseDecimal(gsavdop.value());
+
+    localPPP = PppInfo{};
+    localPPP.lat = parseDegreesLatLon(pppnavLat.value());
+    localPPP.lon = parseDegreesLatLon(pppnavLon.value());
+    localPPP.alt = static_cast<int32_t>(atol(pppnavAlt.value()));
+    localPPP.latStdDev = static_cast<float>(atof(pppnavLatStdDev.value()));
+    localPPP.lonStdDev = static_cast<float>(atof(pppnavLonStdDev.value()));
+    localPPP.altStdDev = static_cast<float>(atof(pppnavAltStdDev.value()));
+    localPPP.satellites = static_cast<int32_t>(atol(pppnavSatellites.value()));
+    localPPP.solutionAge = static_cast<int32_t>(atol(pppnavSolAge.value()));
+    localPPP.solutionStatus = parseSolutionStatus(pppnavSolStatus.value());
+    localPPP.positionType = parsePositionType(pppnavPosType.value());
+    localPPP.datumId = parseDatumId(pppnavDatumId.value());
+    localPPP.stationId = parseStationId(pppnavStationId.value());
+    localPPP.serviceId = parsePppService(localPPP.stationId);
+
+    uint32_t week = static_cast<int32_t>(atol(pppnavWeek.value()));
+    uint32_t millisOfWeek = static_cast<int32_t>(atoll(pppnavSecsOFWeek.value()));
+    uint32_t leapSecs = static_cast<uint32_t>(atol(pppnavLeapSecs.value()));
+    localPPP.utxSeconds = computeUtxTime(week, millisOfWeek, leapSecs, localPPP.millisecs);
+
+    return true;
+}
 
 void GpsTask::logNmeaMessageToSd(const std::string &msg)
 {

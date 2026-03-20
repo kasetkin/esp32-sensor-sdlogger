@@ -26,6 +26,8 @@ public:
     esp_err_t configureTinyGps();
     void executeTask();
 
+    bool hasLock();
+    bool hasNewLocation();
     int sendData(const char* data);
     int sendStringAndWait(const std::string &str);
 private:
