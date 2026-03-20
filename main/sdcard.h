@@ -15,8 +15,11 @@ public:
     std::string mountPoint() const;
     sdmmc_card_t *card() const;
 
-    /// this functions can be outside, but it's easy to read code if they are here
+    /// this functions (write/read) can be outside, but it's easy to read code if they are here
+    /// filename should start with "/", for example "/myfile.txt"
     esp_err_t writeFile(const std::string &path, char *data);
+
+    /// filename should start with "/", for example "/myfile.txt"
     esp_err_t readFile(const std::string &path);
 private:
     std::unique_ptr<sdmmc_card_t> m_card;
