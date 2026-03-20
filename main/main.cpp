@@ -10,7 +10,7 @@
 #include "main.h"
 #include "sdcard.h"
 
-
+#include "TinyGPS++.h"
 
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
