@@ -13,8 +13,8 @@
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
 
-static GpsTask gpstask;
-
+static std::shared_ptr<GpsTask> gpsTask;
+static std::shared_ptr<LoggerTask> loggerTask;
 
 extern "C" void app_main(void)
 {
@@ -28,88 +28,62 @@ extern "C" void app_main(void)
     enableExtAntenna(false);
     registerWakeupTimer(100 * 1000);
 
+    ESP_LOGI(TAG, "create GPS task object");
+    gpsTask = std::make_shared<GpsTask>();
+
+    ESP_LOGI(TAG, "create logger task object");
+    loggerTask = std::make_shared<LoggerTask>();
+
+
+
+
     ESP_LOGI(TAG, "configure GPS module UART");
-    ret = gpstask.configureUart();
+    ret = gpsTask->configureUart();
     if (ret != ESP_OK) 
         return;
 
     ESP_LOGI(TAG, "configure TinyGPS");
-    ret = gpstask.configureTinyGps();
+    ret = gpsTask->configureTinyGps();
     if (ret != ESP_OK) 
         return;
 
-    SdCard my_sdcard;
-    ret = my_sdcard.mountFilesystem();
+    ESP_LOGI(TAG, "configure GPS module settings");
+    ret = gpsTask->configureUM980();
     if (ret != ESP_OK) 
         return;
 
-    my_sdcard.printInfoToStdout();
 
-    const auto card = my_sdcard.card();
+    std::shared_ptr<SdCard> my_sdcard = std::make_shared<SdCard>();
+    ret = my_sdcard->mountFilesystem();
+    if (ret != ESP_OK) 
+        return;
+    my_sdcard->printInfoToStdout();
+    const auto card = my_sdcard->card();
     if (card == nullptr)
         return;
+
+    ESP_LOGI(TAG, "pass SdCard to Logger");
+    loggerTask->configureSdCard(my_sdcard);
+    
+    ESP_LOGI(TAG, "pass Logger to GpsTask");
+    gpsTask->setupLogger(loggerTask);
+
+
+
+
+    ESP_LOGI(TAG, "start Logger task");
+    xTaskCreate([](void *)
+    { 
+        loggerTask->executeTask();
+    }, "logger_task", 4096, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "listen from GPS module, start task");
     xTaskCreate([](void *)
     { 
-        gpstask.executeTask();
+        gpsTask->executeTask();
     }, "gps_task", 4096, nullptr, 6, nullptr);
 
-    ESP_LOGI(TAG, "configure GPS module settings");
-    ret = gpstask.configureUM980();
-    if (ret != ESP_OK) 
-        return;
 
 
 
-
-
-
-    // // Use POSIX and C standard library functions to work with files.
-
-    // // First create a file.
-    // const char *file_hello = "/hello.txt";
-    // char data[EXAMPLE_MAX_CHAR_SIZE];
-    // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Hello", card->cid.name);
-    // ret = my_sdcard.writeFile(file_hello, data);
-    // if (ret != ESP_OK) {
-    //     return;
-    // }
-
-    // const char *file_foo = "/foo.txt";
-
-    // // Check if destination file exists before renaming
-    // struct stat st;
-    // if (stat(file_foo, &st) == 0) {
-    //     // Delete it if it exists
-    //     unlink(file_foo);
-    // }
-
-    // // Rename original file
-    // ESP_LOGI(TAG, "Renaming file %s to %s", file_hello, file_foo);
-    // if (rename(file_hello, file_foo) != 0) {
-    //     ESP_LOGE(TAG, "Rename failed");
-    //     return;
-    // }
-
-    // ret = my_sdcard.readFile(file_foo);
-    // if (ret != ESP_OK) {
-    //     return;
-    // }
-
-    // const std::string file_nihao = "/nihao.txt";
-    // memset(data, 0, EXAMPLE_MAX_CHAR_SIZE);
-    // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "%s %s!\n", "Nihao", card->cid.name);
-    // ret = my_sdcard.writeFile(file_nihao, data);
-    // if (ret != ESP_OK) {
-    //     return;
-    // }
-
-    // //Open file for reading
-    // ret = my_sdcard.readFile(file_nihao);
-    // if (ret != ESP_OK) {
-    //     return;
-    // }
-
-    // my_sdcard.unmount();
 }

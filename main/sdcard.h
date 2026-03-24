@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <memory>
 #include "esp_err.h"
 #include "sd_protocol_types.h"
 #include "hal/spi_types.h"
@@ -18,7 +19,9 @@ public:
 
     /// this functions (write/read) can be outside, but it's easy to read code if they are here
     /// filename should start with "/", for example "/myfile.txt"
-    esp_err_t writeFile(const std::string &path, char *data);
+    esp_err_t writeFile(const std::string &path, const char *data);
+
+    esp_err_t appendFile(const std::string &path, const char *data);
 
     /// filename should start with "/", for example "/myfile.txt"
     esp_err_t readFile(const std::string &path);
