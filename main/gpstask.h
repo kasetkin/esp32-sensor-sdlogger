@@ -27,6 +27,7 @@ public:
     void executeTask();
 
     bool hasLock();
+    bool has3DLock();
     bool hasNewLocation();
     int sendData(const char* data);
     int sendStringAndWait(const std::string &str);

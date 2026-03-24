@@ -209,6 +209,27 @@ bool GpsTask::hasLock()
     return false;
 }
 
+bool GpsTask::has3DLock()
+{
+    // Using GPGGA fix quality indicator
+    const TinyGPSLocation::Quality fixQuality = m_gps.location.FixQuality();
+    if (fixQuality == TinyGPSLocation::Quality::GPS
+        || fixQuality == TinyGPSLocation::Quality::DGPS
+        || fixQuality == TinyGPSLocation::Quality::PPS
+        || fixQuality == TinyGPSLocation::Quality::RTK
+        || fixQuality == TinyGPSLocation::Quality::FloatRTK) {
+        // Use GPGSA fix type 2D/3D (better) if available
+        // 0 -- no data,
+        // 1 -- Fix not available
+        // 2 -- 2D fix, good or not enough ???
+        // 3 -- 3D fix
+        if (fixType == 3)
+            return true;
+    }
+
+    return false;
+}
+
 bool GpsTask::hasNewLocation()
 {
     fixType = atoi(gsafixtype.value()); // will set to zero if no data
