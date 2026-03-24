@@ -16,6 +16,11 @@ void correctLightSleep();
 
 esp_err_t initNvsFlash();
 
+/// for loggertask code migration, because it was written for Arduino
+unsigned long millisFromStart();
+/// emulate code from RTC.h
+uint64_t getValidTime();
+
 // esp_err_t initI2C();
 /// ESP tasks
 // void sht3xTask(void *pvParameters);

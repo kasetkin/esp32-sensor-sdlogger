@@ -1,5 +1,6 @@
 #include "common_utils.h"
 
+#include <chrono>
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_check.h"
@@ -129,4 +130,22 @@ esp_err_t initNvsFlash()
     }
 
     return ESP_OK;
+}
+
+unsigned long millisFromStart()
+{
+    static auto start_time = std::chrono::high_resolution_clock::now();
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+    return static_cast<unsigned long>(duration.count());
+}
+
+uint64_t getValidTime()
+{
+    const auto nowTime = std::chrono::high_resolution_clock::now();
+    const auto nowAsDuration = nowTime.time_since_epoch();
+    const auto durationSec = std::chrono::duration_cast<std::chrono::seconds>(nowAsDuration);
+    const int64_t rtc_sec = static_cast<int64_t>(durationSec.count());
 }
