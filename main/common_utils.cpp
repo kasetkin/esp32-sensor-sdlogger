@@ -147,5 +147,6 @@ uint64_t getValidTime()
     const auto nowTime = std::chrono::high_resolution_clock::now();
     const auto nowAsDuration = nowTime.time_since_epoch();
     const auto durationSec = std::chrono::duration_cast<std::chrono::seconds>(nowAsDuration);
-    const int64_t rtc_sec = static_cast<int64_t>(durationSec.count());
+    const uint64_t rtc_sec = static_cast<uint64_t>(durationSec.count());
+    return rtc_sec;
 }
