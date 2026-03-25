@@ -92,8 +92,8 @@ private:
     static void logNmeaMessageToSd(const std::string &msg);
     static std::string dopToMeters(const uint32_t dop);
     static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
-    std::string generateGpsLog(const GpsInfo &p) const;
-    std::string generatePppLog(const PppInfo &p, const double &gnssToPppDistance) const;
+    std::string generateGpsLog(const GpsInfo &p);
+    std::string generatePppLog(const PppInfo &p, const double &gnssToPppDistance);
 
     /// default delay between send and receive
     void gpsUartDelay();

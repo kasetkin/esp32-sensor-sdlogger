@@ -17,7 +17,7 @@ static const char *TAGSD = "example";
 esp_err_t SdCard::writeFile(const std::string &path, const char *data)
 {
     const std::string pathWithMount = m_mountPoint + path;
-    ESP_LOGI(TAGSD, "Opening file %s", path);
+    ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "w");
     if (f == NULL) {
         ESP_LOGE(TAGSD, "Failed to open file for writing");
@@ -33,7 +33,7 @@ esp_err_t SdCard::writeFile(const std::string &path, const char *data)
 esp_err_t SdCard::appendFile(const std::string &path, const char *data)
 {
     const std::string pathWithMount = m_mountPoint + path;
-    ESP_LOGI(TAGSD, "Opening file %s", path);
+    ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "a");
     if (f == NULL) {
         ESP_LOGE(TAGSD, "Failed to open file for writing");

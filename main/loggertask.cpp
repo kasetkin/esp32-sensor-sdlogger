@@ -16,7 +16,6 @@
 #include "unicore.h"
 
 static const char * logsPath = "/logs";
-static const char * LOGTASKTAG = "LogTask";
 static const std::string ownerId = "54321"; // &ownerId = devicestate.owner.id;
 static const std::string ownerShortName = "sdlogger"; // &ownerShortName = devicestate.owner.short_name;
 static const std::string ownerFullName = "sdlogger_UM980"; // &ownerFullName = devicestate.owner.long_name;
@@ -38,13 +37,14 @@ void LoggerTask::configureSdCard(const std::shared_ptr<SdCard> &card)
 
 void LoggerTask::executeTask()
 {
+    static const char * LOGTASKTAG = "LogTask";
     while (true) {
         const unsigned long thisMoment = millisFromStart();
-        ESP_LOGD(LOGTASKTAG, "SdLoggerModule | runOnce, time is %d", thisMoment);
+        ESP_LOGI(LOGTASKTAG, "SdLoggerModule | runOnce, time is %d", thisMoment);
 
         if (thisMoment < lastLogTime + LOG_PERIOD_MS) {
             const unsigned long timeToSleep = LOG_PERIOD_MS + lastLogTime - thisMoment + 1;
-            ESP_LOGD(LOGTASKTAG, "too early, sleep for %d millisec", timeToSleep);
+            ESP_LOGI(LOGTASKTAG, "too early, sleep for %d millisec", timeToSleep);
             vTaskDelay(pdMS_TO_TICKS(timeToSleep));
         }
 
@@ -84,7 +84,8 @@ void LoggerTask::resetState()
 
 void LoggerTask::logCurrentState()
 {
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | message generation - start");
+    static const char * LOGSTATETAG = "LogState";
+    ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - start");
     // createSDDir(logsPath);
 
     const std::string filename = generateFilename() + ".csv";
@@ -92,18 +93,17 @@ void LoggerTask::logCurrentState()
     const std::string devicePower = generateDevicePowerLog();
     const std::string envTelemetry = generateTelemetryLog(36.6f, 42.0f, 960.0f);
 
-    //! \todo distance between GNSS and PPP positions
-
     const std::string fullLogMessage = deviceLog + devicePower + m_gpsLog + m_pppLog + envTelemetry + std::string("\n");
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | message generation - end");
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | full message: \\");
-    ESP_LOGD(LOGTASKTAG, "%s \\",  deviceLog.c_str());
-    ESP_LOGD(LOGTASKTAG, "%s \\",  m_gpsLog.c_str());
-    ESP_LOGD(LOGTASKTAG, "%s \\", m_pppLog.c_str());
-    ESP_LOGD(LOGTASKTAG, "%s \\",  envTelemetry.c_str());
-    ESP_LOGD(LOGTASKTAG, "END-OF-LINE");
+    ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - end");
+    ESP_LOGI(LOGSTATETAG, "SdLoggerModule | full message: \\");
+    ESP_LOGI(LOGSTATETAG, "%s \\",  deviceLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\",  m_gpsLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\", m_pppLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\",  envTelemetry.c_str());
+    ESP_LOGI(LOGSTATETAG, "filename: %s", filename.c_str());
+    ESP_LOGI(LOGSTATETAG, "END-OF-LINE");
 
-    const std::string fullpath = std::string(logsPath) + "/" + filename;
+    const std::string fullpath = "/" + filename; //std::string(logsPath) + 
     if (!m_sdCard)
         return;
 
@@ -112,7 +112,8 @@ void LoggerTask::logCurrentState()
 
 std::string LoggerTask::generateTelemetryLog(double temperature, double relative_humidity, double barometric_pressure) const
 {
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate telemetry - start");
+    static const char * LOGTELEMETRYTAG = "LogTelemetry";
+    ESP_LOGI(LOGTELEMETRYTAG, "SdLoggerModule | generate telemetry - start");
 
     // auto &envTelemetry = m.variant.environment_metrics;
 
@@ -126,13 +127,13 @@ std::string LoggerTask::generateTelemetryLog(double temperature, double relative
     if (!std::isnan(barometric_pressure))
         result += std::string("PRESS;") + toTelemetryRoundedString(barometric_pressure) + std::string(";");
 
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate telemetry - end | result: %s", result.c_str());
+    ESP_LOGI(LOGTELEMETRYTAG, "SdLoggerModule | generate telemetry - end | result: %s", result.c_str());
     return result;
 }
 
 std::string LoggerTask::generateDevicePowerLog() const
 {
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate device power log - start");
+    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device power log - start");
     std::string message;
 // #ifdef HAS_PMU
 //     if (pmu_found && PMU) {
@@ -147,13 +148,13 @@ std::string LoggerTask::generateDevicePowerLog() const
 
     //! \todo implement voltage measurement with 1:2 200kOhm resistors
 
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate device power log - end | result: %s", message.c_str());
+    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device power log - end | result: %s", message.c_str());
     return message;
 }
 
 std::string LoggerTask::generateDeviceInfoLog() const
 {
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate device info - start");
+    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device info - start");
 
     // const bool requestLocalTime = false;
     // uint32_t rtc_sec = getValidTime(RTCQuality::RTCQualityDevice, requestLocalTime);
@@ -165,13 +166,15 @@ std::string LoggerTask::generateDeviceInfoLog() const
         + std::string(";RTCSEC;") + std::to_string(rtc_sec)
         + std::string(";");
 
-    ESP_LOGD(LOGTASKTAG, "SdLoggerModule | generate device info - end | result: %s", message.c_str());
+    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device info - end | result: %s", message.c_str());
     return message;
 }
 
 std::string LoggerTask::generateFilename()
 {
+    static const char * LOGFILENAMETAG = "LOG Filename";
     const uint64_t rtc_sec = getValidTime();
+    
     if (rtc_sec == 0)
         return "NO-DATE-FILE";
 
@@ -189,7 +192,7 @@ std::string LoggerTask::generateFilename()
     const std::string dayStr = toStringWithZeros(gmTime.tm_mday, 2);
     std::string filename = yearStr + "-" + monthStr + "-" + dayStr + "-" + ownerFullName;
 
-    ESP_LOGD(LOGTASKTAG, "timestamp from RTC: %d, date string: %s", rtc_sec, filename.c_str());
+    ESP_LOGI(LOGFILENAMETAG, "timestamp from RTC: %lld, date string: %s", rtc_sec, filename.c_str());
 
     return filename;
 }
@@ -198,7 +201,7 @@ std::string LoggerTask::generateFilename()
 // void LoggerTask::listSDFiles(const char * dirname, uint8_t levels)
 // {
 //     concurrency::LockGuard g(spiLock);
-//     ESP_LOGD(LOGTASKTAG, "Listing directory: %s\n", dirname);
+//     ESP_LOGI(LOGTASKTAG, "Listing directory: %s\n", dirname);
 // 
 //     const bool cardIsReady = testAndInitSDCard();
 //     if (!cardIsReady)
@@ -206,22 +209,22 @@ std::string LoggerTask::generateFilename()
 // 
 //     File root = SD.open(dirname);
 //     if(!root){
-//         ESP_LOGD(LOGTASKTAG, "Failed to open directory");
+//         ESP_LOGI(LOGTASKTAG, "Failed to open directory");
 //         return;
 //     }
 //     if(!root.isDirectory()){
-//         ESP_LOGD(LOGTASKTAG, "Not a directory");
+//         ESP_LOGI(LOGTASKTAG, "Not a directory");
 //         return;
 //     }
 // 
 //     File file = root.openNextFile();
 //     while(file){
 //         if (file.isDirectory()) {
-//             ESP_LOGD(LOGTASKTAG, "  DIR : %s", file.name());
+//             ESP_LOGI(LOGTASKTAG, "  DIR : %s", file.name());
 //             if(levels)
 //                 listDir(file.name(), levels - 1);
 //     } else {
-//         ESP_LOGD(LOGTASKTAG, "  FILE: %s  SIZE: %lu", file.name(), file.size());
+//         ESP_LOGI(LOGTASKTAG, "  FILE: %s  SIZE: %lu", file.name(), file.size());
 //     }
 //         file = root.openNextFile();
 //     }
@@ -230,7 +233,7 @@ std::string LoggerTask::generateFilename()
 // void LoggerTask::writeFile(const char * path, const char * message)
 // {
 //     concurrency::LockGuard g(spiLock);
-//     ESP_LOGD(LOGTASKTAG, "Writing file: %s\n", path);
+//     ESP_LOGI(LOGTASKTAG, "Writing file: %s\n", path);
 //
 //     const bool cardIsReady = testAndInitSDCard();
 //     if (!cardIsReady)
@@ -238,14 +241,14 @@ std::string LoggerTask::generateFilename()
 //
 //     File file = SD.open(path, FILE_WRITE);
 //     if (!file) {
-//         ESP_LOGD(LOGTASKTAG, "Failed to open file for writing");
+//         ESP_LOGI(LOGTASKTAG, "Failed to open file for writing");
 //         return;
 //     }
 //
 //     if (file.print(message))
-//         ESP_LOGD(LOGTASKTAG, "File written");
+//         ESP_LOGI(LOGTASKTAG, "File written");
 //     else
-//        ESP_LOGD(LOGTASKTAG, "Write failed");
+//        ESP_LOGI(LOGTASKTAG, "Write failed");
 //
 //     file.close();
 // }
@@ -259,21 +262,21 @@ std::string LoggerTask::generateFilename()
 //         return;
 //
 //     if (SD.exists(path)) {
-//         ESP_LOGD(LOGTASKTAG, "Path: <%s> already exists, do nothing\n", path);
+//         ESP_LOGI(LOGTASKTAG, "Path: <%s> already exists, do nothing\n", path);
 //         return;
 //     }
 //
-//     ESP_LOGD(LOGTASKTAG, "Creating Dir: %s\n", path);
+//     ESP_LOGI(LOGTASKTAG, "Creating Dir: %s\n", path);
 //     if (SD.mkdir(path))
-//         ESP_LOGD(LOGTASKTAG, "Dir created");
+//         ESP_LOGI(LOGTASKTAG, "Dir created");
 //     else
-//         ESP_LOGD(LOGTASKTAG, "mkdir failed");
+//         ESP_LOGI(LOGTASKTAG, "mkdir failed");
 // }
 
 // void LoggerTask::appendSDFile(const char * path, const char * message)
 // {
 //     // concurrency::LockGuard g(spiLock);
-//     ESP_LOGD(LOGTASKTAG, "Appending to file: %s\n", path);
+//     ESP_LOGI(LOGTASKTAG, "Appending to file: %s\n", path);
 
 //     const bool cardIsReady = testAndInitSDCard();
 //     if (!cardIsReady)
@@ -281,14 +284,14 @@ std::string LoggerTask::generateFilename()
 
 //     File file = SD.open(path, FILE_APPEND);
 //     if (!file){
-//         ESP_LOGD(LOGTASKTAG, "Failed to open file for appending");
+//         ESP_LOGI(LOGTASKTAG, "Failed to open file for appending");
 //         return;
 //     }
 
 //     if (file.print(message))
-//         ESP_LOGD(LOGTASKTAG, "Message appended");
+//         ESP_LOGI(LOGTASKTAG, "Message appended");
 //     else
-//         ESP_LOGD(LOGTASKTAG, "Append failed");
+//         ESP_LOGI(LOGTASKTAG, "Append failed");
 
 //     file.close();
 // }
@@ -296,7 +299,7 @@ std::string LoggerTask::generateFilename()
 // void LoggerTask::readSDFile(const char * path, std::vector<uint8_t> &fileData)
 // {
 //     concurrency::LockGuard g(spiLock);
-//     ESP_LOGD(LOGTASKTAG, "Reading file: %s\n", path);
+//     ESP_LOGI(LOGTASKTAG, "Reading file: %s\n", path);
 // 
 //     fileData.clear();
 // 
@@ -306,13 +309,13 @@ std::string LoggerTask::generateFilename()
 // 
 //     File file = SD.open(path);
 //     if(!file) {
-//         ESP_LOGD(LOGTASKTAG, "Failed to open file for reading");
+//         ESP_LOGI(LOGTASKTAG, "Failed to open file for reading");
 //         return;
 //     }
 // 
 //     fileData.reserve(file.size());
 // 
-//     ESP_LOGD(LOGTASKTAG, "Read from file: ");
+//     ESP_LOGI(LOGTASKTAG, "Read from file: ");
 // 
 //     constexpr size_t MAX_BUFFER_SIZE = 256;
 //     std::array<uint8_t, MAX_BUFFER_SIZE> readBuffer;
@@ -320,7 +323,7 @@ std::string LoggerTask::generateFilename()
 //     while(file.available()) {
 //         const int realBlockSize = file.read(readBuffer.data(), blockSize);
 //         std::copy(readBuffer.cbegin(), readBuffer.cbegin() + realBlockSize, std::back_inserter(fileData));
-//         ESP_LOGD(LOGTASKTAG, "read new %d bytes from the file", realBlockSize);
+//         ESP_LOGI(LOGTASKTAG, "read new %d bytes from the file", realBlockSize);
 //     }
 // 
 //     fileData.shrink_to_fit();
