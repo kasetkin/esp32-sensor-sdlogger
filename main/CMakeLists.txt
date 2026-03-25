@@ -3,6 +3,7 @@ set(srcs
   sdcard.cpp 
   common_utils.cpp 
   gpstask.cpp
+  sensorstask.cpp
   loggertask.cpp
 )
 
