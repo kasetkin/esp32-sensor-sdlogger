@@ -14,17 +14,18 @@ struct PppInfo;
 struct GpsInfo
 {
     static constexpr double BAD_LATLON = -999999999.0;
-    static constexpr float BAD_ALTITUDE = -12000000.0;
+    static constexpr double BAD_ALTITUDE = -12000000.0;
+    static constexpr uint32_t BAD_DOP = 666000000;
 
     // TinyGPSLocation location;
-    std::chrono::high_resolution_clock::time_point time;
+    std::chrono::system_clock::time_point worldTime;
     double lat = BAD_LATLON;
     double lon = BAD_LATLON;
-    float altitude = BAD_ALTITUDE;
-    float geoidAlt = BAD_ALTITUDE;
-    float gsaHDOP = -1.0;
-    float gsaVDOP = -1.0;
-    float gsaPDOP = -1.0;
+    double altitude = BAD_ALTITUDE;
+    double geoidAlt = BAD_ALTITUDE;
+    uint32_t gsaHDOP = BAD_DOP;
+    uint32_t gsaVDOP = BAD_DOP;
+    uint32_t gsaPDOP = BAD_DOP;
     TinyGPSLocation::Quality quality = TinyGPSLocation::Quality::Invalid; // quality from GGA
     uint8_t fixType = 0;      // fix type from GPGSA
 };
@@ -56,7 +57,7 @@ public:
 
     static bool hasLock(const GpsInfo &info);
     static bool has3DLock(const GpsInfo &info);
-    bool hasNewLocation();
+    bool processNewLocation();
     int sendData(const char* data);
     int sendStringAndWait(const std::string &str);
 private:
@@ -86,14 +87,13 @@ private:
     TinyGPSCustom pppnavDatumId;
     TinyGPSCustom pppnavStationId; /// can be converted to System (B2b, E6-HAS, etc)
     
-    GpsInfo gpsInfo;
-    PppInfo pppInfo;
-
     static void logNmeaMessageToSd(const std::string &msg);
     static std::string dopToMeters(const uint32_t dop);
     static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
-    std::string generateGpsLog(const GpsInfo &p);
-    std::string generatePppLog(const PppInfo &p, const double &gnssToPppDistance);
+    static std::string printGpsTimeInfo(const GpsInfo &p);
+    static std::string printGpsGeoInfo(const GpsInfo &p);
+    static std::string printPppTimeInfo(const PppInfo &p);
+    static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
 
     /// default delay between send and receive
     void gpsUartDelay();

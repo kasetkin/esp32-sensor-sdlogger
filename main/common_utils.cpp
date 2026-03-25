@@ -134,9 +134,9 @@ esp_err_t initNvsFlash()
 
 unsigned long millisFromStart()
 {
-    static auto start_time = std::chrono::high_resolution_clock::now();
+    static auto start_time = std::chrono::system_clock::now();
 
-    auto end_time = std::chrono::high_resolution_clock::now();
+    auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
     return static_cast<unsigned long>(duration.count());
@@ -144,7 +144,7 @@ unsigned long millisFromStart()
 
 uint64_t getValidTime()
 {
-    const auto nowTime = std::chrono::high_resolution_clock::now();
+    const auto nowTime = std::chrono::system_clock::now();
     const auto nowAsDuration = nowTime.time_since_epoch();
     const auto durationSec = std::chrono::duration_cast<std::chrono::seconds>(nowAsDuration);
     const uint64_t rtc_sec = static_cast<uint64_t>(durationSec.count());
