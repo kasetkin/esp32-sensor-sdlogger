@@ -180,6 +180,7 @@ void GpsTask::executeTask()
     static const char *GPS_TASK_TAG = "GPS_TASK";
     const uint32_t readTimeoutInTicks = pdMS_TO_TICKS(1);
     std::array<char, RX_BUF_SIZE + 1> data;
+    std::string dataAsString;
     while (true) {
         const int rxBytes = uart_read_bytes(GPS_UART_PORT, data.data(), RX_BUF_SIZE, readTimeoutInTicks);
         if (rxBytes > 0) {
@@ -187,9 +188,15 @@ void GpsTask::executeTask()
             ESP_LOGI(GPS_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
-            for (size_t i = 0; i < rxBytes; ++i)
+            dataAsString.clear();
+            for (size_t i = 0; i < rxBytes; ++i) {
                 m_gps.encode(data[i]);
+                dataAsString.push_back(data[i]);
+            }
 
+            m_logger->addNmeaLog(dataAsString);
+            dataAsString.clear();
+            
             if (m_gps.location.isValid())
                 ESP_LOGI(GPS_TASK_TAG, "Valid location from GPS");
         }

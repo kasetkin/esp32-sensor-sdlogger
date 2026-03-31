@@ -19,6 +19,7 @@ class LoggerTask
 
     void configureSdCard(const std::shared_ptr<SdCard> &card);
     void executeTask();
+    void addNmeaLog(const std::string &nmeaMessage);
     void setGpsLog(const std::string &gpsMessage);
     void setPppLog(const std::string &pppMessage);
     void setSensorsLog(const std::string &sensorsMessage);
@@ -30,11 +31,13 @@ class LoggerTask
     mutable std::shared_mutex m_mutex;
     std::shared_ptr<SdCard> m_sdCard;
     std::string currentDate;
+    std::string m_nmeaLog;
     std::string m_gpsLog;
     std::string m_pppLog;
     std::string m_sensorsLog;
 
     void logCurrentState();
+    void logNmeaStream();
     void resetState();
     std::string generateTelemetryLog(double temperature, double relative_humidity, double barometric_pressure) const;
     std::string generateDeviceInfoLog() const;

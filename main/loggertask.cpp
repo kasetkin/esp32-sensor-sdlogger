@@ -38,6 +38,13 @@ void LoggerTask::setSensorsLog(const std::string &sensorsMessage)
     m_sensorsLog = sensorsMessage;
 }
 
+void LoggerTask::addNmeaLog(const std::string &nmeaMessage)
+{
+    std::shared_lock oneModuleLock(m_mutex);
+    /// add, not override!
+    m_nmeaLog += nmeaMessage;
+}
+
 void LoggerTask::configureSdCard(const std::shared_ptr<SdCard> &card)
 {
     m_sdCard = card;
@@ -60,6 +67,7 @@ void LoggerTask::executeTask()
             std::unique_lock fullLock(m_mutex);
             enableUserLED(true);
             logCurrentState();
+            logNmeaStream();
             resetState();
         } /// unlock
             
@@ -95,6 +103,7 @@ void LoggerTask::resetState()
     m_gpsLog.clear();
     m_pppLog.clear();
     m_sensorsLog.clear();
+    m_nmeaLog.clear();
 }
 
 /// lock messages before!
@@ -125,6 +134,18 @@ void LoggerTask::logCurrentState()
         return;
 
     m_sdCard->appendFile(fullpath, fullLogMessage.c_str());
+}
+
+void LoggerTask::logNmeaStream()
+{
+    static const char * LOGSTATETAG = "LogNmea";
+    const std::string filename = generateFilename() + "_nmea.csv";
+    const std::string fullpath = "/" + filename;
+    if (!m_sdCard)
+        return;
+
+    m_nmeaLog += std::string("\r\n");
+    m_sdCard->appendFile(fullpath, m_nmeaLog.c_str());
 }
 
 std::string LoggerTask::generateTelemetryLog(double temperature, double relative_humidity, double barometric_pressure) const
