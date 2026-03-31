@@ -77,7 +77,7 @@ esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
     // If format_if_mount_failed is set to true, SD card will be partitioned and
     // formatted in case when mounting fails.
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
+        .format_if_mount_failed = true,
         .max_files = 5,
         .allocation_unit_size = 16 * 1024,
         .disk_status_check_enable = true,
