@@ -17,7 +17,7 @@ public:
 
 private:
     static constexpr gpio_num_t VOLTAGE_PIN = GPIO_NUM_2;
-    static const unsigned long SENSORS_PERIOD_MS = 5 * 1000;
+    static const unsigned long SENSORS_PERIOD_MS = 1 * 1000;
     static constexpr double MAX_VOLTAGE = 4200;
     static constexpr double MIN_VOLTAGE = 3300;
 
