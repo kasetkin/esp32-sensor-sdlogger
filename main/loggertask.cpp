@@ -58,10 +58,12 @@ void LoggerTask::executeTask()
         
         {
             std::unique_lock fullLock(m_mutex);
+            enableUserLED(true);
             logCurrentState();
             resetState();
         } /// unlock
             
+        enableUserLED(false);
         vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
     }
 }
