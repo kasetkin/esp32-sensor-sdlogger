@@ -9,11 +9,13 @@
 #include "common_utils.h"
 #include "sdcard.h"
 #include "gpstask.h"
+#include "sensorstask.h"
 
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
 
 static std::shared_ptr<GpsTask> gpsTask;
+static std::shared_ptr<SensorsTask> sensorTask;
 static std::shared_ptr<LoggerTask> loggerTask;
 
 extern "C" void app_main(void)
@@ -34,6 +36,8 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "create logger task object");
     loggerTask = std::make_shared<LoggerTask>();
 
+    ESP_LOGI(TAG, "create sensors task");
+    sensorTask = std::make_shared<SensorsTask>();
 
 
 
@@ -52,7 +56,12 @@ extern "C" void app_main(void)
     if (ret != ESP_OK) 
         return;
 
+    ESP_LOGI(TAG, "configure sensors");
+    ret = sensorTask->init();
+    if (ret != ESP_OK)
+        return;
 
+    ESP_LOGI(TAG, "init SD card");
     std::shared_ptr<SdCard> my_sdcard = std::make_shared<SdCard>();
     ret = my_sdcard->mountFilesystem();
     if (ret != ESP_OK) 
@@ -68,7 +77,8 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "pass Logger to GpsTask");
     gpsTask->setupLogger(loggerTask);
 
-
+    ESP_LOGI(TAG, "pass Logger to SensorsTask");
+    sensorTask->setupLogger(loggerTask);
 
 
     ESP_LOGI(TAG, "start Logger task");
@@ -82,6 +92,12 @@ extern "C" void app_main(void)
     { 
         gpsTask->executeTask();
     }, "gps_task", 4096, nullptr, 6, nullptr);
+
+    ESP_LOGI(TAG, "read sensors, start task");
+    xTaskCreate([](void *)
+    { 
+        sensorTask->executeTask();
+    }, "sensors_task", 4096, nullptr, 6, nullptr);
 
 
 

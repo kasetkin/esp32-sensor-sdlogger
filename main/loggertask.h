@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <shared_mutex>
 #include "sdcard.h"
 
 class LoggerTask
@@ -20,15 +21,18 @@ class LoggerTask
     void executeTask();
     void setGpsLog(const std::string &gpsMessage);
     void setPppLog(const std::string &pppMessage);
+    void setSensorsLog(const std::string &sensorsMessage);
 
   private:
     static const unsigned long LOG_PERIOD_MS = 1 * 1000;
 
     unsigned long lastLogTime = 0;
+    mutable std::shared_mutex m_mutex;
     std::shared_ptr<SdCard> m_sdCard;
     std::string currentDate;
     std::string m_gpsLog;
     std::string m_pppLog;
+    std::string m_sensorsLog;
 
     void logCurrentState();
     void resetState();

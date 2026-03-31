@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <chrono>
+#include <mutex>
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 // #include "Telemetry/EnvironmentTelemetry.h"
@@ -15,19 +16,26 @@
 #include "common_utils.h"
 #include "unicore.h"
 
-static const char * logsPath = "/logs";
 static const std::string ownerId = "54321"; // &ownerId = devicestate.owner.id;
 static const std::string ownerShortName = "sdlogger"; // &ownerShortName = devicestate.owner.short_name;
 static const std::string ownerFullName = "sdlogger_UM980"; // &ownerFullName = devicestate.owner.long_name;
 
 void LoggerTask::setGpsLog(const std::string &gpsMessage)
 {
+    std::shared_lock oneModuleLock(m_mutex);
     m_gpsLog = gpsMessage;
 }
 
 void LoggerTask::setPppLog(const std::string &pppMessage)
 {
+    std::shared_lock oneModuleLock(m_mutex);
     m_pppLog = pppMessage;
+}
+
+void LoggerTask::setSensorsLog(const std::string &sensorsMessage)
+{
+    std::shared_lock oneModuleLock(m_mutex);
+    m_sensorsLog = sensorsMessage;
 }
 
 void LoggerTask::configureSdCard(const std::shared_ptr<SdCard> &card)
@@ -47,10 +55,13 @@ void LoggerTask::executeTask()
             ESP_LOGI(LOGTASKTAG, "too early, sleep for %d millisec", timeToSleep);
             vTaskDelay(pdMS_TO_TICKS(timeToSleep));
         }
-
-        logCurrentState();
-        resetState();
-
+        
+        {
+            std::unique_lock fullLock(m_mutex);
+            logCurrentState();
+            resetState();
+        } /// unlock
+            
         vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
     }
 }
@@ -76,24 +87,28 @@ std::string LoggerTask::toTelemetryRoundedString(const float value)
     return fullString;
 }
 
+/// lock messages before!
 void LoggerTask::resetState()
 {
     m_gpsLog.clear();
     m_pppLog.clear();
+    m_sensorsLog.clear();
 }
 
+/// lock messages before!
 void LoggerTask::logCurrentState()
 {
     static const char * LOGSTATETAG = "LogState";
+
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - start");
     // createSDDir(logsPath);
 
     const std::string filename = generateFilename() + ".csv";
     const std::string deviceLog = generateDeviceInfoLog();
-    const std::string devicePower = generateDevicePowerLog();
+    // const std::string devicePower = generateDevicePowerLog();
     const std::string envTelemetry = generateTelemetryLog(36.6f, 42.0f, 960.0f);
 
-    const std::string fullLogMessage = deviceLog + devicePower + m_gpsLog + m_pppLog + envTelemetry + std::string("\n");
+    const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gpsLog + m_pppLog + envTelemetry + std::string("\n");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - end");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | full message: \\");
     ESP_LOGI(LOGSTATETAG, "%s \\",  deviceLog.c_str());
