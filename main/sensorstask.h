@@ -20,6 +20,7 @@ private:
     static const unsigned long SENSORS_PERIOD_MS = 1 * 1000;
     static constexpr double MAX_VOLTAGE = 4200;
     static constexpr double MIN_VOLTAGE = 3300;
+    static constexpr size_t ADC_READS_COUNT = 10;
 
     int readBatteryVoltageMilliV();
     int convertVoltageToPercent(int batteryVoltageMilliV);

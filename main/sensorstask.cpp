@@ -93,16 +93,22 @@ esp_err_t SensorsTask::init()
 
 int SensorsTask::readBatteryVoltageMilliV()
 {
-    int adc_raw[10];
-    int voltage[10];
     static const char * TAG = "ADC-read";
 
-    ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw[0]));
-    ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw[0]);
-    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw[0], &voltage[0]));
-    ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage[0]);
+    // int32_t adc_raw_mean = 0;
+    
+    int adc_raw = 0;
+    int voltage = 0;
+    int32_t voltage_mean = 0;
+    for (size_t i = 0; i < ADC_READS_COUNT; ++i) {
+        ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw));
+        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw);
+        ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage));
+        ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage);
+        voltage_mean += voltage;
+    }
 
-    const int realVoltage = voltage[0] * 4 * 2; /// ADC_12dB + 200kOhm 2:1 divider 
+    const int realVoltage = (voltage_mean * 4 * 2) / ADC_READS_COUNT; /// 4 because of ADC_12dB and 2 because of 200kOhm 2:1 divider 
     return realVoltage;
 }
 
