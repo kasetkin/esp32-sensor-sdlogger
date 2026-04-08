@@ -10,6 +10,7 @@
 #include "sdcard.h"
 #include "gpstask.h"
 #include "sensorstask.h"
+#include "errortask.h"
 
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
@@ -17,6 +18,16 @@ static const char *TAG = "example";
 static std::shared_ptr<GpsTask> gpsTask;
 static std::shared_ptr<SensorsTask> sensorTask;
 static std::shared_ptr<LoggerTask> loggerTask;
+static std::shared_ptr<ErrorTask> errorTask;
+
+void startErrorTask(ErrorTask::ErrorCode code)
+{
+    errorTask = std::make_shared<ErrorTask>(code);
+    xTaskCreate([](void *)
+    { 
+        errorTask->execute();
+    }, "error_task", 4096, nullptr, 6, nullptr);
+}
 
 extern "C" void app_main(void)
 {
@@ -43,33 +54,46 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "configure GPS module UART");
     ret = gpsTask->configureUart();
-    if (ret != ESP_OK) 
+    if (ret != ESP_OK) {
+        startErrorTask(ErrorTask::ErrorCode::ecGpsUartFail);
         return;
+    }
 
     ESP_LOGI(TAG, "configure TinyGPS");
     ret = gpsTask->configureTinyGps();
-    if (ret != ESP_OK) 
+    if (ret != ESP_OK) {
+        startErrorTask(ErrorTask::ErrorCode::ecTinyGpsFail);
         return;
+    }
 
     ESP_LOGI(TAG, "configure GPS module settings");
     ret = gpsTask->configureUM980();
-    if (ret != ESP_OK) 
+    if (ret != ESP_OK) {
+        startErrorTask(ErrorTask::ErrorCode::ecUM980Fail);
         return;
+    }
 
     ESP_LOGI(TAG, "configure sensors");
     ret = sensorTask->init();
-    if (ret != ESP_OK)
+    if (ret != ESP_OK) {
+        startErrorTask(ErrorTask::ErrorCode::ecSensorsFail);
         return;
+    }
 
     ESP_LOGI(TAG, "init SD card");
     std::shared_ptr<SdCard> my_sdcard = std::make_shared<SdCard>();
     ret = my_sdcard->mountFilesystem();
-    if (ret != ESP_OK) 
+    if (ret != ESP_OK) {
+        startErrorTask(ErrorTask::ErrorCode::ecSdCardFilesystemFail);
         return;
+    }
+
     my_sdcard->printInfoToStdout();
     const auto card = my_sdcard->card();
-    if (card == nullptr)
+    if (card == nullptr) {
+        startErrorTask(ErrorTask::ErrorCode::ecSdCardFilesystemFail);
         return;
+    }
 
     ESP_LOGI(TAG, "pass SdCard to Logger");
     loggerTask->configureSdCard(my_sdcard);
@@ -99,7 +123,5 @@ extern "C" void app_main(void)
         sensorTask->executeTask();
     }, "sensors_task", 4096, nullptr, 6, nullptr);
 
-
-
-
+    startErrorTask(ErrorTask::ErrorCode::ecOK);
 }

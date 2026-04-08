@@ -5,6 +5,7 @@ set(srcs
   gpstask.cpp
   sensorstask.cpp
   loggertask.cpp
+  errortask.cpp
 )
 
 idf_component_register(SRCS ${srcs}
