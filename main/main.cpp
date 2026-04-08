@@ -11,6 +11,7 @@
 #include "gpstask.h"
 #include "sensorstask.h"
 #include "errortask.h"
+#include "bleservertask.h"
 
 static const char *TAG = "example";
 #define EXAMPLE_MAX_CHAR_SIZE    64
@@ -19,6 +20,7 @@ static std::shared_ptr<GpsTask> gpsTask;
 static std::shared_ptr<SensorsTask> sensorTask;
 static std::shared_ptr<LoggerTask> loggerTask;
 static std::shared_ptr<ErrorTask> errorTask;
+static std::shared_ptr<BleSppServerTask> bleTask;
 
 void startErrorTask(ErrorTask::ErrorCode code)
 {
@@ -38,7 +40,7 @@ extern "C" void app_main(void)
         return;
 
     enableRf(true);
-    enableExtAntenna(false);
+    enableExtAntenna(true);
     registerWakeupTimer(100 * 1000);
 
     ESP_LOGI(TAG, "create GPS task object");
@@ -50,7 +52,10 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "create sensors task");
     sensorTask = std::make_shared<SensorsTask>();
 
-
+    ESP_LOGI(TAG, "create BLE task");
+    bleTask = std::make_shared<BleSppServerTask>();
+    ESP_LOGI(TAG, "start BLE task");
+    bleTask->startServer();
 
     ESP_LOGI(TAG, "configure GPS module UART");
     ret = gpsTask->configureUart();
