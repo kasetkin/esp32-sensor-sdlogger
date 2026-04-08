@@ -19,6 +19,7 @@ class LoggerTask
 
     void configureSdCard(const std::shared_ptr<SdCard> &card);
     void executeTask();
+    void doLogging();
     void addNmeaLog(const std::string &nmeaMessage);
     void setGpsLog(const std::string &gpsMessage);
     void setPppLog(const std::string &pppMessage);

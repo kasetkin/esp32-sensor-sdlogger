@@ -63,17 +63,19 @@ void LoggerTask::executeTask()
             vTaskDelay(pdMS_TO_TICKS(timeToSleep));
         }
         
-        {
-            std::unique_lock fullLock(m_mutex);
-            enableUserLED(true);
-            logCurrentState();
-            logNmeaStream();
-            resetState();
-        } /// unlock
+        /// write-lock inside
+        doLogging();
             
-        enableUserLED(false);
         vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
     }
+}
+
+void LoggerTask::doLogging()
+{
+    std::unique_lock fullLock(m_mutex);
+    logCurrentState();
+    logNmeaStream();
+    resetState();
 }
 
 std::string LoggerTask::toStringWithZeros(const int value, const size_t numberOfDigits)
