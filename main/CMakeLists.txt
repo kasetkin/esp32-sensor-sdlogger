@@ -7,6 +7,7 @@ set(srcs
   loggertask.cpp
   errortask.cpp
   bleservertask.cpp
+  fake_nmea.cpp
 )
 
 idf_component_register(SRCS ${srcs}

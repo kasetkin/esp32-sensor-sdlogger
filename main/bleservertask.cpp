@@ -11,44 +11,19 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
+#include "fake_nmea.h"
 
 #include "bleservertask.h"
-
 
 uint8_t BleSppServerTask::own_addr_type = 0;
 bool BleSppServerTask::conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
 uint16_t BleSppServerTask::ble_spp_svc_gatt_read_val_handle = 0;
 
 
-const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_UUID16_VALUE);
-const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_CHR_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_CHR_UUID16_VALUE);
-
-const ble_gatt_chr_def BleSppServerTask::spp_characteristics[] = {
-    {
-        /* Support SPP service */
-        .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_CHR_UUID16),
-        .access_cb = ble_svc_gatt_handler,
-        .arg = nullptr,
-        .descriptors = nullptr,
-        .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-        .min_key_size = 0,
-        .val_handle = &ble_spp_svc_gatt_read_val_handle,
-        .cpfd = nullptr
-    },
-    { }
-};
-
-const struct ble_gatt_svc_def BleSppServerTask::new_ble_svc_gatt_defs[] = {
-    {
-        /*** Service: SPP */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_UUID16),
-        .includes = nullptr,
-        .characteristics = spp_characteristics,
-    },
-    { }
-};
-
+// const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_UUID16_VALUE);
+// const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_CHR_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_CHR_UUID16_VALUE);
+ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+// ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_CHR_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_CHR_UUID128_VALUE);
 
 void BleSppServerTask::print_addr(const uint8_t value[])
 {
@@ -64,6 +39,65 @@ ble_uuid16_t BleSppServerTask::buildBleUuid16(const uint16_t value)
         },                              
         .value = value
     };
+}
+
+int hex2val(char c, uint8_t *value)
+{
+    if (c >= '0' && c <= '9') {
+        *value = c - '0';
+    } else if (c >= 'a' && c <= 'f') {
+        *value = c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'F') {
+        *value = c - 'A' + 10;
+    } else {
+        return BLE_HS_EINVAL;
+    }
+    return 0;
+}
+
+ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
+{
+    ble_uuid_any_t result{};
+    MODLOG_DFLT(INFO, "build UUID128 from %s", str);
+
+    /// doesn't work as expected with UUID128 with "0000" in the begining
+    /// maybe 'ble_uuid_from_str' is working correctly, but I want full UUID
+    // const int err = ble_uuid_from_str(&result, str);
+
+    std::string onlyCharsStr;
+    const size_t inputLenght = strlen(str);
+    for (size_t i = 0; i < inputLenght; ++i) {
+        char x = str[i];
+        uint8_t charAsValue = 0;
+        const int convertResult = hex2val(x, &charAsValue);
+        if (convertResult == 0)
+            onlyCharsStr += x;
+    }
+
+    constexpr size_t CORRECT_SIZE = 16 * 2;
+    if (onlyCharsStr.size() != 32) {
+        MODLOG_DFLT(ERROR, "cannot build UUID from %s", str);
+        MODLOG_DFLT(ERROR, "wrong string size after '-' removal, should be %d, but it is %d", CORRECT_SIZE, onlyCharsStr.size());
+        return {};
+    }
+
+    ble_uuid128_t answer {
+        .u = {                          
+            .type = BLE_UUID_TYPE_128,   
+        },
+        .value = {},
+    };
+    for (size_t i = 0; i < 16; i++) {
+        uint8_t a = 0;
+        uint8_t b = 0;
+        const size_t reverseIndex = CORRECT_SIZE - 2 - 2 * i;
+        hex2val(onlyCharsStr[reverseIndex], &a);
+        hex2val(onlyCharsStr[reverseIndex + 1], &b);
+        answer.value[i] = a * 16 + b;
+    }
+
+    result.u128 = answer;
+    return answer;
 }
 
 void BleSppServerTask::ble_store_config_init()
@@ -116,14 +150,15 @@ void BleSppServerTask::ble_spp_server_advertise()
      *     o 16-bit service UUIDs (alert notifications).
      */
 
-    memset(&fields, 0, sizeof fields);
+    memset(&fields, 0, sizeof(fields));
 
     /* Advertise two flags:
      *     o Discoverability in forthcoming advertisement (general)
      *     o BLE-only (BR/EDR unsupported).
      */
     fields.flags = BLE_HS_ADV_F_DISC_GEN |
-                   BLE_HS_ADV_F_BREDR_UNSUP;
+                   BLE_HS_ADV_F_BREDR_UNSUP |
+                   BLE_HS_ADV_F_DISC_LTD;
 
     /* Indicate that the TX power level field should be included; have the
      * stack fill this value automatically.  This is done by assigning the
@@ -138,11 +173,17 @@ void BleSppServerTask::ble_spp_server_advertise()
     fields.name_len = strlen(name);
     fields.name_is_complete = 1;
 
-    fields.uuids16 = (ble_uuid16_t[]) {
-        BLE_SVC_SPP_UUID16
+    // fields.uuids16 = (ble_uuid16_t[]) {
+    //     BLE_SVC_SPP_UUID16
+    // };
+    // fields.num_uuids16 = 1;
+    // fields.uuids16_is_complete = 1;
+
+    fields.uuids128 = (ble_uuid128_t[]) {
+        BleSppServerTask::BLE_SVC_SPP_UUID128
     };
-    fields.num_uuids16 = 1;
-    fields.uuids16_is_complete = 1;
+    fields.num_uuids128 = 1;
+    fields.uuids128_is_complete = 1;
 
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
@@ -396,6 +437,40 @@ void BleSppServerTask::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
 
 int BleSppServerTask::gatt_svr_init()
 {
+    BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+    printUuid128(BLE_SVC_SPP_UUID128);
+
+    static const ble_uuid128_t BLE_SVC_SPP_CHR_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_CHR_UUID128_VALUE);
+    printUuid128(BLE_SVC_SPP_CHR_UUID128);
+
+    static const ble_gatt_chr_def spp_characteristics[] = {
+        {
+            /* Support SPP service */
+            // .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_CHR_UUID16),
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_CHR_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_spp_svc_gatt_read_val_handle,
+            .cpfd = nullptr
+        },
+        { }
+    };
+
+    static const struct ble_gatt_svc_def new_ble_svc_gatt_defs[] = {
+        {
+            /*** Service: SPP */
+            .type = BLE_GATT_SVC_TYPE_PRIMARY,
+            // .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_UUID16),
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BleSppServerTask::BLE_SVC_SPP_UUID128),
+            .includes = nullptr,
+            .characteristics = spp_characteristics,
+        },
+        { }
+    };
+
     int rc = 0;
     ble_svc_gap_init();
     ble_svc_gatt_init();
@@ -419,13 +494,15 @@ void BleSppServerTask::ble_server_uart_task(void *pvParameters)
     MODLOG_DFLT(INFO, "BLE server UART_task started\n");
     int rc = 0;
     for (;;) {
-        const uint32_t randomValue = esp_random();
-        const std::string asString = "rand value = " + std::to_string(randomValue);
+        const std::string nmeaString = fakeNmeaLine();
+
+        MODLOG_DFLT(INFO, "new NMEA line is: %s", nmeaString.c_str());
+        
         for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
             /* Check if client has subscribed to notifications */
             if (conn_handle_subs[i]) {
                 struct os_mbuf *txom;
-                txom = ble_hs_mbuf_from_flat(asString.c_str(), asString.size());
+                txom = ble_hs_mbuf_from_flat(nmeaString.c_str(), nmeaString.size());
                 rc = ble_gatts_notify_custom(i, ble_spp_svc_gatt_read_val_handle,
                                                 txom);
                 if (rc == 0) {
@@ -504,6 +581,9 @@ void BleSppServerTask::ble_spp_uart_init()
 
 void BleSppServerTask::startServer()
 {
+    BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+    printUuid128(BleSppServerTask::BLE_SVC_SPP_UUID128);
+
     /* Initialize NVS — it is used to store PHY calibration data */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -554,7 +634,7 @@ void BleSppServerTask::startServer()
     assert(rc == 0);
 
     /* Set the default device name. */
-    rc = ble_svc_gap_device_name_set("nimble-ble-spp-svr");
+    rc = ble_svc_gap_device_name_set("ble1");
     assert(rc == 0);
 #endif
 
@@ -562,4 +642,11 @@ void BleSppServerTask::startServer()
     ble_store_config_init();
 
     nimble_port_freertos_init(ble_spp_server_host_task);
+}
+
+void BleSppServerTask::printUuid128(const ble_uuid128_t &uuid)
+{
+    char buf[BLE_UUID_STR_LEN];
+    const char * uuidAsStr = ble_uuid_to_str(reinterpret_cast<const ble_uuid_t *>(&uuid), buf);
+    MODLOG_DFLT(INFO, "uuid: type = %d, value = %s", uuid.u, uuidAsStr);
 }
