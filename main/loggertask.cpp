@@ -140,7 +140,6 @@ void LoggerTask::logCurrentState()
 
 void LoggerTask::logNmeaStream()
 {
-    static const char * LOGSTATETAG = "LogNmea";
     const std::string filename = generateFilename() + "_nmea.csv";
     const std::string fullpath = "/" + filename;
     if (!m_sdCard)
