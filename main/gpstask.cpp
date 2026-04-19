@@ -9,6 +9,7 @@
 #include "driver/gpio.h"
 #include "common_utils.h"
 #include "unicore.h"
+// #include "fake_nmea.h"
 
 static const char * LOGTASKTAG = "gps logger";
 
@@ -47,12 +48,14 @@ void GpsTask::gpsUartDelay()
 
 esp_err_t GpsTask::configureUM980()
 {
+    std::string reply;
+    ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
     /// check for receiver
-    sendStringAndWait("VERSION\r\n");
+    sendStringAndWait("VERSION\r\n", reply);
     //! \todo check if answer contains UM980
 
     /// request config, only for debug
-    sendStringAndWait("CONFIG\r\n");
+    sendStringAndWait("CONFIG\r\n", reply);
 
     // /// setup baudrate (needed if it is different and we want to switch it)
     // sendStringAndWait("CONFIG COM1 115200\r\n");
@@ -60,48 +63,49 @@ esp_err_t GpsTask::configureUM980()
     // sendStringAndWait("CONFIG COM3 115200\r\n");
     // sendStringAndWait("SAVECONFIG\r\n");
 
-    sendStringAndWait("CONFIG SIGNALGROUP 2\r\n");
-    sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n");
-    sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n");
+    sendStringAndWait("CONFIG SIGNALGROUP 2\r\n", reply);
+    sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n", reply);
+    sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n", reply);
     /// 'AUTO' or 'E6-HAS' or 'B2b-PPP' or 'SSR-RX' or 'L6MDCPPP' ?
-    sendStringAndWait("CONFIG PPP ENABLE AUTO\r\n");
+    sendStringAndWait("CONFIG PPP ENABLE AUTO\r\n", reply);
     /// we don't need default 15cm precision, 70cm in horizontal and 100cm in vertical should be enough
-    sendStringAndWait("CONFIG PPP CONVERGE 75 200\r\n");
-    sendStringAndWait("CONFIG PPP DATUM WGS84\r\n");
-    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n");
-    sendStringAndWait("CONFIG MMP ENABLE\r\n");
-    sendStringAndWait("CONFIG PVTALG MULTI\r\n");
-    sendStringAndWait("CONFIG IONMODE GPSK8\r\n");
-    sendStringAndWait("CONFIG ANTIJAM FORCE\r\n");
-    sendStringAndWait("CONFIG PSRVELDRPOS DISABLE\r\n");
-    sendStringAndWait("CONFIG UNDULATION AUTO\r\n");
-    sendStringAndWait("CONFIG NMEA0183 V411\r\n");
-    sendStringAndWait("CONFIG SBAS ENABLE AUTO\r\n"); /// why not, if there is any in your region
-    sendStringAndWait("CONFIG SBAS TIMEOUT 1800\r\n");
-    sendStringAndWait("CONFIG STANDALONE ENABLE\r\n"); /// not sure if it's a good idea
+    sendStringAndWait("CONFIG PPP CONVERGE 75 200\r\n", reply);
+    sendStringAndWait("CONFIG PPP DATUM WGS84\r\n", reply);
+    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n", reply);
+    sendStringAndWait("CONFIG MMP ENABLE\r\n", reply);
+    sendStringAndWait("CONFIG PVTALG MULTI\r\n", reply);
+    sendStringAndWait("CONFIG IONMODE GPSK8\r\n", reply);
+    sendStringAndWait("CONFIG ANTIJAM FORCE\r\n", reply);
+    sendStringAndWait("CONFIG PSRVELDRPOS DISABLE\r\n", reply);
+    sendStringAndWait("CONFIG UNDULATION AUTO\r\n", reply);
+    sendStringAndWait("CONFIG NMEA0183 V411\r\n", reply);
+    sendStringAndWait("CONFIG SBAS ENABLE AUTO\r\n", reply); /// why not, if there is any in your region
+    sendStringAndWait("CONFIG SBAS TIMEOUT 1800\r\n", reply);
+    sendStringAndWait("CONFIG STANDALONE ENABLE\r\n", reply); /// not sure if it's a good idea
 
-    sendStringAndWait("UNMASK ALL\r\n"); /// enable all GNSS systems (GPS, Galileo, Beidou, Glonass, QZSS, IRNSS)
-    sendStringAndWait("UNMASK GPS\r\n"); /// USA
-    sendStringAndWait("UNMASK BDS\r\n"); /// Beidou, China
-    sendStringAndWait("UNMASK GLO\r\n"); /// GLONASS, Russia
-    sendStringAndWait("UNMASK GAL\r\n"); /// Galileo, Europe
-    sendStringAndWait("UNMASK QZSS\r\n"); /// Quasi-Zenith Satellite System, Japanese
-    sendStringAndWait("UNMASK IRNSS\r\n"); /// NavIC, Indian
-    sendStringAndWait("MASK 0.0\r\n"); /// mask elevation angle
+    sendStringAndWait("UNMASK ALL\r\n", reply); /// enable all GNSS systems (GPS, Galileo, Beidou, Glonass, QZSS, IRNSS)
+    sendStringAndWait("UNMASK GPS\r\n", reply); /// USA
+    sendStringAndWait("UNMASK BDS\r\n", reply); /// Beidou, China
+    sendStringAndWait("UNMASK GLO\r\n", reply); /// GLONASS, Russia
+    sendStringAndWait("UNMASK GAL\r\n", reply); /// Galileo, Europe
+    sendStringAndWait("UNMASK QZSS\r\n", reply); /// Quasi-Zenith Satellite System, Japanese
+    sendStringAndWait("UNMASK IRNSS\r\n", reply); /// NavIC, Indian
+    sendStringAndWait("MASK 0.0\r\n", reply); /// mask elevation angle
 
     /// configure NMEA messages
-    sendStringAndWait("GPGGA 1\r\n");
-    sendStringAndWait("GPGSA 1\r\n");
-    sendStringAndWait("GPRMC 1\r\n");
+    sendStringAndWait("GPGGA 1\r\n", reply);
+    sendStringAndWait("GPGSA 1\r\n", reply);
+    sendStringAndWait("GPRMC 1\r\n", reply);
     /// Enable Unicore specific PPP messages
-    sendStringAndWait("PPPNAVA 1\r\n");
+    sendStringAndWait("PPPNAVA 1\r\n", reply);
 
     /// print ALL observations from antenna!!!
     /// TOO MANY symbols even at speed 115200,
     /// \todo test with higher speed
     //sendStringAndWait("OBSVMA 1\r\n");
 
-    sendStringAndWait("SAVECONFIG\r\n");
+    sendStringAndWait("SAVECONFIG\r\n", reply);
+    ESP_LOGI(LOGTASKTAG, "UM980 configuration: success");
     return ESP_OK;
 }
 
@@ -142,18 +146,28 @@ esp_err_t GpsTask::setupLogger(std::shared_ptr<LoggerTask> logger)
     return ESP_OK;
 }
 
+esp_err_t GpsTask::setupBleTask(std::shared_ptr<BleSppServerTask> ble)
+{
+    m_ble.reset();
+    if (!ble)
+        return ESP_FAIL;
+    
+    m_ble = ble;
+    return ESP_OK;
+}
+
 int GpsTask::sendData(const char* data)
 {
     static const char *TX_TASK_TAG = "TX_TASK1";
     const int len = strlen(data);
     const int txBytes = uart_write_bytes(GPS_UART_PORT, data, len);
     if (txBytes != len)
-        ESP_LOGE(TX_TASK_TAG, "wrong string size");
+        ESP_LOGI(TX_TASK_TAG, "wrong string size");
         
     return txBytes;
 }
 
-int GpsTask::sendStringAndWait(const std::string &str)
+int GpsTask::sendStringAndWait(const std::string &str, std::string &reply)
 {
     static const char *TX_TASK_TAG = "TX_TASK2";
     const int len = str.size();
@@ -162,6 +176,11 @@ int GpsTask::sendStringAndWait(const std::string &str)
         ESP_LOGE(TX_TASK_TAG, "wrong string size");
 
     gpsUartDelay();
+
+    readFromUart(reply);
+    if (reply.size() > 0)
+        ESP_LOGE(TX_TASK_TAG, "reply: %s", reply.c_str());
+
     return txBytes;
 }
 
@@ -175,35 +194,43 @@ int GpsTask::sendStringAndWait(const std::string &str)
 //     }
 // }
 
+void GpsTask::readFromUart(std::string &newData)
+{
+    newData.clear();
+
+    const uint32_t readTimeoutInTicks = pdMS_TO_TICKS(1);
+    std::array<char, RX_BUF_SIZE + 1> data;
+    const int rxBytes = uart_read_bytes(GPS_UART_PORT, data.data(), RX_BUF_SIZE, readTimeoutInTicks);
+    if (rxBytes > 0) {
+        for (size_t i = 0; i < static_cast<size_t>(rxBytes); ++i) 
+            newData.push_back(data[i]);
+    }
+}
+
 void GpsTask::executeTask()
 {
     static const char *GPS_TASK_TAG = "GPS_TASK";
-    const uint32_t readTimeoutInTicks = pdMS_TO_TICKS(1);
-    std::array<char, RX_BUF_SIZE + 1> data;
     std::string dataAsString;
     while (true) {
-        const int rxBytes = uart_read_bytes(GPS_UART_PORT, data.data(), RX_BUF_SIZE, readTimeoutInTicks);
-        if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            ESP_LOGI(GPS_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+        readFromUart(dataAsString);
+        if (dataAsString.size() > 0) {
+            ESP_LOGI(GPS_TASK_TAG, "Read %u bytes: '%s'", dataAsString.size(), dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
-            dataAsString.clear();
-            for (size_t i = 0; i < rxBytes; ++i) {
-                m_gps.encode(data[i]);
-                dataAsString.push_back(data[i]);
-            }
+            for (auto c : dataAsString)
+                m_gps.encode(c);
 
             m_logger->addNmeaLog(dataAsString);
+            m_ble->appendData(dataAsString);
             dataAsString.clear();
             
             if (m_gps.location.isValid())
                 ESP_LOGI(GPS_TASK_TAG, "Valid location from GPS");
-        }
 
-        const bool newLocation = processNewLocation();
-        if (newLocation)
-            ESP_LOGI(GPS_TASK_TAG, "new location reported");
+            const bool newLocation = processNewLocation();
+            if (newLocation)
+                ESP_LOGI(GPS_TASK_TAG, "new location reported");
+        }
 
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
     }

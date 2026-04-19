@@ -3,6 +3,9 @@
 #define STATIC_PASSKEY
 
 #include <stdbool.h>
+#include <mutex>
+#include <vector>
+#include <string>
 #include "host/ble_hs.h"
 #include "nimble/ble.h"
 #include "nimble/nimble_port_freertos.h"
@@ -15,16 +18,12 @@ class BleSppServerTask
 public:
     void startServer();
 
+    void appendData(const std::string &newData);
 private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;
     static bool conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
     static uint16_t ble_spp_svc_gatt_read_val_handle;
-
-    // static constexpr uint16_t BLE_SVC_SPP_UUID16_VALUE = 0xABF0;
-    // static const ble_uuid16_t BLE_SVC_SPP_UUID16;
-    // static constexpr uint16_t BLE_SVC_SPP_CHR_UUID16_VALUE = 0xABF1;
-    // static const ble_uuid16_t BLE_SVC_SPP_CHR_UUID16;
 
     /// Nordic semiconductors
     // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; // "6e400001-b5a3-f393-e0a9-e50e24dcca9e"; , for easy Ctrl+F
@@ -36,22 +35,18 @@ private:
     static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
     static ble_uuid128_t BLE_SVC_SPP_UUID128;
-    // static ble_uuid128_t BLE_SVC_SPP_CHR_UUID128;
 
+    // static ble_uuid128_t BLE_SVC_SPP_CHR_UUID128;
     // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "F000C0E0-0451-4000-B000-000000000000";
     // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "F000C0E1-0451-4000-B000-000000000000";
     // static const ble_uuid128_t BLE_SVC_SPP_CHR_UUID128;
-
-    
-
     // static const ble_gatt_chr_def spp_characteristics[];
     // static const ble_gatt_svc_def new_ble_svc_gatt_defs[];
 
 
-    QueueHandle_t spp_common_uart_queue = nullptr;
+    mutable std::mutex m_dataMutex;
+    std::vector<std::string> m_data;
 
-    void ble_store_config_init();
-    
     static void print_addr(const uint8_t value[]);
     static ble_uuid16_t buildBleUuid16(const uint16_t value);
     static ble_uuid128_t buildBleUuid128(const char * str);
@@ -65,10 +60,13 @@ private:
     //                              struct ble_store_gen_key *gen_key,
     //                              uint16_t conn_handle);
     static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
-
     static void ble_spp_server_host_task(void *param); /// should be static or lambda
-    int gatt_svr_init();
-    static void ble_server_uart_task(void *pvParameters);
-    void ble_spp_uart_init();
     static void printUuid128(const ble_uuid128_t &uuid);
+
+    int gatt_svr_init();
+    void dataSenderTaskInit();
+    void bleSenderTask();
+    void sendAllData();
+    void sendLine(const std::string &line);
 };
+    

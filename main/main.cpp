@@ -105,6 +105,8 @@ extern "C" void app_main(void)
     
     ESP_LOGI(TAG, "pass Logger to GpsTask");
     gpsTask->setupLogger(loggerTask);
+    ESP_LOGI(TAG, "pass BleServer to GpsTask");
+    gpsTask->setupBleTask(bleTask);
 
     ESP_LOGI(TAG, "pass Logger to SensorsTask");
     sensorTask->setupLogger(loggerTask);

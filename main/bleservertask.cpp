@@ -1,4 +1,5 @@
 #include <string>
+#include <mutex>
 
 #include "esp_log.h"
 #include "esp_random.h"
@@ -11,7 +12,6 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
-#include "fake_nmea.h"
 
 #include "bleservertask.h"
 
@@ -98,11 +98,6 @@ ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
 
     result.u128 = answer;
     return answer;
-}
-
-void BleSppServerTask::ble_store_config_init()
-{
-
 }
 
 /**
@@ -489,31 +484,40 @@ int BleSppServerTask::gatt_svr_init()
     return 0;
 }
 
-void BleSppServerTask::ble_server_uart_task(void *pvParameters)
+void BleSppServerTask::sendLine(const std::string &line) 
 {
-    MODLOG_DFLT(INFO, "BLE server UART_task started\n");
-    int rc = 0;
-    for (;;) {
-        const std::string nmeaString = fakeNmeaLine();
-
-        MODLOG_DFLT(INFO, "new NMEA line is: %s", nmeaString.c_str());
-        
-        for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
-            /* Check if client has subscribed to notifications */
-            if (conn_handle_subs[i]) {
-                struct os_mbuf *txom;
-                txom = ble_hs_mbuf_from_flat(nmeaString.c_str(), nmeaString.size());
-                rc = ble_gatts_notify_custom(i, ble_spp_svc_gatt_read_val_handle,
-                                                txom);
-                if (rc == 0) {
-                    MODLOG_DFLT(INFO, "Notification sent successfully");
-                } else {
-                    MODLOG_DFLT(INFO, "Error in sending notification rc = %d", rc);
-                }
+    MODLOG_DFLT(INFO, "new NMEA line is: %s", line.c_str());
+    for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
+        /* Check if client has subscribed to notifications */
+        if (conn_handle_subs[i]) {
+            struct os_mbuf *txom;
+            txom = ble_hs_mbuf_from_flat(line.c_str(), line.size());
+            const int rc = ble_gatts_notify_custom(i, ble_spp_svc_gatt_read_val_handle,
+                                            txom);
+            if (rc == 0) {
+                MODLOG_DFLT(INFO, "Notification sent successfully");
+            } else {
+                MODLOG_DFLT(INFO, "Error in sending notification rc = %d", rc);
             }
         }
+    }
+}
 
-        const uint32_t sleepTimeMilliSec = 1 * 1000; 
+void BleSppServerTask::sendAllData()
+{
+    std::unique_lock readLock(m_dataMutex);
+    for (const auto &dataLine : m_data)
+        sendLine(dataLine);
+
+    m_data.clear();
+}
+
+void BleSppServerTask::bleSenderTask()
+{
+    MODLOG_DFLT(INFO, "BLE server DataSender started\n");
+    for (;;) {
+        sendAllData();
+        const uint32_t sleepTimeMilliSec = 1000; // 0.1 sec
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
     }
 
@@ -557,27 +561,20 @@ void BleSppServerTask::ble_server_uart_task(void *pvParameters)
     vTaskDelete(nullptr);
 }
 
-void BleSppServerTask::ble_spp_uart_init()
+void BleSppServerTask::dataSenderTaskInit()
 {
-    // uart_config_t uart_config = {
-    //     .baud_rate = 115200,
-    //     .data_bits = UART_DATA_8_BITS,
-    //     .parity = UART_PARITY_DISABLE,
-    //     .stop_bits = UART_STOP_BITS_1,
-    //     .flow_ctrl = UART_HW_FLOWCTRL_RTS,
-    //     .rx_flow_ctrl_thresh = 122,
-    //     .source_clk = UART_SCLK_DEFAULT,
-    // };
-    // //Install UART driver, and get the queue.
-    // uart_driver_install(UART_NUM_0, 4096, 8192, 10, &spp_common_uart_queue, 0);
-    // //Set UART parameters
-    // uart_param_config(UART_NUM_0, &uart_config);
-    // //Set UART pins
-    // uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    //(void *)UART_NUM_0
-    xTaskCreate(ble_server_uart_task, "bleSppTask", 4096, nullptr, 8, nullptr);
+    xTaskCreate([](void *bleTask)
+    { 
+        auto asObject = reinterpret_cast<BleSppServerTask *>(bleTask);
+        asObject->bleSenderTask();
+    }, "bleSppTask", 4096, this, 8, nullptr);
 }
 
+void BleSppServerTask::appendData(const std::string &newData)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_data.push_back(newData); //copy
+}
 
 void BleSppServerTask::startServer()
 {
@@ -599,12 +596,11 @@ void BleSppServerTask::startServer()
     }
 
     /* Initialize connection_handle array */
-    for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
+    for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++)
         conn_handle_subs[i] = false;
-    }
 
     /* Initialize uart driver and start uart task */
-    ble_spp_uart_init();
+    dataSenderTaskInit();
 
     /* Initialize the NimBLE host configuration. */
     ble_hs_cfg.reset_cb = ble_spp_server_on_reset;
@@ -634,12 +630,9 @@ void BleSppServerTask::startServer()
     assert(rc == 0);
 
     /* Set the default device name. */
-    rc = ble_svc_gap_device_name_set("ble1");
+    rc = ble_svc_gap_device_name_set("bgps");
     assert(rc == 0);
 #endif
-
-    /* XXX Need to have template for store */
-    ble_store_config_init();
 
     nimble_port_freertos_init(ble_spp_server_host_task);
 }

@@ -8,6 +8,7 @@
 #include "TinyGPSPlus.h"    /// TinyGPSLocation
 #include "unicore.h"        /// PPPInfo
 #include "loggertask.h"
+#include "bleservertask.h"
 
 struct PppInfo;
 
@@ -53,18 +54,20 @@ public:
     esp_err_t configureTinyGps();
 
     esp_err_t setupLogger(std::shared_ptr<LoggerTask> logger);
+    esp_err_t setupBleTask(std::shared_ptr<BleSppServerTask> ble);
     void executeTask();
 
     static bool hasLock(const GpsInfo &info);
     static bool has3DLock(const GpsInfo &info);
     bool processNewLocation();
     int sendData(const char* data);
-    int sendStringAndWait(const std::string &str);
+    int sendStringAndWait(const std::string &str, std::string &reply);
 private:
     const char * NMEA_MSG_GXGSA = "GNGSA"; // GSA message (GPGSA, GNGSA etc)
     const char * UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
 
     std::shared_ptr<LoggerTask> m_logger;
+    std::shared_ptr<BleSppServerTask> m_ble;
     TinyGPSPlus m_gps;
 
     TinyGPSCustom gsafixtype; // custom extract fix type from GPGSA, , GSA element #2
@@ -97,4 +100,5 @@ private:
 
     /// default delay between send and receive
     void gpsUartDelay();
+    void readFromUart(std::string &newData);
 };
