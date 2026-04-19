@@ -102,9 +102,9 @@ int SensorsTask::readBatteryVoltageMilliV()
     int32_t voltage_mean = 0;
     for (size_t i = 0; i < ADC_READS_COUNT; ++i) {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw));
-        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw);
+        // ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw);
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage));
-        ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage);
+        // ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage);
         voltage_mean += voltage;
     }
 
