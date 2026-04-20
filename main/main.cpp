@@ -40,7 +40,7 @@ extern "C" void app_main(void)
         return;
 
     enableRf(true);
-    enableExtAntenna(true);
+    enableExtAntenna(false);
     registerWakeupTimer(100 * 1000);
 
     ESP_LOGI(TAG, "create GPS task object");
