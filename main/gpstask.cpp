@@ -1,5 +1,6 @@
 #include "gpstask.h"
 
+#include <cmath>
 #include <ctime>
 #include <chrono>
 #include <array>
@@ -220,8 +221,12 @@ void GpsTask::executeTask()
             for (auto c : dataAsString)
                 m_gps.encode(c);
 
-            m_logger->addNmeaLog(dataAsString);
-            m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
+            if (m_logger)
+                m_logger->addNmeaLog(dataAsString);
+
+            if (m_ble)
+                m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
+
             dataAsString.clear();
             
             if (m_gps.location.isValid())
@@ -377,6 +382,12 @@ bool GpsTask::processNewLocation()
     }
 
     {
+        const std::string emulatedQstarz = emulateQstarzBinary(gpsInfo);
+        if (m_ble)
+            m_ble->appendData(emulatedQstarz);
+    }
+
+    {
         const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
         const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
         const double latGnss = gpsInfo.lat; //static_cast<double>(localPosition.latitude_i) * 1e-7;
@@ -385,7 +396,7 @@ bool GpsTask::processNewLocation()
         
         const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
         if (m_logger)
-        m_logger->setPppLog(pppLog);
+            m_logger->setPppLog(pppLog);
     }
     
     return true;
@@ -588,6 +599,71 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
 
 std::string GpsTask::emulateQstarzBinary(const GpsInfo &p)
 {
-    /// \todo @claudecode
-    return "";
+    // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
+    auto appendRaw = [](std::string &buf, const void *data, size_t size) {
+        buf.append(reinterpret_cast<const char *>(data), size);
+    };
+
+    const auto epoch = p.worldTime.time_since_epoch();
+    const auto secs = std::chrono::duration_cast<std::chrono::seconds>(epoch);
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch) - secs;
+
+    // mode: 1=fix not available, 2=2D, 3=3D (maps directly from fixType; 0->1)
+    const uint8_t mode = (p.fixType >= 2 && p.fixType <= 3) ? p.fixType : 1;
+    const uint8_t rcr = 'T';
+    const uint16_t time_ms = static_cast<uint16_t>(ms.count());
+
+    // Convert decimal degrees to DDDMM.MMMM
+    auto toQstarzDeg = [](double decimal) -> double {
+        const double absVal = std::abs(decimal);
+        const double deg = std::trunc(absVal);
+        const double min = (absVal - deg) * 60.0;
+        const double result = deg * 100.0 + min;
+        return decimal < 0.0 ? -result : result;
+    };
+    const double dLat = toQstarzDeg(p.lat);
+    const double dLon = toQstarzDeg(p.lon);
+
+    const uint32_t time_s = static_cast<uint32_t>(secs.count());
+    const float speed_kmph = 0.0f;
+    const float height_m = static_cast<float>(p.altitude);
+    const float heading = 0.0f;
+    const int16_t Gx = 0;
+    const int16_t Gy = 0;
+    const int16_t Gz = 0;
+    const uint16_t maxSNR = 0;
+    const float hdop = static_cast<float>(p.gsaHDOP) / 100.0f;
+    const float vdop = static_cast<float>(p.gsaVDOP) / 100.0f;
+    const int8_t numSatView = 0;
+    const int8_t numSatUse = 0;
+    const uint8_t fixQual = static_cast<uint8_t>(p.quality);
+    const int8_t batPerc = 0;
+    const uint32_t unused1 = 0;
+    const uint32_t unused2 = 0;
+
+    std::string buf;
+    buf.reserve(64);
+    appendRaw(buf, &mode,       1);
+    appendRaw(buf, &rcr,        1);
+    appendRaw(buf, &time_ms,    2);
+    appendRaw(buf, &dLat,       8);
+    appendRaw(buf, &dLon,       8);
+    appendRaw(buf, &time_s,     4);
+    appendRaw(buf, &speed_kmph, 4);
+    appendRaw(buf, &height_m,   4);
+    appendRaw(buf, &heading,    4);
+    appendRaw(buf, &Gx,         2);
+    appendRaw(buf, &Gy,         2);
+    appendRaw(buf, &Gz,         2);
+    appendRaw(buf, &maxSNR,     2);
+    appendRaw(buf, &hdop,       4);
+    appendRaw(buf, &vdop,       4);
+    appendRaw(buf, &numSatView, 1);
+    appendRaw(buf, &numSatUse,  1);
+    appendRaw(buf, &fixQual,    1);
+    appendRaw(buf, &batPerc,    1);
+    appendRaw(buf, &unused1,    4);
+    appendRaw(buf, &unused2,    4);
+    // buf.size() == 64
+    return buf;
 }
