@@ -162,7 +162,7 @@ int GpsTask::sendData(const char* data)
     const int len = strlen(data);
     const int txBytes = uart_write_bytes(GPS_UART_PORT, data, len);
     if (txBytes != len)
-        ESP_LOGI(TX_TASK_TAG, "wrong string size");
+        ESP_LOGE(TX_TASK_TAG, "wrong string size");
         
     return txBytes;
 }
@@ -179,7 +179,7 @@ int GpsTask::sendStringAndWait(const std::string &str, std::string &reply)
 
     readFromUart(reply);
     if (reply.size() > 0)
-        ESP_LOGE(TX_TASK_TAG, "reply: %s", reply.c_str());
+        ESP_LOGI(TX_TASK_TAG, "reply: %s", reply.c_str());
 
     return txBytes;
 }
@@ -221,7 +221,7 @@ void GpsTask::executeTask()
                 m_gps.encode(c);
 
             m_logger->addNmeaLog(dataAsString);
-            m_ble->appendData(dataAsString);
+            m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
             dataAsString.clear();
             
             if (m_gps.location.isValid())
@@ -369,21 +369,24 @@ bool GpsTask::processNewLocation()
 
         ESP_LOGI(NEW_LOCATION_TAG, "PPP info parsed");
     }
+
     {
         const std::string gpsLog = printGpsTimeInfo(gpsInfo) + printGpsGeoInfo(gpsInfo);
         if (m_logger)
             m_logger->setGpsLog(gpsLog);
     }
 
-    const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
-    const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
-    const double latGnss = gpsInfo.lat; //static_cast<double>(localPosition.latitude_i) * 1e-7;
-    const double lonGnss = gpsInfo.lon; //static_cast<double>(localPosition.longitude_i) * 1e-7;
-    const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
-    
-    const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
-    if (m_logger)
-       m_logger->setPppLog(pppLog);
+    {
+        const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
+        const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
+        const double latGnss = gpsInfo.lat; //static_cast<double>(localPosition.latitude_i) * 1e-7;
+        const double lonGnss = gpsInfo.lon; //static_cast<double>(localPosition.longitude_i) * 1e-7;
+        const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
+        
+        const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
+        if (m_logger)
+        m_logger->setPppLog(pppLog);
+    }
     
     return true;
 }
@@ -581,4 +584,10 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
 
     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP GEO info - end");
     return message;
+}
+
+std::string GpsTask::emulateQstarzBinary(const GpsInfo &p)
+{
+    /// \todo @claudecode
+    return "";
 }

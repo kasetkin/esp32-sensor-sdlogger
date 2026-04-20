@@ -31,6 +31,11 @@ struct GpsInfo
     uint8_t fixType = 0;      // fix type from GPGSA
 };
 
+struct QstarzMessage 
+{
+    /// \todo @claudecode
+};
+
 class GpsTask
 {
 public:
@@ -97,6 +102,7 @@ private:
     static std::string printGpsGeoInfo(const GpsInfo &p);
     static std::string printPppTimeInfo(const PppInfo &p);
     static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
+    static std::string emulateQstarzBinary(const GpsInfo &p);
 
     /// default delay between send and receive
     void gpsUartDelay();
