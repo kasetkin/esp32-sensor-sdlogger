@@ -25,14 +25,21 @@ private:
     static bool conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
     static uint16_t ble_spp_svc_gatt_read_val_handle;
 
+    static constexpr char BLE_DEVICE_NAME[] = "QSTARZ_EMULATOR"; // so 'Bluetooth GNSS' app will try to connect
+
     /// Nordic semiconductors
-    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; // "6e400001-b5a3-f393-e0a9-e50e24dcca9e"; , for easy Ctrl+F
+    static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; // "6e400001-b5a3-f393-e0a9-e50e24dcca9e"; , for easy Ctrl+F
     // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; // default RT/TX from NordicSemiCond, "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"; // from "qstarz" racing gps, some custom JSON
+    static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"; // from "qstarz" racing gps, some custom JSON
     
-    /// CC254X
-    static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "0000ffe0-0000-1000-8000-00805f9b34fb";
-    static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "0000ffe1-0000-1000-8000-00805f9b34fb";
+    /// CC254X  --  this pair of UUIDs works with 'Serial Bluetooth Terminal' app 
+    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "0000ffe0-0000-1000-8000-00805F9B34FB";
+    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "0000ffe1-0000-1000-8000-00805F9B34FB";
+
+    // public static final UUID nordic_uart_service_uuid = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+
+    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "00001101-0000-1000-8000-00805F9B34FB";
+    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "00002902-0000-1000-8000-00805f9b34fb";
 
     static ble_uuid128_t BLE_SVC_SPP_UUID128;
 

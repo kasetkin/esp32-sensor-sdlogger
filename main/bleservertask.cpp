@@ -164,9 +164,31 @@ void BleSppServerTask::ble_spp_server_advertise()
 
     const char *name;
     name = ble_svc_gap_device_name();
-    fields.name = (uint8_t *)name;
-    fields.name_len = strlen(name);
-    fields.name_is_complete = 1;
+    const auto name_length = strlen(name);
+
+    MODLOG_DFLT(INFO, "advertise BLE device name, length: %u, name: %s", name_length, name);
+
+    if (name_length < 5) {
+        MODLOG_DFLT(INFO, "name is short, so no magic");
+        fields.name = (uint8_t *)name;
+        fields.name_len = strlen(name);
+        fields.name_is_complete = 1;
+    } else {
+        MODLOG_DFLT(INFO, "name is big, so tell full name only as response");
+        fields.name = (uint8_t *)name;
+        fields.name_len = 5;
+        fields.name_is_complete = 0;
+
+        struct ble_hs_adv_fields scan_response_fields;
+        memset(&scan_response_fields, 0, sizeof scan_response_fields);
+        scan_response_fields.name = (uint8_t *)name;
+        scan_response_fields.name_len = name_length;
+        scan_response_fields.name_is_complete = 1;
+        const int err = ble_gap_adv_rsp_set_fields(&scan_response_fields);
+        if (err != 0) {
+            MODLOG_DFLT(ERROR, "can not setup long name");
+        }
+    }
 
     // fields.uuids16 = (ble_uuid16_t[]) {
     //     BLE_SVC_SPP_UUID16
@@ -521,43 +543,6 @@ void BleSppServerTask::bleSenderTask()
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
     }
 
-    // uart_event_t event;
-    // int rc = 0;
-    // for (;;) {
-    //     //Waiting for UART event.
-    //     if (xQueueReceive(spp_common_uart_queue, (void * )&event, (TickType_t)portMAX_DELAY))            {
-    //         switch (event.type) {
-    //         //Event of UART receiving data
-    //         case UART_DATA:
-    //             if (event.size) {
-    //                 uint8_t *ntf;
-    //                 ntf = (uint8_t *)malloc(sizeof(uint8_t) * event.size);
-    //                 memset(ntf, 0x00, event.size);
-    //                 uart_read_bytes(UART_NUM_0, ntf, event.size, portMAX_DELAY);
-
-    //                 for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
-    //                     /* Check if client has subscribed to notifications */
-    //                     if (conn_handle_subs[i]) {
-    //                         struct os_mbuf *txom;
-    //                         txom = ble_hs_mbuf_from_flat(ntf, event.size);
-    //                         rc = ble_gatts_notify_custom(i, ble_spp_svc_gatt_read_val_handle,
-    //                                                      txom);
-    //                         if (rc == 0) {
-    //                             MODLOG_DFLT(INFO, "Notification sent successfully");
-    //                         } else {
-    //                             MODLOG_DFLT(INFO, "Error in sending notification rc = %d", rc);
-    //                         }
-    //                     }
-    //                 }
-
-	// 	    free(ntf);
-    //             }
-    //             break;
-    //         default:
-    //             break;
-    //         }
-    //     }
-    // }
     vTaskDelete(nullptr);
 }
 
@@ -623,16 +608,15 @@ void BleSppServerTask::startServer()
     // 4 -- disconnect 531 after 5 seconds
     ble_hs_cfg.sm_sec_lvl = 4;
 
-#if MYNEWT_VAL(BLE_GATTS)
     int rc;
     /* Register custom service */
     rc = gatt_svr_init();
     assert(rc == 0);
 
     /* Set the default device name. */
-    rc = ble_svc_gap_device_name_set("bgps");
+    MODLOG_DFLT(INFO, "pre-setup BLE device name");
+    rc = ble_svc_gap_device_name_set(BLE_DEVICE_NAME);
     assert(rc == 0);
-#endif
 
     nimble_port_freertos_init(ble_spp_server_host_task);
 }
