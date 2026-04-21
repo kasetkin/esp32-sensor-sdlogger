@@ -41,6 +41,7 @@ class GpsTask
 public:
     static constexpr uint32_t GPS_TASK_DELAY_MS = 30;
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
+    static constexpr uint32_t GPS_TASK_BLE_TX_DELAY_MICROSEC = 10;
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
     static constexpr int UART_TX_GPIO_PIN = GPIO_NUM_16;
     static constexpr int UART_RX_GPIO_PIN = GPIO_NUM_17;
@@ -102,7 +103,7 @@ private:
     static std::string printGpsGeoInfo(const GpsInfo &p);
     static std::string printPppTimeInfo(const PppInfo &p);
     static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
-    static std::string emulateQstarzBinary(const GpsInfo &p);
+    static std::array<std::string, 4> emulateQstarzBinary(const GpsInfo &p);
 
     /// default delay between send and receive
     void gpsUartDelay();

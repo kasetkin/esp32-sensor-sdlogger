@@ -224,8 +224,8 @@ void GpsTask::executeTask()
             if (m_logger)
                 m_logger->addNmeaLog(dataAsString);
 
-            if (m_ble)
-                m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
+            // if (m_ble)
+            //     m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
 
             dataAsString.clear();
             
@@ -382,9 +382,14 @@ bool GpsTask::processNewLocation()
     }
 
     {
-        const std::string emulatedQstarz = emulateQstarzBinary(gpsInfo);
-        if (m_ble)
-            m_ble->appendData(emulatedQstarz);
+        const std::array<std::string, 4> emulatedQstarz = emulateQstarzBinary(gpsInfo);
+        // const std::string messageWithBreaks = emulatedQstarz;
+        if (m_ble) {
+            for (const auto &packet: emulatedQstarz) {
+                m_ble->transmitLineNow(packet);
+                vTaskDelay(pdMS_TO_TICKS(GPS_TASK_BLE_TX_DELAY_MICROSEC));
+            }
+        }
     }
 
     {
@@ -597,7 +602,7 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
     return message;
 }
 
-std::string GpsTask::emulateQstarzBinary(const GpsInfo &p)
+std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
 {
     // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
     auto appendRaw = [](std::string &buf, const void *data, size_t size) {
@@ -634,26 +639,29 @@ std::string GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const uint16_t maxSNR = 0;
     const float hdop = static_cast<float>(p.gsaHDOP) / 100.0f;
     const float vdop = static_cast<float>(p.gsaVDOP) / 100.0f;
-    const int8_t numSatView = 0;
-    const int8_t numSatUse = 0;
+    const uint8_t numSatView = 0;
+    const uint8_t numSatUse = 0;
     const uint8_t fixQual = static_cast<uint8_t>(p.quality);
-    const int8_t batPerc = 0;
-    const uint32_t unused1 = 0;
-    const uint32_t unused2 = 0;
+    const uint8_t batPerc = 0;
+    const uint16_t dummy = 0;
+    const uint8_t series_number = 0; /// Bluetooth GNSS expects '0'
 
     std::string buf;
     buf.reserve(64);
+    /// first
     appendRaw(buf, &mode,       1);
     appendRaw(buf, &rcr,        1);
     appendRaw(buf, &time_ms,    2);
     appendRaw(buf, &dLat,       8);
     appendRaw(buf, &dLon,       8);
+    /// second
     appendRaw(buf, &time_s,     4);
     appendRaw(buf, &speed_kmph, 4);
     appendRaw(buf, &height_m,   4);
     appendRaw(buf, &heading,    4);
     appendRaw(buf, &Gx,         2);
     appendRaw(buf, &Gy,         2);
+    /// third
     appendRaw(buf, &Gz,         2);
     appendRaw(buf, &maxSNR,     2);
     appendRaw(buf, &hdop,       4);
@@ -662,8 +670,33 @@ std::string GpsTask::emulateQstarzBinary(const GpsInfo &p)
     appendRaw(buf, &numSatUse,  1);
     appendRaw(buf, &fixQual,    1);
     appendRaw(buf, &batPerc,    1);
-    appendRaw(buf, &unused1,    4);
-    appendRaw(buf, &unused2,    4);
-    // buf.size() == 64
-    return buf;
+    appendRaw(buf, &dummy,      2);
+    appendRaw(buf, &series_number, 1);
+
+    const uint8_t unknown_field1 = 0;
+    const uint32_t unknown_field2 = 0; 
+    appendRaw(buf, &unknown_field1, 1);
+    appendRaw(buf, &unknown_field2, 4);
+
+    assert(buf.size() == 64);
+
+    /// emulate QSTARZ connections specific: send data by packets of 20 bytes
+    std::array<std::string, 4> packets;
+
+    packets[0].append(buf.cbegin(), buf.cbegin() + 20);
+    packets[1].append(buf.cbegin() + 20, buf.cbegin() + 40);
+    packets[2].append(buf.cbegin() + 40, buf.cbegin() + 60);
+    packets[3].append(buf.cbegin() + 60, buf.cbegin() + 64);
+
+    ESP_LOGI(LOGTASKTAG, "first packet.length: %u", packets[0].size());
+    ESP_LOGI(LOGTASKTAG, "first packet[0]: %u, should be 1, 2, 3", packets[0][0]);
+    ESP_LOGI(LOGTASKTAG, "third packet.length: %u", packets[2].size());
+    ESP_LOGI(LOGTASKTAG, "third packet[16]: %u", packets[2][16]);
+    ESP_LOGI(LOGTASKTAG, "third packet[17]: %u", packets[2][17]);
+    ESP_LOGI(LOGTASKTAG, "third packet[18]: %u", packets[2][18]);
+    ESP_LOGI(LOGTASKTAG, "third packet[19]: %u", packets[2][19]);
+    
+
+
+    return packets;
 }
