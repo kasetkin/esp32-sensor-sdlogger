@@ -93,7 +93,7 @@ esp_err_t SensorsTask::init()
 
 int SensorsTask::readBatteryVoltageMilliV()
 {
-    static const char * TAG = "ADC-read";
+    // static const char * TAG = "ADC-read";
 
     // int32_t adc_raw_mean = 0;
     
