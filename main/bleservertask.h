@@ -19,6 +19,7 @@ public:
     void startServer();
 
     void appendData(const std::string &newData);
+    void transmitLineNow(const std::string &line);
 private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;
@@ -52,6 +53,7 @@ private:
 
 
     mutable std::mutex m_dataMutex;
+    mutable std::mutex m_dataTxMutex;
     std::vector<std::string> m_data;
 
     static void print_addr(const uint8_t value[]);
@@ -74,6 +76,5 @@ private:
     void dataSenderTaskInit();
     void bleSenderTask();
     void sendAllData();
-    void sendLine(const std::string &line);
 };
     

@@ -506,9 +506,10 @@ int BleSppServerTask::gatt_svr_init()
     return 0;
 }
 
-void BleSppServerTask::sendLine(const std::string &line) 
+void BleSppServerTask::transmitLineNow(const std::string &line) 
 {
-    MODLOG_DFLT(INFO, "new NMEA line is: %s", line.c_str());
+    std::unique_lock txLock(m_dataTxMutex);
+    // MODLOG_DFLT(INFO, "new NMEA line is: %s", line.c_str());
     for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
         /* Check if client has subscribed to notifications */
         if (conn_handle_subs[i]) {
@@ -529,7 +530,7 @@ void BleSppServerTask::sendAllData()
 {
     std::unique_lock readLock(m_dataMutex);
     for (const auto &dataLine : m_data)
-        sendLine(dataLine);
+        transmitLineNow(dataLine);
 
     m_data.clear();
 }
