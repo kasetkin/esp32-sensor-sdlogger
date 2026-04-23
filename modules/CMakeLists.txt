@@ -11,7 +11,3 @@ set(srcs
 add_library(${PROJECT_NAME} STATIC ${srcs})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/TinyGPSPlus/src)
 
-
-# idf_component_register(SRCS ${srcs}
-#                        INCLUDE_DIRS "TinyGPSPlus/src"
-#                        WHOLE_ARCHIVE)
