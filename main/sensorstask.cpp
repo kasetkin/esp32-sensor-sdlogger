@@ -5,8 +5,6 @@
 
 #include <esp_log.h>
 
-sht3x_t SensorsTask::m_sht3dev;
-
 void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
 {
     m_readyEvent = readyEvent;
