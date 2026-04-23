@@ -41,7 +41,6 @@ class GpsTask
 public:
     static constexpr uint32_t GPS_TASK_DELAY_MS = 30;
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
-    static constexpr uint32_t GPS_TASK_BLE_TX_DELAY_MICROSEC = 10;
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
     static constexpr int UART_TX_GPIO_PIN = GPIO_NUM_16;
     static constexpr int UART_RX_GPIO_PIN = GPIO_NUM_17;

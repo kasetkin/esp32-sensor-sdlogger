@@ -102,14 +102,36 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "pass SdCard to Logger");
     loggerTask->configureSdCard(my_sdcard);
+
+    ESP_LOGI(TAG, "configure Logger::ReadyEvent (pass log string to BLE task)");
+    loggerTask->configureLogReadyEvent([](const std::string &log)
+    {
+        if (!bleTask)
+            return;
+
+        bleTask->appendLog(log);
+        bleTask->appendLog("\r\n");
+    });
     
     ESP_LOGI(TAG, "pass Logger to GpsTask");
     gpsTask->setupLogger(loggerTask);
     ESP_LOGI(TAG, "pass BleServer to GpsTask");
     gpsTask->setupBleTask(bleTask);
 
-    ESP_LOGI(TAG, "pass Logger to SensorsTask");
-    sensorTask->setupLogger(loggerTask);
+    ESP_LOGI(TAG, "configure Sensors::ReadyEvent (pass battery, temp, humidity to BLE task)");
+    sensorTask->configureReadyEvent([](int batteryVoltage, int batteryPercent, float envTemperature, float envHumidity, const std::string &message)
+    {
+        ESP_LOGI(TAG, "Logger: ReadyEnevt");
+        if (bleTask) {
+            ESP_LOGI(TAG, "Logger: ReadyEnevt: set sensors values: %d, %f, %f, %s", batteryPercent, envTemperature, envHumidity, message.c_str());
+            bleTask->setBatteryLevel(batteryPercent);
+            bleTask->setEnvTemperature(envTemperature);
+            bleTask->setEnvHumidity(envHumidity);
+        }
+
+        if (loggerTask)
+            loggerTask->setSensorsLog(message);
+    });
 
 
     ESP_LOGI(TAG, "start Logger task");

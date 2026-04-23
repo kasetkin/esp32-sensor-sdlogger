@@ -1,17 +1,15 @@
 #include "sensorstask.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
-#include "esp_log.h"
+#include <esp_log.h>
 
-esp_err_t SensorsTask::setupLogger(std::shared_ptr<LoggerTask> logger)
+sht3x_t SensorsTask::m_sht3dev;
+
+void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
 {
-    if (!logger)
-        return ESP_FAIL;
-
-    m_logger = logger;
-    return ESP_OK;
+    m_readyEvent = readyEvent;
 }
 
 static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
@@ -65,7 +63,7 @@ static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_att
     return calibrated;
 }
 
-esp_err_t SensorsTask::init()
+esp_err_t SensorsTask::initAdc()
 {
     //-------------ADC1 Init---------------//
     adc_oneshot_unit_init_cfg_t init_config1 = {
@@ -91,12 +89,59 @@ esp_err_t SensorsTask::init()
         return ESP_FAIL;
 }
 
+esp_err_t SensorsTask::initI2C() 
+{
+    static const char * TAG = "sensors-init-i2c";
+    const esp_err_t initErr = i2cdev_init();
+    if (initErr != ESP_OK) {
+        ESP_LOGE(TAG, "can not init I2C: %d err", initErr);
+        return ESP_FAIL;
+    }
+
+    memset(&m_sht3dev, 0, sizeof(sht3x_t));
+    const esp_err_t descriptorInitErr = sht3x_init_desc(&m_sht3dev, SHT3X_ADDR, SHT3X_I2C_PORT, I2C_MASTER_SDA, I2C_MASTER_SCL);
+    if (descriptorInitErr != ESP_OK) {
+        ESP_LOGE(TAG, "can not init I2C descriptor structure: %d err", descriptorInitErr);
+        return ESP_FAIL;
+    }
+
+    const esp_err_t sensorInitErr = sht3x_init(&m_sht3dev);
+    if (sensorInitErr != ESP_OK) {
+        ESP_LOGE(TAG, "can not init SHT3X sensor via I2C: %d err", sensorInitErr);
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t SensorsTask::init()
+{
+    static const char * TAG = "sensors-init";
+    ESP_LOGI(TAG, "init all sensors: start");
+    const esp_err_t adcErr = initAdc();
+    if (adcErr != ESP_OK)
+        return adcErr;
+
+    const esp_err_t i2cErr = initI2C();
+    if (i2cErr != ESP_OK)
+        return i2cErr;
+    
+    return ESP_OK;
+}
+
 int SensorsTask::readBatteryVoltageMilliV()
 {
-    // static const char * TAG = "ADC-read";
+// #ifdef HAS_PMU
+//     if (pmu_found && PMU) {
+//         const int batteryPercent = PMU->getBatteryPercent(); /// 0 .. 100
+//         const uint16_t batteryVoltage = PMU->getBattVoltage(); /// millivolt
+//         message =
+//             std::string("BATVOLT;") + std::to_string(batteryVoltage)
+//             + std::string(";BATPERC;") + std::to_string(batteryPercent)
+//             + std::string(";");
+//     }
+// #endif
 
-    // int32_t adc_raw_mean = 0;
-    
     int adc_raw = 0;
     int voltage = 0;
     int32_t voltage_mean = 0;
@@ -108,8 +153,9 @@ int SensorsTask::readBatteryVoltageMilliV()
         voltage_mean += voltage;
     }
 
-    const int realVoltage = (voltage_mean * 4 * 2) / ADC_READS_COUNT; /// 4 because of ADC_12dB and 2 because of 200kOhm 2:1 divider 
-    return realVoltage;
+    const int scaledVoltage = (voltage_mean * 4) / ADC_READS_COUNT; /// 4 because of ADC_12dB and 2 because of 200kOhm 2:1 divider 
+    const double realVoltage = voltageDividerCoefficient * scaledVoltage;
+    return static_cast<int>(realVoltage);
 }
 
 int SensorsTask::convertVoltageToPercent(int batteryVoltageMilliV)
@@ -119,21 +165,53 @@ int SensorsTask::convertVoltageToPercent(int batteryVoltageMilliV)
     return std::max<double>(0.0f, std::min<double>(100.0, value));
 }
 
+std::string SensorsTask::toTelemetryRoundedString(const float value)
+{
+    std::string fullString = std::to_string(value);
+    const size_t dotPos = fullString.find('.');
+    if (dotPos == std::string::npos)
+        return fullString;
+
+    const size_t newLenght = std::min(dotPos + static_cast<size_t>(4), fullString.size());
+    fullString.resize(newLenght);
+    return fullString;
+}
+
+
+
 void SensorsTask::executeTask()
 {
     static const char * TAG = "sensors-task";
     while (true) {
+        std::string message;
+
         const int batteryVoltageMilliV = readBatteryVoltageMilliV();
         const int batteryPercent = convertVoltageToPercent(batteryVoltageMilliV);
-        std::string message =
-            std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV)
-            + std::string(";BATPERC;") + std::to_string(batteryPercent)
-            + std::string(";");
+
+        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV) + std::string(";");
+        message += std::string("BATPERC;") + std::to_string(batteryPercent) + std::string(";");
+
+        
+        float envTemperature = -275.0;
+        float envHumidity = -1.0;
+        const esp_err_t readError = sht3x_measure(&m_sht3dev, &envTemperature, &envHumidity);
+        if (readError == ESP_OK) {
+            ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", envTemperature, envHumidity);
+
+            message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature) + std::string(";");
+            message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity) + std::string(";");
+
+            // if (!std::isnan(barometric_pressure))
+            //     result += std::string("PRESS;") + toTelemetryRoundedString(barometric_pressure) + std::string(";");
+        } else {
+            ESP_LOGE(TAG, "sensor read error: %d", readError);
+            envTemperature = -275.0;
+            envHumidity = -1.0;
+        }        
 
         ESP_LOGI(TAG, "new sensor values: %s", message.c_str());
-        if (m_logger)
-            m_logger->setSensorsLog(message);
 
+        m_readyEvent(batteryVoltageMilliV, batteryPercent, envTemperature, envHumidity, message);
         vTaskDelay(pdMS_TO_TICKS(SENSORS_PERIOD_MS));
     }
 }

@@ -50,6 +50,11 @@ void LoggerTask::configureSdCard(const std::shared_ptr<SdCard> &card)
     m_sdCard = card;
 }
 
+void LoggerTask::configureLogReadyEvent(LogReadyEvent readyEvent)
+{
+    m_readyEvent = readyEvent;
+}
+
 void LoggerTask::executeTask()
 {
     static const char * LOGTASKTAG = "LogTask";
@@ -87,18 +92,6 @@ std::string LoggerTask::toStringWithZeros(const int value, const size_t numberOf
         return basicString;
 }
 
-std::string LoggerTask::toTelemetryRoundedString(const float value)
-{
-    std::string fullString = std::to_string(value);
-    const size_t dotPos = fullString.find('.');
-    if (dotPos == std::string::npos)
-        return fullString;
-
-    const size_t newLenght = std::min(dotPos + static_cast<size_t>(4), fullString.size());
-    fullString.resize(newLenght);
-    return fullString;
-}
-
 /// lock messages before!
 void LoggerTask::resetState()
 {
@@ -118,16 +111,14 @@ void LoggerTask::logCurrentState()
 
     const std::string filename = generateFilename() + ".csv";
     const std::string deviceLog = generateDeviceInfoLog();
-    // const std::string devicePower = generateDevicePowerLog();
-    const std::string envTelemetry = generateTelemetryLog(36.6f, 42.0f, 960.0f);
 
-    const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gpsLog + m_pppLog + envTelemetry + std::string("\n");
+    const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gpsLog + m_pppLog + std::string("\n");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - end");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | full message: \\");
-    ESP_LOGI(LOGSTATETAG, "%s \\",  deviceLog.c_str());
-    ESP_LOGI(LOGSTATETAG, "%s \\",  m_gpsLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\", deviceLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\", m_gpsLog.c_str());
     ESP_LOGI(LOGSTATETAG, "%s \\", m_pppLog.c_str());
-    ESP_LOGI(LOGSTATETAG, "%s \\",  envTelemetry.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\", m_sensorsLog.c_str());
     ESP_LOGI(LOGSTATETAG, "filename: %s", filename.c_str());
     ESP_LOGI(LOGSTATETAG, "END-OF-LINE");
 
@@ -135,6 +126,9 @@ void LoggerTask::logCurrentState()
     if (!m_sdCard)
         return;
 
+    if (m_readyEvent)
+        m_readyEvent(fullLogMessage);
+        
     m_sdCard->appendFile(fullpath, fullLogMessage.c_str());
 }
 
@@ -147,48 +141,6 @@ void LoggerTask::logNmeaStream()
 
     m_nmeaLog += std::string("\r\n");
     m_sdCard->appendFile(fullpath, m_nmeaLog.c_str());
-}
-
-std::string LoggerTask::generateTelemetryLog(double temperature, double relative_humidity, double barometric_pressure) const
-{
-    static const char * LOGTELEMETRYTAG = "LogTelemetry";
-    ESP_LOGI(LOGTELEMETRYTAG, "SdLoggerModule | generate telemetry - start");
-
-    // auto &envTelemetry = m.variant.environment_metrics;
-
-    std::string result;
-    if (!std::isnan(temperature))
-        result += std::string("TEMP;") + toTelemetryRoundedString(temperature) + std::string(";");
-
-    if (!std::isnan(relative_humidity))
-        result += std::string("HUMID;") + toTelemetryRoundedString(relative_humidity) + std::string(";");
-
-    if (!std::isnan(barometric_pressure))
-        result += std::string("PRESS;") + toTelemetryRoundedString(barometric_pressure) + std::string(";");
-
-    ESP_LOGI(LOGTELEMETRYTAG, "SdLoggerModule | generate telemetry - end | result: %s", result.c_str());
-    return result;
-}
-
-std::string LoggerTask::generateDevicePowerLog() const
-{
-    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device power log - start");
-    std::string message;
-// #ifdef HAS_PMU
-//     if (pmu_found && PMU) {
-//         const int batteryPercent = PMU->getBatteryPercent(); /// 0 .. 100
-//         const uint16_t batteryVoltage = PMU->getBattVoltage(); /// millivolt
-//         message =
-//             std::string("BATVOLT;") + std::to_string(batteryVoltage)
-//             + std::string(";BATPERC;") + std::to_string(batteryPercent)
-//             + std::string(";");
-//     }
-// #endif
-
-    //! \todo implement voltage measurement with 1:2 200kOhm resistors
-
-    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device power log - end | result: %s", message.c_str());
-    return message;
 }
 
 std::string LoggerTask::generateDeviceInfoLog() const

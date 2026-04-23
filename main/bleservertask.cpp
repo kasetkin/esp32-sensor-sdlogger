@@ -1,9 +1,11 @@
 #include <string>
 #include <mutex>
+#include <cmath>
 
 #include "esp_log.h"
 #include "esp_random.h"
 #include "nvs_flash.h"
+#include "freertos/FreeRTOS.h"
 /* BLE */
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -17,15 +19,18 @@
 
 uint8_t BleSppServerTask::own_addr_type = 0;
 bool BleSppServerTask::conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
-uint16_t BleSppServerTask::ble_spp_svc_gatt_read_val_handle = 0;
+uint16_t BleSppServerTask::ble_battery_read_val_handle = 0;
+uint16_t BleSppServerTask::ble_temperature_read_val_handle = 1;
+uint16_t BleSppServerTask::ble_humidity_read_val_handle = 2;
+uint16_t BleSppServerTask::ble_nmea_read_val_handle = 3;
+uint16_t BleSppServerTask::ble_qstarz_read_val_handle = 4;
+uint16_t BleSppServerTask::ble_full_log_read_val_handle = 5;
 
-
-// const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_UUID16_VALUE);
-// const ble_uuid16_t BleSppServerTask::BLE_SVC_SPP_CHR_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_SPP_CHR_UUID16_VALUE);
+ble_uuid16_t BleSppServerTask::BLE_SVC_BATTERY_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
+ble_uuid16_t BleSppServerTask::BLE_SVC_ENV_SENSING_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
 ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
-// ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_CHR_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_CHR_UUID128_VALUE);
 
-void BleSppServerTask::print_addr(const uint8_t value[])
+void BleSppServerTask::printBleAddress(const uint8_t value[])
 {
     if (value != nullptr)
         MODLOG_DFLT(INFO, "addr = %d%d%d%d%d%d", value[0], value[1], value[2], value[3], value[4], value[5]);
@@ -107,16 +112,16 @@ void BleSppServerTask::ble_spp_server_print_conn_desc(struct ble_gap_conn_desc *
 {
     MODLOG_DFLT(INFO, "handle=%d our_ota_addr_type=%d our_ota_addr=",
                 desc->conn_handle, desc->our_ota_addr.type);
-    print_addr(desc->our_ota_addr.val);
+    printBleAddress(desc->our_ota_addr.val);
     MODLOG_DFLT(INFO, " our_id_addr_type=%d our_id_addr=",
                 desc->our_id_addr.type);
-    print_addr(desc->our_id_addr.val);
+    printBleAddress(desc->our_id_addr.val);
     MODLOG_DFLT(INFO, " peer_ota_addr_type=%d peer_ota_addr=",
                 desc->peer_ota_addr.type);
-    print_addr(desc->peer_ota_addr.val);
+    printBleAddress(desc->peer_ota_addr.val);
     MODLOG_DFLT(INFO, " peer_id_addr_type=%d peer_id_addr=",
                 desc->peer_id_addr.type);
-    print_addr(desc->peer_id_addr.val);
+    printBleAddress(desc->peer_id_addr.val);
     MODLOG_DFLT(INFO, " conn_itvl=%d conn_latency=%d supervision_timeout=%d "
                 "encrypted=%d authenticated=%d bonded=%d\n",
                 desc->conn_itvl, desc->conn_latency,
@@ -168,7 +173,8 @@ void BleSppServerTask::ble_spp_server_advertise()
 
     MODLOG_DFLT(INFO, "advertise BLE device name, length: %u, name: %s", name_length, name);
 
-    if (name_length < 5) {
+    constexpr size_t MAX_NAME_LENGTH = 2;
+    if (name_length < MAX_NAME_LENGTH) {
         MODLOG_DFLT(INFO, "name is short, so no magic");
         fields.name = (uint8_t *)name;
         fields.name_len = strlen(name);
@@ -176,7 +182,7 @@ void BleSppServerTask::ble_spp_server_advertise()
     } else {
         MODLOG_DFLT(INFO, "name is big, so tell full name only as response");
         fields.name = (uint8_t *)name;
-        fields.name_len = 5;
+        fields.name_len = MAX_NAME_LENGTH;
         fields.name_is_complete = 0;
 
         struct ble_hs_adv_fields scan_response_fields;
@@ -191,16 +197,17 @@ void BleSppServerTask::ble_spp_server_advertise()
     }
 
     // fields.uuids16 = (ble_uuid16_t[]) {
-    //     BLE_SVC_SPP_UUID16
+    //     BLE_SVC_BATTERY_UUID16,
+    //     BLE_SVC_ENV_SENSING_UUID16
     // };
-    // fields.num_uuids16 = 1;
+    // fields.num_uuids16 = 2;
     // fields.uuids16_is_complete = 1;
 
-    fields.uuids128 = (ble_uuid128_t[]) {
-        BleSppServerTask::BLE_SVC_SPP_UUID128
-    };
-    fields.num_uuids128 = 1;
-    fields.uuids128_is_complete = 1;
+    // fields.uuids128 = (ble_uuid128_t[]) {
+    //     BleSppServerTask::BLE_SVC_SPP_UUID128
+    // };
+    // fields.num_uuids128 = 1;
+    // fields.uuids128_is_complete = 1;
 
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
@@ -387,7 +394,7 @@ void BleSppServerTask::ble_spp_server_on_sync()
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, nullptr);
 
     MODLOG_DFLT(INFO, "Device Address: ");
-    // print_addr(addr_val);
+    // printBleAddress(addr_val);
     MODLOG_DFLT(INFO, "\n");
     /* Begin advertising. */
     ble_spp_server_advertise();
@@ -454,23 +461,93 @@ void BleSppServerTask::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
 
 int BleSppServerTask::gatt_svr_init()
 {
-    BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
-    printUuid128(BLE_SVC_SPP_UUID128);
+    BLE_SVC_BATTERY_UUID16 = buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
+    BLE_SVC_ENV_SENSING_UUID16 = buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
+    BLE_SVC_SPP_UUID128 = buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
 
-    static const ble_uuid128_t BLE_SVC_SPP_CHR_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_CHR_UUID128_VALUE);
-    printUuid128(BLE_SVC_SPP_CHR_UUID128);
+    printUuid(BLE_SVC_BATTERY_UUID16);
+    printUuid(BLE_SVC_ENV_SENSING_UUID16);
+    printUuid(BLE_SVC_SPP_UUID128);
 
-    static const ble_gatt_chr_def spp_characteristics[] = {
+    static const ble_uuid16_t BLE_CHR_BATTERY_LEVEL_UUID16 = buildBleUuid16(BLE_CHR_BATTERY_LEVEL_UUID16_VALUE);
+    static const ble_gatt_chr_def battery_characteristics[] = {
         {
-            /* Support SPP service */
-            // .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_CHR_UUID16),
-            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_CHR_UUID128),
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_BATTERY_LEVEL_UUID16),
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
             .min_key_size = 0,
-            .val_handle = &ble_spp_svc_gatt_read_val_handle,
+            .val_handle = &ble_battery_read_val_handle,
+            .cpfd = nullptr
+        }, 
+        { }
+    };
+
+    static const ble_uuid16_t BLE_CHR_TEMPERATURE_UUID16 = buildBleUuid16(BLE_CHR_TEMPERATURE_UUID16_VALUE);
+    static const ble_uuid16_t BLE_CHR_HUMIDITY_UUID16 = buildBleUuid16(BLE_CHR_HUMIDITY_UUID16_VALUE);
+    static const ble_gatt_chr_def env_sensing_characteristics[] = {
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_TEMPERATURE_UUID16),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_temperature_read_val_handle,
+            .cpfd = nullptr
+        }, 
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_HUMIDITY_UUID16),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_humidity_read_val_handle,
+            .cpfd = nullptr
+        }, 
+        { }
+    };
+
+
+    static const ble_uuid128_t BLE_CHR_NMEA_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
+    static const ble_uuid128_t BLE_CHR_QSTARZ_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
+    static const ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
+
+    printUuid(BLE_CHR_NMEA_UUID128);
+    printUuid(BLE_CHR_QSTARZ_UUID128);
+    printUuid(BLE_CHR_FULL_LOG_UUID128);
+
+    static const ble_gatt_chr_def uart_characteristics[] = {
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_NMEA_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_nmea_read_val_handle,
+            .cpfd = nullptr
+        },
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_QSTARZ_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_qstarz_read_val_handle,
+            .cpfd = nullptr
+        },
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_FULL_LOG_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = 0,
+            .val_handle = &ble_full_log_read_val_handle,
             .cpfd = nullptr
         },
         { }
@@ -478,12 +555,26 @@ int BleSppServerTask::gatt_svr_init()
 
     static const struct ble_gatt_svc_def new_ble_svc_gatt_defs[] = {
         {
-            /*** Service: SPP */
+            /*** Service: BATTERY */
+            .type = BLE_GATT_SVC_TYPE_PRIMARY,
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_BATTERY_UUID16),
+            .includes = nullptr,
+            .characteristics = battery_characteristics,
+        },
+        {
+            /*** Service: ENV_SENSING */
+            .type = BLE_GATT_SVC_TYPE_PRIMARY,
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_ENV_SENSING_UUID16),
+            .includes = nullptr,
+            .characteristics = env_sensing_characteristics,
+        },
+        {
+            /*** Service: SPP / UART / QSTARZ / NMEA / LOG */
             .type = BLE_GATT_SVC_TYPE_PRIMARY,
             // .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_UUID16),
-            .uuid = reinterpret_cast<const ble_uuid_t *>(&BleSppServerTask::BLE_SVC_SPP_UUID128),
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_SVC_SPP_UUID128),
             .includes = nullptr,
-            .characteristics = spp_characteristics,
+            .characteristics = uart_characteristics,
         },
         { }
     };
@@ -495,30 +586,68 @@ int BleSppServerTask::gatt_svr_init()
     rc = ble_gatts_count_cfg(new_ble_svc_gatt_defs);
 
     if (rc != 0) {
+        MODLOG_DFLT(ERROR, "can not ble_gatts_count_cfg(), error %d", rc);
         return rc;
     }
 
     rc = ble_gatts_add_svcs(new_ble_svc_gatt_defs);
     if (rc != 0) {
+        MODLOG_DFLT(ERROR, "can not ble_gatts_add_svcs(), error %d", rc);
         return rc;
     }
 
     return 0;
 }
 
-void BleSppServerTask::transmitLineNow(const std::string &line) 
+void BleSppServerTask::setBatteryLevel(float level)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_batteryLevel = level;
+}
+
+void BleSppServerTask::setEnvHumidity(float humidity)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_envHumidity = humidity;
+}
+
+void BleSppServerTask::setEnvTemperature(float temperature)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_envTemperature = temperature;
+}
+
+void BleSppServerTask::appendNmea(const std::string &newNmea)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_nmeaStream.push_back(newNmea);
+}
+
+void BleSppServerTask::appendLog(const std::string &newLog)
+{
+    std::unique_lock writeLock(m_dataMutex);
+    m_logStream.push_back(newLog);
+}
+
+void BleSppServerTask::transmitQstarzPackets(const std::array<std::string, 4> &packets)
+{
+    for (const auto &packet: packets) {
+        transmitLineNow(packet, ble_qstarz_read_val_handle);
+        vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MICROSEC));
+    }
+}
+
+void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_handle) 
 {
     std::unique_lock txLock(m_dataTxMutex);
-    // MODLOG_DFLT(INFO, "new NMEA line is: %s", line.c_str());
     for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
         /* Check if client has subscribed to notifications */
         if (conn_handle_subs[i]) {
             struct os_mbuf *txom;
             txom = ble_hs_mbuf_from_flat(line.c_str(), line.size());
-            const int rc = ble_gatts_notify_custom(i, ble_spp_svc_gatt_read_val_handle,
-                                            txom);
+            const int rc = ble_gatts_notify_custom(i, value_handle, txom);
             if (rc == 0) {
-                MODLOG_DFLT(INFO, "Notification sent successfully");
+                MODLOG_DFLT(DEBUG, "Notification sent successfully");
             } else {
                 MODLOG_DFLT(INFO, "Error in sending notification rc = %d", rc);
             }
@@ -526,13 +655,124 @@ void BleSppServerTask::transmitLineNow(const std::string &line)
     }
 }
 
+void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
+{
+    struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
+    if (txom == nullptr)
+        return;
+    
+    /* Update access buffer value */
+    const uint16_t batteryLevelPrepared = static_cast<uint16_t>(std::round(m_batteryLevel));
+    static uint8_t env_battery_level_chr_val[2] = {0, 0};
+    env_battery_level_chr_val[1] = batteryLevelPrepared / 256;
+    env_battery_level_chr_val[0] = batteryLevelPrepared % 256;
+    const int rc1 = os_mbuf_append(txom, &env_battery_level_chr_val, sizeof(env_battery_level_chr_val));
+
+    if (rc1 != 0) {
+        /// not shure if this is correct way to free
+        if (txom)
+            os_mbuf_free(txom);
+            
+        return;
+    }
+
+    const int rc2 = ble_gatts_notify_custom(conn_handle, ble_battery_read_val_handle, txom);
+    if (rc2 == 0) {
+        MODLOG_DFLT(DEBUG, "Notification sent successfully: humidity");
+    } else {
+        MODLOG_DFLT(ERROR, "Error in sending notification rc = %d", rc2);
+    }
+}
+
+void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
+{
+    struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
+    if (txom == nullptr)
+        return;
+    
+    /* Update access buffer value */
+    const uint16_t humidityPrepared = static_cast<uint16_t>(std::round(m_envHumidity * 100.0));
+    static uint8_t env_humidity_chr_val[2] = {0, 0};
+    env_humidity_chr_val[1] = humidityPrepared / 256;
+    env_humidity_chr_val[0] = humidityPrepared % 256;
+    const int rc1 = os_mbuf_append(txom, &env_humidity_chr_val, sizeof(env_humidity_chr_val));
+
+    if (rc1 != 0) {
+        /// not shure if this is correct way to free
+        if (txom)
+            os_mbuf_free(txom);
+            
+        return;
+    }
+
+    const int rc2 = ble_gatts_notify_custom(conn_handle, ble_humidity_read_val_handle, txom);
+    if (rc2 == 0) {
+        MODLOG_DFLT(DEBUG, "Notification sent successfully: humidity");
+    } else {
+        MODLOG_DFLT(ERROR, "Error in sending notification rc = %d", rc2);
+    }
+}
+
+void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
+{
+    MODLOG_DFLT(DEBUG, "BLE: transmit temperature value %f", m_envTemperature);
+    struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
+    if (txom == nullptr) {
+        MODLOG_DFLT(ERROR, "BLE: transmit temperature, buffer allocation - ERROR");
+        return;
+    }
+    
+    MODLOG_DFLT(DEBUG, "BLE: transmit temperature, buffer allocation - ok");
+    /* Update access buffer value */
+    const uint16_t temperaturePrepared = static_cast<uint16_t>(std::round(m_envTemperature * 100.0));
+    static uint8_t env_temperature_chr_val[2] = {0, 0};
+    env_temperature_chr_val[1] = temperaturePrepared / 256;
+    env_temperature_chr_val[0] = temperaturePrepared % 256;
+    const int rc1 = os_mbuf_append(txom, &env_temperature_chr_val, sizeof(env_temperature_chr_val));
+
+    if (rc1 != 0) {
+        MODLOG_DFLT(ERROR, "BLE: transmit temperature, os_mbuf_append rc = %d", rc1);
+        /// not shure if this is correct way to free
+        if (txom)
+            os_mbuf_free(txom);
+            
+        return;
+    }
+
+    MODLOG_DFLT(DEBUG, "BLE: transmit temperature, before 'ble_gatts_notify_custom'");
+    const int rc2 = ble_gatts_notify_custom(conn_handle, ble_temperature_read_val_handle, txom);
+    if (rc2 == 0) {
+        MODLOG_DFLT(DEBUG, "BLE: transmit temperature, Notification sent successfully: temperature");
+    } else {
+        MODLOG_DFLT(ERROR, "BLE: transmit temperature, Error in sending notification rc = %d", rc2);
+    }
+}
+
 void BleSppServerTask::sendAllData()
 {
     std::unique_lock readLock(m_dataMutex);
-    for (const auto &dataLine : m_data)
-        transmitLineNow(dataLine);
 
-    m_data.clear();
+    for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
+        if (conn_handle_subs[i]) {
+            transmitBatteryLevel(i);
+            transmitEnvTemperature(i);
+            transmitEnvHumidity(i);
+        }
+    }
+    
+    {
+        for (const auto &line : m_logStream)
+            transmitLineNow(line, ble_full_log_read_val_handle);
+
+        m_logStream.clear();
+    }
+
+    {
+        for (const auto &line : m_nmeaStream)
+            transmitLineNow(line, ble_nmea_read_val_handle);
+
+        m_nmeaStream.clear();
+    }
 }
 
 void BleSppServerTask::bleSenderTask()
@@ -556,16 +796,10 @@ void BleSppServerTask::dataSenderTaskInit()
     }, "bleSppTask", 4096, this, 8, nullptr);
 }
 
-void BleSppServerTask::appendData(const std::string &newData)
-{
-    std::unique_lock writeLock(m_dataMutex);
-    m_data.push_back(newData); //copy
-}
-
 void BleSppServerTask::startServer()
 {
     BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
-    printUuid128(BleSppServerTask::BLE_SVC_SPP_UUID128);
+    printUuid(BleSppServerTask::BLE_SVC_SPP_UUID128);
 
     /* Initialize NVS — it is used to store PHY calibration data */
     esp_err_t ret = nvs_flash_init();
@@ -602,11 +836,6 @@ void BleSppServerTask::startServer()
     ble_hs_cfg.sm_their_key_dist |= BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
     ble_hs_cfg.sm_sc = 1;
     ble_hs_cfg.sm_sc_only = 1;
-    // 0 -- disconnect 531 after 5 seconds
-    // 1 -- doesn't bond
-    // 2 -- disconnect 531 after 5 seconds
-    // 3 -- disconnect 531 after 5 seconds
-    // 4 -- disconnect 531 after 5 seconds
     ble_hs_cfg.sm_sec_lvl = 4;
 
     int rc;
@@ -622,7 +851,14 @@ void BleSppServerTask::startServer()
     nimble_port_freertos_init(ble_spp_server_host_task);
 }
 
-void BleSppServerTask::printUuid128(const ble_uuid128_t &uuid)
+void BleSppServerTask::printUuid(const ble_uuid16_t &uuid)
+{
+    char buf[BLE_UUID_STR_LEN];
+    const char * uuidAsStr = ble_uuid_to_str(reinterpret_cast<const ble_uuid_t *>(&uuid), buf);
+    MODLOG_DFLT(INFO, "uuid: type = %d, value = %s", uuid.u, uuidAsStr);
+}
+
+void BleSppServerTask::printUuid(const ble_uuid128_t &uuid)
 {
     char buf[BLE_UUID_STR_LEN];
     const char * uuidAsStr = ble_uuid_to_str(reinterpret_cast<const ble_uuid_t *>(&uuid), buf);

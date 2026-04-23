@@ -224,8 +224,8 @@ void GpsTask::executeTask()
             if (m_logger)
                 m_logger->addNmeaLog(dataAsString);
 
-            // if (m_ble)
-            //     m_ble->appendData(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
+            if (m_ble)
+                 m_ble->appendNmea(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
 
             dataAsString.clear();
             
@@ -383,13 +383,8 @@ bool GpsTask::processNewLocation()
 
     {
         const std::array<std::string, 4> emulatedQstarz = emulateQstarzBinary(gpsInfo);
-        // const std::string messageWithBreaks = emulatedQstarz;
-        if (m_ble) {
-            for (const auto &packet: emulatedQstarz) {
-                m_ble->transmitLineNow(packet);
-                vTaskDelay(pdMS_TO_TICKS(GPS_TASK_BLE_TX_DELAY_MICROSEC));
-            }
-        }
+        if (m_ble)
+            m_ble->transmitQstarzPackets(emulatedQstarz);
     }
 
     {
@@ -662,15 +657,17 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     appendRaw(buf, &Gx,         2);
     appendRaw(buf, &Gy,         2);
     /// third
-    appendRaw(buf, &Gz,         2);
-    appendRaw(buf, &maxSNR,     2);
-    appendRaw(buf, &hdop,       4);
-    appendRaw(buf, &vdop,       4);
-    appendRaw(buf, &numSatView, 1);
-    appendRaw(buf, &numSatUse,  1);
-    appendRaw(buf, &fixQual,    1);
-    appendRaw(buf, &batPerc,    1);
-    appendRaw(buf, &dummy,      2);
+    appendRaw(buf, &Gz,         2); //  2
+    appendRaw(buf, &maxSNR,     2); //  4
+    appendRaw(buf, &hdop,       4); //  8
+    appendRaw(buf, &vdop,       4); // 12
+    
+    appendRaw(buf, &numSatView, 1); // 13
+    appendRaw(buf, &numSatUse,  1); // 14
+    appendRaw(buf, &fixQual,    1); // 15
+    appendRaw(buf, &batPerc,    1); // 16
+
+    appendRaw(buf, &dummy,      2); 
     appendRaw(buf, &series_number, 1);
 
     const uint8_t unknown_field1 = 0;
@@ -688,13 +685,13 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     packets[2].append(buf.cbegin() + 40, buf.cbegin() + 60);
     packets[3].append(buf.cbegin() + 60, buf.cbegin() + 64);
 
-    ESP_LOGI(LOGTASKTAG, "first packet.length: %u", packets[0].size());
-    ESP_LOGI(LOGTASKTAG, "first packet[0]: %u, should be 1, 2, 3", packets[0][0]);
-    ESP_LOGI(LOGTASKTAG, "third packet.length: %u", packets[2].size());
-    ESP_LOGI(LOGTASKTAG, "third packet[16]: %u", packets[2][16]);
-    ESP_LOGI(LOGTASKTAG, "third packet[17]: %u", packets[2][17]);
-    ESP_LOGI(LOGTASKTAG, "third packet[18]: %u", packets[2][18]);
-    ESP_LOGI(LOGTASKTAG, "third packet[19]: %u", packets[2][19]);
+    ESP_LOGD(LOGTASKTAG, "first packet.length: %u", packets[0].size());
+    ESP_LOGD(LOGTASKTAG, "first packet[0]: %u, should be 1, 2, 3", packets[0][0]);
+    ESP_LOGD(LOGTASKTAG, "third packet.length: %u", packets[2].size());
+    ESP_LOGD(LOGTASKTAG, "third packet[16]: %u", packets[2][16]);
+    ESP_LOGD(LOGTASKTAG, "third packet[17]: %u", packets[2][17]);
+    ESP_LOGD(LOGTASKTAG, "third packet[18]: %u", packets[2][18]);
+    ESP_LOGD(LOGTASKTAG, "third packet[19]: %u", packets[2][19]);
     
 
 
