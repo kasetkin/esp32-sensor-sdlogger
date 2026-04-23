@@ -63,6 +63,9 @@ static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_att
 
 esp_err_t SensorsTask::initAdc()
 {
+    /// should be the same in init config and calibretion!!!
+    const adc_atten_t ADC_ATTENUATION = ADC_ATTEN_DB_6;
+
     //-------------ADC1 Init---------------//
     adc_oneshot_unit_init_cfg_t init_config1 = {
         .unit_id = ADC_UNIT_1,
@@ -73,14 +76,14 @@ esp_err_t SensorsTask::initAdc()
 
     //-------------ADC1 Config---------------//
     adc_oneshot_chan_cfg_t config = {
-        .atten = ADC_ATTEN_DB_12,
+        .atten = ADC_ATTENUATION,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_2, &config));
 
     //-------------ADC1 Calibration Init---------------//
 
-    bool do_calibration1_chan0 = adc_calibration_init(ADC_UNIT_1, ADC_CHANNEL_2, ADC_ATTEN_DB_0, &adc1_cali_chan0_handle);
+    bool do_calibration1_chan0 = adc_calibration_init(ADC_UNIT_1, ADC_CHANNEL_2, ADC_ATTENUATION, &adc1_cali_chan0_handle);
     if (do_calibration1_chan0)
         return ESP_OK;
     else
@@ -139,6 +142,7 @@ int SensorsTask::readBatteryVoltageMilliV()
 //             + std::string(";");
 //     }
 // #endif
+    static const char * TAG = "ADC-measure";
 
     int adc_raw = 0;
     int voltage = 0;
@@ -151,7 +155,9 @@ int SensorsTask::readBatteryVoltageMilliV()
         voltage_mean += voltage;
     }
 
-    const int scaledVoltage = (voltage_mean * 4) / ADC_READS_COUNT; /// 4 because of ADC_12dB and 2 because of 200kOhm 2:1 divider 
+    const int scaledVoltage = voltage_mean / ADC_READS_COUNT;
+    ESP_LOGI(TAG, "ADC pin voltage: %d ", scaledVoltage);
+
     const double realVoltage = voltageDividerCoefficient * scaledVoltage;
     return static_cast<int>(realVoltage);
 }
