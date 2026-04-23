@@ -39,6 +39,10 @@ idf.py build
 idf.py -p PORT flash monitor
 ```
 
+## Dependencies
+
+Unicore PPPNAV message parsing is handled by a [forked version of TinyGPSPlus](https://github.com/kasetkin/TinyGPSPlus) (included as a git submodule) that extends the original library with support for Unicore proprietary NMEA sentences used for PPP/RTK positioning.
+
 ## Architecture
 
 Four FreeRTOS tasks run concurrently:
