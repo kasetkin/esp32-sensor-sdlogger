@@ -97,6 +97,7 @@ esp_err_t GpsTask::configureUM980()
     sendStringAndWait("GPGGA 1\r\n", reply);
     sendStringAndWait("GPGSA 1\r\n", reply);
     sendStringAndWait("GPRMC 1\r\n", reply);
+    sendStringAndWait("GPGSV 1\r\n", reply);
     /// Enable Unicore specific PPP messages
     sendStringAndWait("PPPNAVA 1\r\n", reply);
 
