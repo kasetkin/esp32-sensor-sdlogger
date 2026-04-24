@@ -361,8 +361,14 @@ bool GpsTask::processNewLocation()
         pppInfo.altStdDev = static_cast<float>(atof(pppnavAltStdDev.value()));
         pppInfo.satellites = static_cast<int32_t>(atol(pppnavSatellites.value()));
         pppInfo.solutionAge = static_cast<int32_t>(atol(pppnavSolAge.value()));
-        pppInfo.solutionStatus = parseSolutionStatus(pppnavSolStatus.value());
-        pppInfo.positionType = parsePositionType(pppnavPosType.value());
+        
+        const std::string solStatus(pppnavSolStatus.value());
+        const std::string posStatus(pppnavPosType.value());
+        ESP_LOGE(NEW_LOCATION_TAG, "PPP solution status ==%s==", solStatus.c_str());
+        ESP_LOGE(NEW_LOCATION_TAG, "PPP solution status ==%s==", posStatus.c_str());
+        pppInfo.solutionStatus = parseSolutionStatus(solStatus.c_str(), pppInfo.outputDelayMs);
+        pppInfo.positionType = parsePositionType(posStatus.c_str());
+
         pppInfo.datumId = parseDatumId(pppnavDatumId.value());
         pppInfo.stationId = parseStationId(pppnavStationId.value());
         pppInfo.serviceId = parsePppService(pppInfo.stationId);
