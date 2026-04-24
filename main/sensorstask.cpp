@@ -2,15 +2,17 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
 #include <esp_log.h>
+#include <esp_sleep.h>
+
+#include "common_utils.h"
 
 void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
 {
     m_readyEvent = readyEvent;
 }
 
-static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
+bool SensorsTask::adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
 {
     static const char * TAG = "ADC-calibration";
 
@@ -127,6 +129,10 @@ esp_err_t SensorsTask::init()
     if (i2cErr != ESP_OK)
         return i2cErr;
     
+    const esp_err_t timerErr = registerWakeupTimer(LOW_POWER_SLEEP_TIMER_DURATION_US);
+    if (timerErr != ESP_OK)
+        return timerErr;
+
     return ESP_OK;
 }
 
@@ -191,6 +197,15 @@ void SensorsTask::executeTask()
 
         const int batteryVoltageMilliV = readBatteryVoltageMilliV();
         const int batteryPercent = convertVoltageToPercent(batteryVoltageMilliV);
+
+        if (batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
+            ESP_LOGE(TAG, "battery voltage too low (%d), sleep", batteryVoltageMilliV);
+            correctLightSleep();
+
+            /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices 
+
+            continue;
+        }
 
         message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV) + std::string(";");
         message += std::string("BATPERC;") + std::to_string(batteryPercent) + std::string(";");
