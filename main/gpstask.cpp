@@ -598,13 +598,15 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
     return message;
 }
 
+template<typename T>
+void appendRaw(std::string &buf, const T &data)
+{
+    buf.append(reinterpret_cast<const char *>(&data), sizeof(T));
+}
+
+// Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
 std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
 {
-    // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
-    auto appendRaw = [](std::string &buf, const void *data, size_t size) {
-        buf.append(reinterpret_cast<const char *>(data), size);
-    };
-
     const auto epoch = p.worldTime.time_since_epoch();
     const auto secs = std::chrono::duration_cast<std::chrono::seconds>(epoch);
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch) - secs;
@@ -645,36 +647,36 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     std::string buf;
     buf.reserve(64);
     /// first
-    appendRaw(buf, &mode,       1);
-    appendRaw(buf, &rcr,        1);
-    appendRaw(buf, &time_ms,    2);
-    appendRaw(buf, &dLat,       8);
-    appendRaw(buf, &dLon,       8);
+    appendRaw(buf, mode);
+    appendRaw(buf, rcr);
+    appendRaw(buf, time_ms);
+    appendRaw(buf, dLat);
+    appendRaw(buf, dLon);
     /// second
-    appendRaw(buf, &time_s,     4);
-    appendRaw(buf, &speed_kmph, 4);
-    appendRaw(buf, &height_m,   4);
-    appendRaw(buf, &heading,    4);
-    appendRaw(buf, &Gx,         2);
-    appendRaw(buf, &Gy,         2);
+    appendRaw(buf, time_s);
+    appendRaw(buf, speed_kmph);
+    appendRaw(buf, height_m);
+    appendRaw(buf, heading);
+    appendRaw(buf, Gx);
+    appendRaw(buf, Gy);
     /// third
-    appendRaw(buf, &Gz,         2); //  2
-    appendRaw(buf, &maxSNR,     2); //  4
-    appendRaw(buf, &hdop,       4); //  8
-    appendRaw(buf, &vdop,       4); // 12
+    appendRaw(buf, Gz); //  2
+    appendRaw(buf, maxSNR); //  4
+    appendRaw(buf, hdop); //  8
+    appendRaw(buf, vdop); // 12
     
-    appendRaw(buf, &numSatView, 1); // 13
-    appendRaw(buf, &numSatUse,  1); // 14
-    appendRaw(buf, &fixQual,    1); // 15
-    appendRaw(buf, &batPerc,    1); // 16
+    appendRaw(buf, numSatView); // 13
+    appendRaw(buf, numSatUse); // 14
+    appendRaw(buf, fixQual); // 15
+    appendRaw(buf, batPerc); // 16
 
-    appendRaw(buf, &dummy,      2); 
-    appendRaw(buf, &series_number, 1);
+    appendRaw(buf, dummy); 
+    appendRaw(buf, series_number);
 
     const uint8_t unknown_field1 = 0;
     const uint32_t unknown_field2 = 0; 
-    appendRaw(buf, &unknown_field1, 1);
-    appendRaw(buf, &unknown_field2, 4);
+    appendRaw(buf, unknown_field1);
+    appendRaw(buf, unknown_field2);
 
     assert(buf.size() == 64);
 
