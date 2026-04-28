@@ -1,11 +1,45 @@
 #include "sensorstask.h"
 
+#include <cmath>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_log.h>
 #include <esp_sleep.h>
 
 #include "common_utils.h"
+
+std::string SensorsValues::toTelemetryRoundedString(const float value)
+{
+    std::string fullString = std::to_string(value);
+    const size_t dotPos = fullString.find('.');
+    if (dotPos == std::string::npos)
+        return fullString;
+
+    const size_t newLenght = std::min(dotPos + static_cast<size_t>(4), fullString.size());
+    fullString.resize(newLenght);
+    return fullString;
+}
+
+std::string SensorsValues::toString() const
+{
+    std::string message;
+    if (batteryVoltageMilliV > 0)
+        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV) + std::string(";");
+
+    if (batteryPercent > 0)
+        message += std::string("BATPERC;") + std::to_string(batteryPercent) + std::string(";");
+
+    if (!std::isnan(envTemperature))
+        message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature) + std::string(";");
+
+    if (!std::isnan(envHumidity))
+        message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity) + std::string(";");
+
+    if (!std::isnan(barometricPressure))
+        message += std::string("PRESS;") + toTelemetryRoundedString(barometricPressure) + std::string(";");
+
+    return message;
+}
 
 void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
 {
@@ -175,31 +209,16 @@ int SensorsTask::convertVoltageToPercent(int batteryVoltageMilliV)
     return std::max<double>(0.0f, std::min<double>(100.0, value));
 }
 
-std::string SensorsTask::toTelemetryRoundedString(const float value)
-{
-    std::string fullString = std::to_string(value);
-    const size_t dotPos = fullString.find('.');
-    if (dotPos == std::string::npos)
-        return fullString;
-
-    const size_t newLenght = std::min(dotPos + static_cast<size_t>(4), fullString.size());
-    fullString.resize(newLenght);
-    return fullString;
-}
-
-
-
 void SensorsTask::executeTask()
 {
     static const char * TAG = "sensors-task";
     while (true) {
-        std::string message;
+        SensorsValues v;
+        v.batteryVoltageMilliV = readBatteryVoltageMilliV();
+        v.batteryPercent = convertVoltageToPercent(v.batteryVoltageMilliV);
 
-        const int batteryVoltageMilliV = readBatteryVoltageMilliV();
-        const int batteryPercent = convertVoltageToPercent(batteryVoltageMilliV);
-
-        if (batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
-            ESP_LOGE(TAG, "battery voltage too low (%d), sleep", batteryVoltageMilliV);
+        if (v.batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
+            ESP_LOGE(TAG, "battery voltage too low (%d), sleep", v.batteryVoltageMilliV);
             correctLightSleep();
 
             /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices 
@@ -207,30 +226,16 @@ void SensorsTask::executeTask()
             continue;
         }
 
-        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV) + std::string(";");
-        message += std::string("BATPERC;") + std::to_string(batteryPercent) + std::string(";");
-
-        
-        float envTemperature = -275.0;
-        float envHumidity = -1.0;
-        const esp_err_t readError = sht3x_measure(&m_sht3dev, &envTemperature, &envHumidity);
+        const esp_err_t readError = sht3x_measure(&m_sht3dev, &v.envTemperature, &v.envHumidity);
         if (readError == ESP_OK) {
-            ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", envTemperature, envHumidity);
-
-            message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature) + std::string(";");
-            message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity) + std::string(";");
-
-            // if (!std::isnan(barometric_pressure))
-            //     result += std::string("PRESS;") + toTelemetryRoundedString(barometric_pressure) + std::string(";");
+            ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", v.envTemperature, v.envHumidity);
         } else {
             ESP_LOGE(TAG, "sensor read error: %d", readError);
-            envTemperature = -275.0;
-            envHumidity = -1.0;
+            v.envTemperature = std::numeric_limits<float>::quiet_NaN();
+            v.envHumidity = std::numeric_limits<float>::quiet_NaN();
         }        
 
-        ESP_LOGI(TAG, "new sensor values: %s", message.c_str());
-
-        m_readyEvent(batteryVoltageMilliV, batteryPercent, envTemperature, envHumidity, message);
+        m_readyEvent(v);
         vTaskDelay(pdMS_TO_TICKS(SENSORS_PERIOD_MS));
     }
 }

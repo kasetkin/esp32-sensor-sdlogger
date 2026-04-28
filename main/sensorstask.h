@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <numeric>
 #include <memory>
 #include <string>
 #include "esp_err.h"
@@ -11,15 +13,29 @@
 #include <i2cdev.h>
 #include <sht3x.h>
 
+struct SensorsValues
+{
+public:
+    int batteryVoltageMilliV = -1; 
+    int batteryPercent = -1;
+    float envTemperature = std::numeric_limits<float>::quiet_NaN();
+    float envHumidity = std::numeric_limits<float>::quiet_NaN();
+    float barometricPressure = std::numeric_limits<float>::quiet_NaN();
+
+    std::string toString() const;
+private:
+    /// always 3 digits after '.'
+    static std::string toTelemetryRoundedString(const float value);
+};
+
 class SensorsTask
 {
 public:
     esp_err_t init();
     void executeTask();
 
-    using SensorsReadyEvent = std::function<void(int batteryVoltage, int batteryPercent, float envTemperature, float envHumidity, const std::string &message)>;
+    using SensorsReadyEvent = std::function<void(const SensorsValues &values)>;
     void configureReadyEvent(SensorsReadyEvent readyEvent);
-
 private:
     /// BATTERY voltage sensor via ADC pin 
     static constexpr gpio_num_t VOLTAGE_PIN = GPIO_NUM_2;
@@ -44,8 +60,6 @@ private:
     SensorsReadyEvent m_readyEvent;
     sht3x_t m_sht3dev;
 
-    /// always 3 digits after '.'
-    static std::string toTelemetryRoundedString(const float value);
     static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
 
     esp_err_t initAdc();

@@ -119,14 +119,17 @@ extern "C" void app_main(void)
     gpsTask->setupBleTask(bleTask);
 
     ESP_LOGI(TAG, "configure Sensors::ReadyEvent (pass battery, temp, humidity to BLE task)");
-    sensorTask->configureReadyEvent([](int batteryVoltage, int batteryPercent, float envTemperature, float envHumidity, const std::string &message)
+    sensorTask->configureReadyEvent([](const SensorsValues &values)
     {
         ESP_LOGI(TAG, "Logger: ReadyEnevt");
+        const std::string message = values.toString();
         if (bleTask) {
-            ESP_LOGI(TAG, "Logger: ReadyEnevt: set sensors values: %d, %f, %f, %s", batteryPercent, envTemperature, envHumidity, message.c_str());
-            bleTask->setBatteryLevel(batteryPercent);
-            bleTask->setEnvTemperature(envTemperature);
-            bleTask->setEnvHumidity(envHumidity);
+            ESP_LOGI(TAG, "Logger: ReadyEnevt: set sensors values: %d, %f, %f, %s", 
+                values.batteryPercent, values.envTemperature, values.envHumidity, message.c_str());
+
+            bleTask->setBatteryLevel(values.batteryPercent);
+            bleTask->setEnvTemperature(values.envTemperature);
+            bleTask->setEnvHumidity(values.envHumidity);
         }
 
         if (loggerTask)
