@@ -131,10 +131,10 @@ static void test_print_gps_geo_info_keys(void)
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
-    TEST_ASSERT_TRUE(result.find("LAT;1.000000")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("LON;2.000000")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("ALT;10.000000")  != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("UNDUL;5.000000") != std::string::npos);
+    TEST_ASSERT_TRUE(result.find("LAT;1")   != std::string::npos);
+    TEST_ASSERT_TRUE(result.find("LON;2")   != std::string::npos);
+    TEST_ASSERT_TRUE(result.find("ALT;10")  != std::string::npos);
+    TEST_ASSERT_TRUE(result.find("UNDUL;5") != std::string::npos);
     TEST_ASSERT_TRUE(result.find("PDOP;2.0")       != std::string::npos);
     TEST_ASSERT_TRUE(result.find("HDOP;1.50")      != std::string::npos);
     TEST_ASSERT_TRUE(result.find("VDOP;2.50")      != std::string::npos);

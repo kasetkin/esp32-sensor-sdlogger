@@ -7,7 +7,7 @@ static SdCard g_sdCard;
 static bool g_sdMounted = false;
 
 static const std::string MOUNT_POINT = "/sdcard";
-static const std::string TEST_FILE   = MOUNT_POINT + "/unity_test.txt";
+static const std::string TEST_FILE   = "/unity_test.txt"; // relative — SdCard methods prepend mount point internally
 
 static void ensureMounted(void)
 {
@@ -39,7 +39,7 @@ static void test_hw_sdcard_write_read_back_matches(void)
     const char *content = "hello from unity\n";
     TEST_ASSERT_EQUAL(ESP_OK, g_sdCard.writeFile(TEST_FILE, content));
 
-    FILE *f = fopen(TEST_FILE.c_str(), "r");
+    FILE *f = fopen((MOUNT_POINT + TEST_FILE).c_str(), "r");
     TEST_ASSERT_NOT_NULL_MESSAGE(f, "fopen failed after writeFile");
 
     char buf[64];
@@ -58,7 +58,7 @@ static void test_hw_sdcard_append_adds_content(void)
     TEST_ASSERT_EQUAL(ESP_OK, g_sdCard.writeFile(TEST_FILE, "line1\n"));
     TEST_ASSERT_EQUAL(ESP_OK, g_sdCard.appendFile(TEST_FILE, "line2\n"));
 
-    FILE *f = fopen(TEST_FILE.c_str(), "r");
+    FILE *f = fopen((MOUNT_POINT + TEST_FILE).c_str(), "r");
     TEST_ASSERT_NOT_NULL(f);
 
     char buf[64];
@@ -73,8 +73,8 @@ static void test_hw_sdcard_append_adds_content(void)
 static void test_hw_sdcard_cleanup(void)
 {
     ensureMounted();
-    remove(TEST_FILE.c_str());
-    FILE *f = fopen(TEST_FILE.c_str(), "r");
+    remove((MOUNT_POINT + TEST_FILE).c_str());
+    FILE *f = fopen((MOUNT_POINT + TEST_FILE).c_str(), "r");
     TEST_ASSERT_NULL_MESSAGE(f, "test file should not exist after remove()");
 }
 
