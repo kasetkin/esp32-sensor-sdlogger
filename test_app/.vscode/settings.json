@@ -1,0 +1,5 @@
+{
+    "idf.currentSetup": "/home/kasetkin/.espressif/release-v6.0/esp-idf",
+    "idf.flashType": "UART",
+    "idf.port": "/dev/ttyACM0"
+}
