@@ -40,15 +40,16 @@ public:
 
     static int convertVoltageToPercent(int batteryVoltageMilliV);
 
+    static constexpr double MAX_VOLTAGE = 4090.0; // mV — fully charged Li-ion (measured)
+    static constexpr double MIN_VOLTAGE = 3200.0; // mV — empty (0 %)
+    static constexpr int LOW_DISCHARGE_VOLTAGE = 3150; // mV — deep-discharge sleep threshold
+
 private:
-    /// BATTERY voltage sensor via ADC pin 
+    /// BATTERY voltage sensor via ADC pin
     static constexpr gpio_num_t VOLTAGE_PIN = GPIO_NUM_2;
-    static constexpr double RESISTOR_GND_2_SENSOR = 4974; //5028;       //162500; //200000; // ~ 200 kOhm 
-    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967; //5020;      //162700; //200000;// ~ 200 kOhm 
+    static constexpr double RESISTOR_GND_2_SENSOR = 4974; //5028;       //162500; //200000; // ~ 200 kOhm
+    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967; //5020;      //162700; //200000;// ~ 200 kOhm
     static constexpr double voltageDividerCoefficient = (RESISTOR_GND_2_SENSOR + RESISTOR_SENSOR_2_VBAT) / RESISTOR_GND_2_SENSOR;
-    static constexpr double MAX_VOLTAGE = 4090.0f; // V * 10^-3, 4095 is maximum measured value by device ADC when battery is charged
-    static constexpr double MIN_VOLTAGE = 3200.0f; // V * 10^-3
-    static constexpr int LOW_DISCHARGE_VOLTAGE = 3150; // V * 10^-3
     static constexpr uint32_t SENSORS_PERIOD_MS = 1 * 1000;
     static constexpr uint32_t LOW_POWER_SLEEP_TIMER_DURATION_US = 5 * 1000 * 1000; 
     static constexpr size_t ADC_READS_COUNT = 10;
