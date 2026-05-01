@@ -6,6 +6,7 @@ set(srcs
     test_sensors.cpp
     test_gps.cpp
     test_unicore.cpp
+    test_ppp.cpp
     test_sdcard.cpp
     ${MAIN_SRC}/sensorstask.cpp
     ${MAIN_SRC}/loggertask.cpp
