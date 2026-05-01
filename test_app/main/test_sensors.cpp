@@ -24,6 +24,19 @@ static void test_telemetry_rounded_trailing_zeros(void)
         SensorsValues::toTelemetryRoundedString(1.5f).c_str());
 }
 
+static void test_telemetry_negative_value(void)
+{
+    // -40.125 is exactly representable in float (= -(32+8+1/8))
+    TEST_ASSERT_EQUAL_STRING("-40.125",
+        SensorsValues::toTelemetryRoundedString(-40.125f).c_str());
+}
+
+static void test_telemetry_large_whole_number(void)
+{
+    TEST_ASSERT_EQUAL_STRING("125",
+        SensorsValues::toTelemetryRoundedString(125.0f).c_str());
+}
+
 // ── SensorsValues::toString ──────────────────────────────────────────────────
 
 static void test_to_string_empty_defaults(void)
@@ -80,31 +93,85 @@ static void test_to_string_omits_nan_fields(void)
     TEST_ASSERT_TRUE(result.find("PRESS") == std::string::npos);
 }
 
+static void test_to_string_min_temperature(void)
+{
+    SensorsValues v;
+    v.envTemperature = -40.0f;  // SHT3x lower limit
+    TEST_ASSERT_EQUAL_STRING("TEMP;-40;", v.toString().c_str());
+}
+
+static void test_to_string_max_temperature(void)
+{
+    SensorsValues v;
+    v.envTemperature = 125.0f;  // SHT3x upper limit
+    TEST_ASSERT_EQUAL_STRING("TEMP;125;", v.toString().c_str());
+}
+
+static void test_to_string_max_humidity(void)
+{
+    SensorsValues v;
+    v.envHumidity = 100.0f;
+    TEST_ASSERT_EQUAL_STRING("HUMID;100;", v.toString().c_str());
+}
+
+static void test_to_string_zero_humidity(void)
+{
+    SensorsValues v;
+    v.envHumidity = 0.0f;  // not NaN — must be included in output
+    TEST_ASSERT_EQUAL_STRING("HUMID;0;", v.toString().c_str());
+}
+
 // ── SensorsTask::convertVoltageToPercent ─────────────────────────────────────
+
+static constexpr int V_MAX = static_cast<int>(SensorsTask::MAX_VOLTAGE);
+static constexpr int V_MIN = static_cast<int>(SensorsTask::MIN_VOLTAGE);
+static constexpr int V_MID = static_cast<int>((SensorsTask::MIN_VOLTAGE + SensorsTask::MAX_VOLTAGE) / 2.0);
 
 static void test_convert_voltage_max_gives_100(void)
 {
-    TEST_ASSERT_EQUAL_INT(100, SensorsTask::convertVoltageToPercent(4200));
+    TEST_ASSERT_EQUAL_INT(100, SensorsTask::convertVoltageToPercent(V_MAX));
 }
 
 static void test_convert_voltage_min_gives_0(void)
 {
-    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(3300));
+    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(V_MIN));
 }
 
 static void test_convert_voltage_midpoint_gives_50(void)
 {
-    TEST_ASSERT_EQUAL_INT(50, SensorsTask::convertVoltageToPercent(3750));
+    TEST_ASSERT_EQUAL_INT(50, SensorsTask::convertVoltageToPercent(V_MID));
 }
 
 static void test_convert_voltage_clamps_below_min(void)
 {
-    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(2000));
+    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(V_MIN - 500));
 }
 
 static void test_convert_voltage_clamps_above_max(void)
 {
-    TEST_ASSERT_EQUAL_INT(100, SensorsTask::convertVoltageToPercent(5000));
+    TEST_ASSERT_EQUAL_INT(100, SensorsTask::convertVoltageToPercent(V_MAX + 500));
+}
+
+static void test_convert_voltage_just_below_min_clamps_to_0(void)
+{
+    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(V_MIN - 1));
+}
+
+static void test_convert_voltage_just_above_min_truncates_to_0(void)
+{
+    // 1/(MAX-MIN)*100 < 1 for any realistic range → truncates to 0
+    TEST_ASSERT_EQUAL_INT(0, SensorsTask::convertVoltageToPercent(V_MIN + 1));
+}
+
+static void test_convert_voltage_just_below_max_gives_99(void)
+{
+    // (MAX-1-MIN)/(MAX-MIN)*100 = 100 - 100/DELTA, which truncates to 99 for any DELTA > 1
+    TEST_ASSERT_EQUAL_INT(99, SensorsTask::convertVoltageToPercent(V_MAX - 1));
+}
+
+static void test_convert_voltage_just_above_max_clamps_to_100(void)
+{
+    TEST_ASSERT_EQUAL_INT(100, SensorsTask::convertVoltageToPercent(V_MAX + 1));
 }
 
 // ── Hardware: ADC calibration + SHT3x ────────────────────────────────────────
@@ -147,6 +214,8 @@ void run_sensors_tests(void)
     RUN_TEST(test_telemetry_rounded_3_digits);
     RUN_TEST(test_telemetry_rounded_whole_number);
     RUN_TEST(test_telemetry_rounded_trailing_zeros);
+    RUN_TEST(test_telemetry_negative_value);
+    RUN_TEST(test_telemetry_large_whole_number);
     RUN_TEST(test_to_string_empty_defaults);
     RUN_TEST(test_to_string_includes_batvolt);
     RUN_TEST(test_to_string_skips_batperc_zero);
@@ -154,11 +223,19 @@ void run_sensors_tests(void)
     RUN_TEST(test_to_string_includes_temp);
     RUN_TEST(test_to_string_includes_humid);
     RUN_TEST(test_to_string_omits_nan_fields);
+    RUN_TEST(test_to_string_min_temperature);
+    RUN_TEST(test_to_string_max_temperature);
+    RUN_TEST(test_to_string_max_humidity);
+    RUN_TEST(test_to_string_zero_humidity);
     RUN_TEST(test_convert_voltage_max_gives_100);
     RUN_TEST(test_convert_voltage_min_gives_0);
     RUN_TEST(test_convert_voltage_midpoint_gives_50);
     RUN_TEST(test_convert_voltage_clamps_below_min);
     RUN_TEST(test_convert_voltage_clamps_above_max);
+    RUN_TEST(test_convert_voltage_just_below_min_clamps_to_0);
+    RUN_TEST(test_convert_voltage_just_above_min_truncates_to_0);
+    RUN_TEST(test_convert_voltage_just_below_max_gives_99);
+    RUN_TEST(test_convert_voltage_just_above_max_clamps_to_100);
     RUN_TEST(test_hw_sensors_init);
     RUN_TEST(test_hw_sht3x_values_in_range);
 }
