@@ -9,6 +9,7 @@ set(srcs
     test_ppp.cpp
     test_crc.cpp
     test_sdcard.cpp
+    test_geodistance.cpp
     ${MAIN_SRC}/sensorstask.cpp
     ${MAIN_SRC}/loggertask.cpp
     ${MAIN_SRC}/gpstask.cpp

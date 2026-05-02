@@ -9,6 +9,7 @@ extern void run_unicore_tests(void);
 extern void run_ppp_tests(void);
 extern void run_crc_tests(void);
 extern void run_sdcard_tests(void);
+extern void run_geodistance_tests(void);
 
 extern "C" void app_main(void)
 {
@@ -20,6 +21,7 @@ extern "C" void app_main(void)
     run_ppp_tests();
     run_crc_tests();
     run_sdcard_tests();
+    run_geodistance_tests();
     UNITY_END();
 
     while (true) {

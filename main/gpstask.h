@@ -74,6 +74,7 @@ public:
     static std::array<std::string, 4> emulateQstarzBinary(const GpsInfo &p);
     static std::string printPppTimeInfo(const PppInfo &p);
     static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
+    static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
 
 private:
     const char * NMEA_MSG_GXGSA = "GNGSA"; // GSA message (GPGSA, GNGSA etc)
@@ -104,7 +105,6 @@ private:
     TinyGPSCustom pppnavStationId; /// can be converted to System (B2b, E6-HAS, etc)
     
     static void logNmeaMessageToSd(const std::string &msg);
-    static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
 
     /// default delay between send and receive
     void gpsUartDelay();

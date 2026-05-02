@@ -421,7 +421,21 @@ std::string GpsTask::dopToMeters(const uint32_t dop)
 
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
 {
-    return 0.0;
+    constexpr double R          = 6371000.0;
+    constexpr double DEG_TO_RAD = M_PI / 180.0;
+
+    const double dLat    = (lat2 - lat1) * DEG_TO_RAD;
+    const double dLon    = (lon2 - lon1) * DEG_TO_RAD;
+    const double lat1Rad = lat1 * DEG_TO_RAD;
+    const double lat2Rad = lat2 * DEG_TO_RAD;
+
+    const double sinDLat = std::sin(dLat / 2.0);
+    const double sinDLon = std::sin(dLon / 2.0);
+    const double a = sinDLat * sinDLat
+                   + std::cos(lat1Rad) * std::cos(lat2Rad) * sinDLon * sinDLon;
+    const double c = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+
+    return R * c;
 }
 
 
