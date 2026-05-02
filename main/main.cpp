@@ -136,6 +136,28 @@ extern "C" void app_main(void)
             loggerTask->setSensorsLog(message);
     });
 
+    ESP_LOGI(TAG, "configure BLE command handler");
+    bleTask->configureCommandReceivedEvent([](const std::string &cmd)
+    {
+        std::string trimmed = cmd;
+        while (!trimmed.empty() && (trimmed.back() == '\r' || trimmed.back() == '\n'))
+            trimmed.pop_back();
+
+        ESP_LOGI(TAG, "BLE command received: [%s]", trimmed.c_str());
+
+        if (trimmed == "wifi=enable") {
+            ESP_LOGI(TAG, "wifi=enable: not yet implemented");
+        } else if (trimmed == "wifi=disable") {
+            ESP_LOGI(TAG, "wifi=disable: not yet implemented");
+        } else if (trimmed == "led=on") {
+            enableUserLED(true);
+        } else if (trimmed == "led=off") {
+            enableUserLED(false);
+        } else if (!trimmed.empty() && gpsTask) {
+            gpsTask->sendData((trimmed + "\r\n").c_str());
+        }
+    });
+
 
     ESP_LOGI(TAG, "start Logger task");
     xTaskCreate([](void *)

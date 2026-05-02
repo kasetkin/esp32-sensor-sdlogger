@@ -18,7 +18,32 @@ A DIY data logger for the ESP32 that records high-precision GNSS position, tempe
 |---|---|
 | Battery Service (0x180F) | Battery level % |
 | Environmental Sensing (0x181A) | Temperature, Humidity |
-| Nordic UART / SPP | Raw NMEA stream, Qstarz binary packets, full log stream |
+| Nordic UART / SPP | Raw NMEA stream, Qstarz binary packets, full log stream, command input |
+
+### Sending commands over BLE
+
+Write a UTF-8 string to the **TX characteristic** (`6E400003-B5A3-F393-E0A9-E50E24DCCA9E`) of the Nordic UART service. The device strips trailing `\r\n` and dispatches the command.
+
+#### Built-in commands
+
+| Command | Effect |
+|---|---|
+| `led=on` | Turns the user LED on |
+| `led=off` | Turns the user LED off |
+| `wifi=enable` | *(reserved — not yet implemented)* |
+| `wifi=disable` | *(reserved — not yet implemented)* |
+
+#### Forwarding commands to the UM980
+
+Any unrecognised command is forwarded verbatim to the UM980 GNSS module over UART with `\r\n` appended. This allows sending standard Unicore configuration commands directly from a BLE terminal app, for example:
+
+```
+FRESET
+CONFIG SIGNALGROUP 2
+PPPNAV 0.1
+```
+
+> **Tip:** [nRF Connect](https://www.nordicsemi.com/Products/Development-tools/nRF-Connect-for-mobile) and [Serial Bluetooth Terminal](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal) both support writing to GATT characteristics and work well for this.
 
 ## Hardware
 

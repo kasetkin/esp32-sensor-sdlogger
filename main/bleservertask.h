@@ -3,6 +3,7 @@
 #define STATIC_PASSKEY
 
 #include <stdbool.h>
+#include <functional>
 #include <mutex>
 #include <array>
 #include <vector>
@@ -11,8 +12,6 @@
 #include "nimble/ble.h"
 #include "nimble/nimble_port_freertos.h"
 
-
-/* Define new custom service */
 
 class BleSppServerTask
 {
@@ -27,6 +26,9 @@ public:
     void appendLog(const std::string &newNmea);
     void transmitQstarzPackets(const std::array<std::string, 4> &packets);
 
+    using CommandReceivedEvent = std::function<void(const std::string &command)>;
+    void configureCommandReceivedEvent(CommandReceivedEvent event);
+
 private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;
@@ -38,6 +40,8 @@ private:
     static uint16_t ble_nmea_read_val_handle;
     static uint16_t ble_qstarz_read_val_handle;
     static uint16_t ble_full_log_read_val_handle;
+    static uint16_t ble_tx_write_val_handle;
+    static BleSppServerTask *s_instance;
 
     static constexpr uint32_t TX_DELAY_MICROSEC = 10;
 
@@ -56,10 +60,7 @@ private:
     /// some info can be found here: https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/bluetooth/services/nus.html
     static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";         // NordicSemiCond value for UART (SPP mode in classic bluetooth)
     static constexpr char BLE_CHR_NMEA_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";        // NMEA (and more) output from GNSS module (default UART RX from NordicSemiCond)
-    
-    /// \todo implement sending commands from BLE to UM980 module
-    static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
-    
+    static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";          // UART input (send to UM980) and some custom cmds
     static constexpr char BLE_CHR_QSTARZ_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";      // from "qstarz" racing gps, binary format, 4 packets (20 + 20 + 20 + 4) bytes
     static constexpr char BLE_CHR_FULL_LOG_UUID128_VALUE[] = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E";    // full log, same as SD card "xxx.log" file
     
@@ -81,6 +82,8 @@ private:
     // static const ble_gatt_chr_def spp_characteristics[];
     // static const ble_gatt_svc_def new_ble_svc_gatt_defs[];
 
+
+    CommandReceivedEvent m_commandReceivedEvent;
 
     mutable std::mutex m_dataMutex;
     mutable std::mutex m_dataTxMutex;
