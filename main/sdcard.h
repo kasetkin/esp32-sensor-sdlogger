@@ -3,12 +3,18 @@
 #include <optional>
 #include <memory>
 #include "esp_err.h"
+#include "driver/gpio.h"
 #include "sd_protocol_types.h"
 #include "hal/spi_types.h"
 
 class SdCard
 {
 public:
+    static constexpr gpio_num_t PIN_NUM_MISO = GPIO_NUM_20;
+    static constexpr gpio_num_t PIN_NUM_MOSI = GPIO_NUM_18;
+    static constexpr gpio_num_t PIN_NUM_CLK = GPIO_NUM_19;
+    static constexpr gpio_num_t PIN_NUM_CS = GPIO_NUM_21;
+
     esp_err_t format();
     esp_err_t mountFilesystem(const std::string &mountPoint = "/sdcard");
     esp_err_t unmount();
@@ -24,7 +30,7 @@ public:
     esp_err_t appendFile(const std::string &path, const char *data);
 
     /// filename should start with "/", for example "/myfile.txt"
-    esp_err_t readFile(const std::string &path);
+    // esp_err_t readFileExample(const std::string &path);
 private:
     std::unique_ptr<sdmmc_card_t> m_card;
     spi_host_device_t m_spiDevice = SPI_HOST_MAX;

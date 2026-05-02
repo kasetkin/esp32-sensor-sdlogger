@@ -16,14 +16,13 @@
 struct SensorsValues
 {
 public:
-    int batteryVoltageMilliV = -1; 
+    int batteryVoltageMilliV = -1;
     int batteryPercent = -1;
     float envTemperature = std::numeric_limits<float>::quiet_NaN();
     float envHumidity = std::numeric_limits<float>::quiet_NaN();
     float barometricPressure = std::numeric_limits<float>::quiet_NaN();
 
     std::string toString() const;
-private:
     /// always 3 digits after '.'
     static std::string toTelemetryRoundedString(const float value);
 };
@@ -32,19 +31,25 @@ class SensorsTask
 {
 public:
     esp_err_t init();
+    ~SensorsTask();
     void executeTask();
+    esp_err_t readEnvironment(float &temperature, float &humidity);
 
     using SensorsReadyEvent = std::function<void(const SensorsValues &values)>;
     void configureReadyEvent(SensorsReadyEvent readyEvent);
+
+    static int convertVoltageToPercent(int batteryVoltageMilliV);
+
+    static constexpr double MAX_VOLTAGE = 4090.0; // mV — fully charged Li-ion (measured)
+    static constexpr double MIN_VOLTAGE = 3200.0; // mV — empty (0 %)
+    static constexpr int LOW_DISCHARGE_VOLTAGE = 3150; // mV — deep-discharge sleep threshold
+
 private:
-    /// BATTERY voltage sensor via ADC pin 
+    /// BATTERY voltage sensor via ADC pin
     static constexpr gpio_num_t VOLTAGE_PIN = GPIO_NUM_2;
-    static constexpr double RESISTOR_GND_2_SENSOR = 4974; //5028;       //162500; //200000; // ~ 200 kOhm 
-    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967; //5020;      //162700; //200000;// ~ 200 kOhm 
+    static constexpr double RESISTOR_GND_2_SENSOR = 4974; //5028;       //162500; //200000; // ~ 200 kOhm
+    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967; //5020;      //162700; //200000;// ~ 200 kOhm
     static constexpr double voltageDividerCoefficient = (RESISTOR_GND_2_SENSOR + RESISTOR_SENSOR_2_VBAT) / RESISTOR_GND_2_SENSOR;
-    static constexpr double MAX_VOLTAGE = 4200.0f; // V * 10^-3
-    static constexpr double MIN_VOLTAGE = 3300.0f; // V * 10^-3
-    static constexpr int LOW_DISCHARGE_VOLTAGE = 3200; // V * 10^-3
     static constexpr uint32_t SENSORS_PERIOD_MS = 1 * 1000;
     static constexpr uint32_t LOW_POWER_SLEEP_TIMER_DURATION_US = 5 * 1000 * 1000; 
     static constexpr size_t ADC_READS_COUNT = 10;
@@ -57,13 +62,16 @@ private:
     
     adc_oneshot_unit_handle_t adc1_handle = nullptr;
     adc_cali_handle_t adc1_cali_chan0_handle = nullptr;
+    bool m_i2cInitialized = false;
     SensorsReadyEvent m_readyEvent;
     sht3x_t m_sht3dev;
 
     static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
+    static void adc_calibration_deinit(adc_cali_handle_t handle);
 
     esp_err_t initAdc();
     esp_err_t initI2C();
+    void deinitAdc();
+    void deinitI2C();
     int readBatteryVoltageMilliV();
-    int convertVoltageToPercent(int batteryVoltageMilliV);
 };

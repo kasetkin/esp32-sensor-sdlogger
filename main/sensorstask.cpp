@@ -122,8 +122,10 @@ esp_err_t SensorsTask::initAdc()
     bool do_calibration1_chan0 = adc_calibration_init(ADC_UNIT_1, ADC_CHANNEL_2, ADC_ATTENUATION, &adc1_cali_chan0_handle);
     if (do_calibration1_chan0)
         return ESP_OK;
-    else
-        return ESP_FAIL;
+
+    adc_oneshot_del_unit(adc1_handle);
+    adc1_handle = nullptr;
+    return ESP_FAIL;
 }
 
 esp_err_t SensorsTask::initI2C() 
@@ -139,15 +141,19 @@ esp_err_t SensorsTask::initI2C()
     const esp_err_t descriptorInitErr = sht3x_init_desc(&m_sht3dev, SHT3X_ADDR, SHT3X_I2C_PORT, I2C_MASTER_SDA, I2C_MASTER_SCL);
     if (descriptorInitErr != ESP_OK) {
         ESP_LOGE(TAG, "can not init I2C descriptor structure: %d err", descriptorInitErr);
+        i2cdev_done();
         return ESP_FAIL;
     }
 
     const esp_err_t sensorInitErr = sht3x_init(&m_sht3dev);
     if (sensorInitErr != ESP_OK) {
         ESP_LOGE(TAG, "can not init SHT3X sensor via I2C: %d err", sensorInitErr);
+        sht3x_free_desc(&m_sht3dev);
+        i2cdev_done();
         return ESP_FAIL;
     }
 
+    m_i2cInitialized = true;
     return ESP_OK;
 }
 
@@ -155,19 +161,61 @@ esp_err_t SensorsTask::init()
 {
     static const char * TAG = "sensors-init";
     ESP_LOGI(TAG, "init all sensors: start");
+
+    deinitI2C();
+    deinitAdc();
+
     const esp_err_t adcErr = initAdc();
     if (adcErr != ESP_OK)
         return adcErr;
 
     const esp_err_t i2cErr = initI2C();
-    if (i2cErr != ESP_OK)
+    if (i2cErr != ESP_OK) {
+        deinitAdc();
         return i2cErr;
-    
+    }
+
     const esp_err_t timerErr = registerWakeupTimer(LOW_POWER_SLEEP_TIMER_DURATION_US);
     if (timerErr != ESP_OK)
         return timerErr;
 
     return ESP_OK;
+}
+
+SensorsTask::~SensorsTask()
+{
+    deinitI2C();
+    deinitAdc();
+}
+
+void SensorsTask::adc_calibration_deinit(adc_cali_handle_t handle)
+{
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_delete_scheme_curve_fitting(handle);
+#elif ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
+    adc_cali_delete_scheme_line_fitting(handle);
+#endif
+}
+
+void SensorsTask::deinitAdc()
+{
+    if (adc1_cali_chan0_handle) {
+        adc_calibration_deinit(adc1_cali_chan0_handle);
+        adc1_cali_chan0_handle = nullptr;
+    }
+    if (adc1_handle) {
+        adc_oneshot_del_unit(adc1_handle);
+        adc1_handle = nullptr;
+    }
+}
+
+void SensorsTask::deinitI2C()
+{
+    if (!m_i2cInitialized)
+        return;
+    sht3x_free_desc(&m_sht3dev);
+    i2cdev_done();
+    m_i2cInitialized = false;
 }
 
 int SensorsTask::readBatteryVoltageMilliV()
@@ -200,6 +248,11 @@ int SensorsTask::readBatteryVoltageMilliV()
 
     const double realVoltage = voltageDividerCoefficient * scaledVoltage;
     return static_cast<int>(realVoltage);
+}
+
+esp_err_t SensorsTask::readEnvironment(float &temperature, float &humidity)
+{
+    return sht3x_measure(&m_sht3dev, &temperature, &humidity);
 }
 
 int SensorsTask::convertVoltageToPercent(int batteryVoltageMilliV)

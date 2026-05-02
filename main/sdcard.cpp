@@ -4,15 +4,7 @@
 
 #include "sdcard.h"
 
-//! \todo remove
-#define EXAMPLE_MAX_CHAR_SIZE    64
-
-#define PIN_NUM_MISO  GPIO_NUM_20
-#define PIN_NUM_MOSI  GPIO_NUM_18
-#define PIN_NUM_CLK   GPIO_NUM_19
-#define PIN_NUM_CS    GPIO_NUM_21
-
-static const char *TAGSD = "example";
+static const char *TAGSD = "sdcard-log";
 
 esp_err_t SdCard::writeFile(const std::string &path, const char *data)
 {
@@ -46,28 +38,30 @@ esp_err_t SdCard::appendFile(const std::string &path, const char *data)
     return ESP_OK;
 }
 
-esp_err_t SdCard::readFile(const std::string &path)
-{
-    const std::string pathWithMount = m_mountPoint + path;
-    ESP_LOGI(TAGSD, "Reading file %s", path);
-    FILE *f = fopen(pathWithMount.c_str(), "r");
-    if (f == NULL) {
-        ESP_LOGE(TAGSD, "Failed to open file for reading");
-        return ESP_FAIL;
-    }
-    char line[EXAMPLE_MAX_CHAR_SIZE];
-    fgets(line, sizeof(line), f);
-    fclose(f);
-
-    // strip newline
-    char *pos = strchr(line, '\n');
-    if (pos) {
-        *pos = '\0';
-    }
-    ESP_LOGI(TAGSD, "Read from file: '%s'", line);
-
-    return ESP_OK;
-}
+// esp_err_t SdCard::readFileExample(const std::string &path)
+// {
+//     const std::string pathWithMount = m_mountPoint + path;
+//     ESP_LOGI(TAGSD, "Reading file %s", path);
+//     FILE *f = fopen(pathWithMount.c_str(), "r");
+//     if (f == NULL) {
+//         ESP_LOGE(TAGSD, "Failed to open file for reading");
+//         return ESP_FAIL;
+//     }
+//
+//     constexpr size_t EXAMPLE_MAX_CHAR_SIZE = 64;
+//     char line[EXAMPLE_MAX_CHAR_SIZE];
+//     fgets(line, sizeof(line), f);
+//     fclose(f);
+//
+//     // strip newline
+//     char *pos = strchr(line, '\n');
+//     if (pos) {
+//         *pos = '\0';
+//     }
+//     ESP_LOGI(TAGSD, "Read from file: '%s'", line);
+//
+//     return ESP_OK;
+// }
 
 esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
 {

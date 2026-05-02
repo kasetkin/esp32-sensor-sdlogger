@@ -31,11 +31,6 @@ struct GpsInfo
     uint8_t fixType = 0;      // fix type from GPGSA
 };
 
-struct QstarzMessage 
-{
-    /// \todo @claudecode
-};
-
 class GpsTask
 {
 public:
@@ -67,6 +62,15 @@ public:
     bool processNewLocation();
     int sendData(const char* data);
     int sendStringAndWait(const std::string &str, std::string &reply);
+
+    static std::string dopToMeters(const uint32_t dop);
+    static std::string printGpsTimeInfo(const GpsInfo &p);
+    static std::string printGpsGeoInfo(const GpsInfo &p);
+    static std::array<std::string, 4> emulateQstarzBinary(const GpsInfo &p);
+    static std::string printPppTimeInfo(const PppInfo &p);
+    static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
+    static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
+
 private:
     const char * NMEA_MSG_GXGSA = "GNGSA"; // GSA message (GPGSA, GNGSA etc)
     const char * UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
@@ -96,13 +100,6 @@ private:
     TinyGPSCustom pppnavStationId; /// can be converted to System (B2b, E6-HAS, etc)
     
     static void logNmeaMessageToSd(const std::string &msg);
-    static std::string dopToMeters(const uint32_t dop);
-    static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
-    static std::string printGpsTimeInfo(const GpsInfo &p);
-    static std::string printGpsGeoInfo(const GpsInfo &p);
-    static std::string printPppTimeInfo(const PppInfo &p);
-    static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
-    static std::array<std::string, 4> emulateQstarzBinary(const GpsInfo &p);
 
     /// default delay between send and receive
     void gpsUartDelay();
