@@ -13,8 +13,6 @@
 #include "nimble/nimble_port_freertos.h"
 
 
-/* Define new custom service */
-
 class BleSppServerTask
 {
 public:
