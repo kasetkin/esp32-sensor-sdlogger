@@ -531,7 +531,7 @@ int BleSppServerTask::gatt_svr_init()
     static const ble_uuid128_t BLE_CHR_NMEA_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
     static const ble_uuid128_t BLE_CHR_QSTARZ_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
     static const ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
-    static ble_uuid128_t BLE_CHR_TX_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
+    static const ble_uuid128_t BLE_CHR_TX_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
 
     printUuid(BLE_CHR_NMEA_UUID128);
     printUuid(BLE_CHR_QSTARZ_UUID128);
@@ -546,9 +546,19 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
             .min_key_size = 0,
             .val_handle = &ble_nmea_read_val_handle,
+            .cpfd = nullptr
+        },
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_TX_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_WRITE,
+            .min_key_size = 0,
+            .val_handle = &ble_tx_write_val_handle,
             .cpfd = nullptr
         },
         {
@@ -569,16 +579,6 @@ int BleSppServerTask::gatt_svr_init()
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
             .min_key_size = 0,
             .val_handle = &ble_full_log_read_val_handle,
-            .cpfd = nullptr
-        },
-        {
-            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_TX_UUID128),
-            .access_cb = ble_svc_gatt_handler,
-            .arg = nullptr,
-            .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_WRITE,
-            .min_key_size = 0,
-            .val_handle = &ble_tx_write_val_handle,
             .cpfd = nullptr
         },
         { }
