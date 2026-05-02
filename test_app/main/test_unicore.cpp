@@ -272,6 +272,55 @@ static void test_parse_latlon_short_fraction(void)
     TEST_ASSERT_EQUAL_INT32(11200000, parseDegreesLatLon("1.12"));
 }
 
+// ── parseSolutionStatus — INSUFFICIENT_OBS ────────────────────────────────────
+
+static void test_parse_solution_status_insufficient_obs(void)
+{
+    uint16_t delay = 0;
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::INSUFFICIENT_OBS),
+                          static_cast<int>(parseSolutionStatus("INSUFFICIENT_OBS", delay)));
+}
+
+// ── solutionStatusStr — completeness ─────────────────────────────────────────
+
+static void test_solution_status_str_insufficient_obs(void)
+{
+    TEST_ASSERT_EQUAL_STRING("INSUFFICIENT_OBS",
+        solutionStatusStr(PppSolutionStatus::INSUFFICIENT_OBS).c_str());
+}
+
+static void test_solution_status_str_no_value(void)
+{
+    TEST_ASSERT_EQUAL_STRING("NO_VALUE",
+        solutionStatusStr(PppSolutionStatus::NO_VALUE).c_str());
+}
+
+// ── serviceIdStr — completeness ───────────────────────────────────────────────
+
+static void test_service_id_str_rxn(void)
+{
+    TEST_ASSERT_EQUAL_STRING("RXN", serviceIdStr(PppService::RXN).c_str());
+}
+
+static void test_service_id_str_no_value(void)
+{
+    TEST_ASSERT_EQUAL_STRING("NO_VALUE", serviceIdStr(PppService::NO_VALUE).c_str());
+}
+
+// ── parsePppService — alternative station IDs ─────────────────────────────────
+
+static void test_parse_ppp_service_9960_beidou(void)
+{
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::BEIDOU),
+                          static_cast<int>(parsePppService(9960)));
+}
+
+static void test_parse_ppp_service_9936_qzss(void)
+{
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::QZSS),
+                          static_cast<int>(parsePppService(9936)));
+}
+
 void run_unicore_tests(void)
 {
     RUN_TEST(test_parse_latlon_zero);
@@ -315,4 +364,11 @@ void run_unicore_tests(void)
     RUN_TEST(test_parse_latlon_180_degrees);
     RUN_TEST(test_parse_latlon_7_decimal_places);
     RUN_TEST(test_parse_latlon_short_fraction);
+    RUN_TEST(test_parse_solution_status_insufficient_obs);
+    RUN_TEST(test_solution_status_str_insufficient_obs);
+    RUN_TEST(test_solution_status_str_no_value);
+    RUN_TEST(test_service_id_str_rxn);
+    RUN_TEST(test_service_id_str_no_value);
+    RUN_TEST(test_parse_ppp_service_9960_beidou);
+    RUN_TEST(test_parse_ppp_service_9936_qzss);
 }
