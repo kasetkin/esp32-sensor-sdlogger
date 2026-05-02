@@ -326,6 +326,64 @@ static void test_emulate_qstarz_equator_prime_meridian(void)
     TEST_ASSERT_EQUAL(4,  packets[3].size());
 }
 
+// ── GpsTask::hasLock / has3DLock — untested Quality values ───────────────────
+
+static void test_has_lock_true_dgps_3d(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::DGPS;
+    info.fixType = 3;
+    TEST_ASSERT_TRUE(GpsTask::hasLock(info));
+}
+
+static void test_has_lock_true_pps_3d(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::PPS;
+    info.fixType = 3;
+    TEST_ASSERT_TRUE(GpsTask::hasLock(info));
+}
+
+static void test_has_lock_false_estimated(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::Estimated;
+    info.fixType = 3;
+    TEST_ASSERT_FALSE(GpsTask::hasLock(info));
+}
+
+static void test_has_3d_lock_true_dgps(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::DGPS;
+    info.fixType = 3;
+    TEST_ASSERT_TRUE(GpsTask::has3DLock(info));
+}
+
+static void test_has_3d_lock_true_pps(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::PPS;
+    info.fixType = 3;
+    TEST_ASSERT_TRUE(GpsTask::has3DLock(info));
+}
+
+static void test_has_3d_lock_false_pps_2d(void)
+{
+    GpsInfo info;
+    info.quality = TinyGPSLocation::Quality::PPS;
+    info.fixType = 2;
+    TEST_ASSERT_FALSE(GpsTask::has3DLock(info));
+}
+
+// ── GpsTask::dopToMeters — sentinel value ────────────────────────────────────
+
+static void test_dop_bad_value(void)
+{
+    // BAD_DOP=666000000: div(666000000,100) → quot=6660000, rem=0
+    TEST_ASSERT_EQUAL_STRING("6660000.0", GpsTask::dopToMeters(GpsInfo::BAD_DOP).c_str());
+}
+
 static void test_emulate_qstarz_south_pole_dateline(void)
 {
     GpsInfo info;
@@ -375,4 +433,11 @@ void run_gps_tests(void)
     RUN_TEST(test_emulate_qstarz_rcr_byte_is_T);
     RUN_TEST(test_emulate_qstarz_equator_prime_meridian);
     RUN_TEST(test_emulate_qstarz_south_pole_dateline);
+    RUN_TEST(test_has_lock_true_dgps_3d);
+    RUN_TEST(test_has_lock_true_pps_3d);
+    RUN_TEST(test_has_lock_false_estimated);
+    RUN_TEST(test_has_3d_lock_true_dgps);
+    RUN_TEST(test_has_3d_lock_true_pps);
+    RUN_TEST(test_has_3d_lock_false_pps_2d);
+    RUN_TEST(test_dop_bad_value);
 }

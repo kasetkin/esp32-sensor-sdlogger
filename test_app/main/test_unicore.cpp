@@ -229,6 +229,49 @@ static void test_datum_id_str_b2b(void)
         datumIdStr(PppDatumId::B2b).c_str());
 }
 
+// ── parseDegreesLatLon — negative values and precision edge cases ─────────────
+
+static void test_parse_latlon_negative_south_pole(void)
+{
+    // -90.0 → -(90 * 10000000) = -900000000
+    TEST_ASSERT_EQUAL_INT32(-900000000, parseDegreesLatLon("-90.0000000"));
+}
+
+static void test_parse_latlon_negative_dateline(void)
+{
+    // -180.0 → -(180 * 10000000) = -1800000000
+    TEST_ASSERT_EQUAL_INT32(-1800000000, parseDegreesLatLon("-180.0000000"));
+}
+
+static void test_parse_latlon_negative_small(void)
+{
+    // -0.5 → -(0 * 10000000 + 5000000) = -5000000
+    TEST_ASSERT_EQUAL_INT32(-5000000, parseDegreesLatLon("-0.5000000"));
+}
+
+static void test_parse_latlon_negative_invalid(void)
+{
+    // bare '-' followed by non-digit → still returns BAD
+    TEST_ASSERT_EQUAL_INT32(PPP_BAD_LATLON, parseDegreesLatLon("-invalid"));
+}
+
+static void test_parse_latlon_180_degrees(void)
+{
+    TEST_ASSERT_EQUAL_INT32(1800000000, parseDegreesLatLon("180.0000000"));
+}
+
+static void test_parse_latlon_7_decimal_places(void)
+{
+    // all 7 decimal digits consumed: 1 * 10000000 + 1234567 = 11234567
+    TEST_ASSERT_EQUAL_INT32(11234567, parseDegreesLatLon("1.1234567"));
+}
+
+static void test_parse_latlon_short_fraction(void)
+{
+    // only 2 decimal digits: 1 * 10000000 + 1200000 = 11200000
+    TEST_ASSERT_EQUAL_INT32(11200000, parseDegreesLatLon("1.12"));
+}
+
 void run_unicore_tests(void)
 {
     RUN_TEST(test_parse_latlon_zero);
@@ -265,4 +308,11 @@ void run_unicore_tests(void)
     RUN_TEST(test_service_id_str_galileo);
     RUN_TEST(test_datum_id_str_wgs84);
     RUN_TEST(test_datum_id_str_b2b);
+    RUN_TEST(test_parse_latlon_negative_south_pole);
+    RUN_TEST(test_parse_latlon_negative_dateline);
+    RUN_TEST(test_parse_latlon_negative_small);
+    RUN_TEST(test_parse_latlon_negative_invalid);
+    RUN_TEST(test_parse_latlon_180_degrees);
+    RUN_TEST(test_parse_latlon_7_decimal_places);
+    RUN_TEST(test_parse_latlon_short_fraction);
 }
