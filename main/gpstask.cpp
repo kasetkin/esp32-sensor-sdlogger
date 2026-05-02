@@ -96,7 +96,10 @@ esp_err_t GpsTask::configureUM980()
     sendStringAndWait("UNMASK IRNSS\r\n", reply); /// NavIC, Indian
     sendStringAndWait("MASK 0.0\r\n", reply); /// mask elevation angle
 
-    /// configure NMEA messages
+    /// disable currently enabled messages
+    sendStringAndWait("UNLOG\r\n", reply);
+
+    /// enable necessary NMEA messages
     sendStringAndWait("GPGGA 1\r\n", reply);
     sendStringAndWait("GPGSA 1\r\n", reply);
     sendStringAndWait("GPRMC 1\r\n", reply);
