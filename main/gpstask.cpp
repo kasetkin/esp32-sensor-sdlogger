@@ -53,7 +53,10 @@ esp_err_t GpsTask::configureUM980()
     ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
     /// check for receiver
     sendStringAndWait("VERSION\r\n", reply);
-    //! \todo check if answer contains UM980
+    if (reply.find("UM980") == std::string::npos) {
+        ESP_LOGE(LOGTASKTAG, "UM980 not detected, VERSION reply: %s", reply.c_str());
+        return ESP_FAIL;
+    }
 
     /// request config, only for debug
     sendStringAndWait("CONFIG\r\n", reply);
