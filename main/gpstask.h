@@ -31,11 +31,6 @@ struct GpsInfo
     uint8_t fixType = 0;      // fix type from GPGSA
 };
 
-struct QstarzMessage 
-{
-    /// \todo @claudecode
-};
-
 class GpsTask
 {
 public:
