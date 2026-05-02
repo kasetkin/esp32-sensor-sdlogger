@@ -30,6 +30,9 @@ ble_uuid16_t BleSppServerTask::BLE_SVC_BATTERY_UUID16 = BleSppServerTask::buildB
 ble_uuid16_t BleSppServerTask::BLE_SVC_ENV_SENSING_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
 ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
 
+uint16_t BleSppServerTask::ble_tx_write_val_handle = 0;
+BleSppServerTask *BleSppServerTask::s_instance = nullptr;
+
 void BleSppServerTask::printBleAddress(const uint8_t value[])
 {
     if (value != nullptr)
@@ -418,7 +421,16 @@ int BleSppServerTask::ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_h
         break;
 
     case BLE_GATT_ACCESS_OP_WRITE_CHR:
-        MODLOG_DFLT(INFO, "Data received in write event,conn_handle = %x,attr_handle = %x", conn_handle, attr_handle);
+        MODLOG_DFLT(INFO, "Write event conn=%x attr=%x", conn_handle, attr_handle);
+        if (attr_handle == ble_tx_write_val_handle && s_instance
+                && s_instance->m_commandReceivedEvent) {
+            constexpr uint16_t MAX_CMD = 512;
+            const uint16_t pktlen = static_cast<uint16_t>(OS_MBUF_PKTLEN(ctxt->om));
+            const uint16_t len = pktlen < MAX_CMD ? pktlen : MAX_CMD;
+            char buf[MAX_CMD + 1] = {};
+            os_mbuf_copydata(ctxt->om, 0, len, buf);
+            s_instance->m_commandReceivedEvent(std::string(buf, len));
+        }
         break;
 
     default:
@@ -457,6 +469,11 @@ void BleSppServerTask::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
         assert(0);
         break;
     }
+}
+
+void BleSppServerTask::configureCommandReceivedEvent(CommandReceivedEvent event)
+{
+    m_commandReceivedEvent = std::move(event);
 }
 
 int BleSppServerTask::gatt_svr_init()
@@ -514,10 +531,14 @@ int BleSppServerTask::gatt_svr_init()
     static const ble_uuid128_t BLE_CHR_NMEA_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
     static const ble_uuid128_t BLE_CHR_QSTARZ_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
     static const ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
+    static ble_uuid128_t BLE_CHR_TX_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
 
     printUuid(BLE_CHR_NMEA_UUID128);
     printUuid(BLE_CHR_QSTARZ_UUID128);
     printUuid(BLE_CHR_FULL_LOG_UUID128);
+    printUuid(BLE_CHR_TX_UUID128);
+
+    s_instance = this;
 
     static const ble_gatt_chr_def uart_characteristics[] = {
         {
@@ -548,6 +569,16 @@ int BleSppServerTask::gatt_svr_init()
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
             .min_key_size = 0,
             .val_handle = &ble_full_log_read_val_handle,
+            .cpfd = nullptr
+        },
+        {
+            .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_TX_UUID128),
+            .access_cb = ble_svc_gatt_handler,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_WRITE,
+            .min_key_size = 0,
+            .val_handle = &ble_tx_write_val_handle,
             .cpfd = nullptr
         },
         { }
