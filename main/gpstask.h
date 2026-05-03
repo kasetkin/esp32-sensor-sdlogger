@@ -3,6 +3,8 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <vector>
+#include <set>
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "TinyGPSPlus.h"    /// TinyGPSLocation
@@ -12,12 +14,34 @@
 
 struct PppInfo;
 
+struct SatelliteInfo {
+    uint8_t prn       = 0;
+    int16_t elevation = -1;   // degrees; -1 = unknown
+    int16_t azimuth   = -1;   // degrees
+    int16_t cn0       = -1;   // dB-Hz; -1 = no signal
+
+    bool operator==(const SatelliteInfo &o) const {
+        return prn == o.prn && elevation == o.elevation
+            && azimuth == o.azimuth && cn0 == o.cn0;
+    }
+    bool operator<(const SatelliteInfo &o) const {
+        if (prn != o.prn)
+            return prn < o.prn;
+        if (elevation != o.elevation)
+            return elevation < o.elevation;
+        if (azimuth != o.azimuth)
+            return azimuth < o.azimuth;
+        return cn0 < o.cn0;
+    }
+};
+
 struct GpsInfo
 {
     static constexpr double BAD_LATLON = -999999999.0;
     static constexpr double BAD_ALTITUDE = -12000000.0;
     static constexpr uint32_t BAD_DOP = 666000000;
 
+    std::set<SatelliteInfo> satellites;   // satellites used in fix, from all GNGSA
     // TinyGPSLocation location;
     std::chrono::system_clock::time_point worldTime;
     double lat = BAD_LATLON;
@@ -36,6 +60,7 @@ class GpsTask
 public:
     static constexpr uint32_t GPS_TASK_DELAY_MS = 30;
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
+    static constexpr uint32_t GPS_TASK_REBOOT_DELAY_MICROSEC = 6 * 1000;
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
     static constexpr int UART_TX_GPIO_PIN = GPIO_NUM_16;
     static constexpr int UART_RX_GPIO_PIN = GPIO_NUM_17;
@@ -73,6 +98,7 @@ public:
 
 private:
     const char * NMEA_MSG_GXGSA = "GNGSA"; // GSA message (GPGSA, GNGSA etc)
+    const char * NMEA_MSG_GXGGA = "GNGGA"; // GGA message (GPGGA, GNGGA etc)
     const char * UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
 
     std::shared_ptr<LoggerTask> m_logger;
@@ -83,6 +109,11 @@ private:
     TinyGPSCustom gsapdop;    // custom extract PDOP from GPGSA, GSA element #15
     TinyGPSCustom gsahdop;    // custom extract HDOP from GPGSA, GSA element #16
     TinyGPSCustom gsavdop;    // custom extract VDOP from GPGSA, GSA element #17
+    static constexpr int GSA_SAT_FIELDS = 12;
+    TinyGPSCustom gsaSat[GSA_SAT_FIELDS];            // GNGSA fields 3–14 (satellite PRNs)
+
+    TinyGPSCustom ggaEpoch;                          // detects each new GGA (epoch boundary)
+    std::set<SatelliteInfo> m_pendingSatellites;     // accumulates across multiple GNGSA per epoch
     TinyGPSCustom pppnavWeek;
     TinyGPSCustom pppnavSecsOFWeek;
     TinyGPSCustom pppnavLeapSecs;

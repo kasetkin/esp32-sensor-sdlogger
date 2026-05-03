@@ -51,6 +51,14 @@ esp_err_t GpsTask::configureUM980()
 {
     std::string reply;
     ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
+
+    sendStringAndWait("UNLOG\r\n", reply);
+    gpsUartDelay();
+    gpsUartDelay();
+    gpsUartDelay();
+    gpsUartDelay();
+    gpsUartDelay();
+
     /// check for receiver
     sendStringAndWait("VERSION\r\n", reply);
     if (reply.find("UM980") == std::string::npos) {
@@ -67,7 +75,6 @@ esp_err_t GpsTask::configureUM980()
     // sendStringAndWait("CONFIG COM3 115200\r\n");
     // sendStringAndWait("SAVECONFIG\r\n");
 
-    sendStringAndWait("CONFIG SIGNALGROUP 2\r\n", reply);
     sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n", reply);
     sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n", reply);
     /// 'AUTO' or 'E6-HAS' or 'B2b-PPP' or 'SSR-RX' or 'L6MDCPPP' ?
@@ -113,16 +120,29 @@ esp_err_t GpsTask::configureUM980()
     //sendStringAndWait("OBSVMA 1\r\n");
 
     sendStringAndWait("SAVECONFIG\r\n", reply);
+
+    /// nice to have, but it will reboot UM980 module =( and it's not
+    sendStringAndWait("CONFIG SIGNALGROUP 2\r\n", reply);
+    if (reply.find("system is rebooting") != std::string::npos) {
+        ESP_LOGI(LOGTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %d ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
+        vTaskDelay(pdMS_TO_TICKS(GPS_TASK_REBOOT_DELAY_MICROSEC));
+    }
+
     ESP_LOGI(LOGTASKTAG, "UM980 configuration: success");
     return ESP_OK;
 }
 
 esp_err_t GpsTask::configureTinyGps()
 {
+    ggaEpoch.begin(m_gps, NMEA_MSG_GXGGA, 6);
+
     gsafixtype.begin(m_gps, NMEA_MSG_GXGSA, 2);
     gsapdop.begin(m_gps, NMEA_MSG_GXGSA, 15);
     gsahdop.begin(m_gps, NMEA_MSG_GXGSA, 16);
     gsavdop.begin(m_gps, NMEA_MSG_GXGSA, 17);
+
+    for (int i = 0; i < GSA_SAT_FIELDS; ++i)
+        gsaSat[i].begin(m_gps, NMEA_MSG_GXGSA, 3 + i);
 
     pppnavWeek.begin(m_gps, UNICORE_MSG_PPPNAV, 4);
     pppnavSecsOFWeek.begin(m_gps, UNICORE_MSG_PPPNAV, 5);
@@ -225,8 +245,36 @@ void GpsTask::executeTask()
             ESP_LOGI(GPS_TASK_TAG, "Read %u bytes: '%s'", dataAsString.size(), dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
-            for (auto c : dataAsString)
+            for (const auto c : dataAsString) {
                 m_gps.encode(c);
+
+                bool gsaUpdated = true;
+                for (const auto &gsaX: gsaSat)
+                    gsaUpdated = gsaUpdated && gsaX.isUpdated();
+
+                if (gsaUpdated) {
+                    ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
+                    for (int i = 0; i < GSA_SAT_FIELDS; ++i) {
+                        const uint8_t prn = static_cast<uint8_t>(atoi(gsaSat[i].value()));
+                        if (prn != 0) {
+                            SatelliteInfo sat{};
+                            sat.prn = prn;
+                            m_pendingSatellites.insert(sat);
+                            ESP_LOGV(GPS_TASK_TAG, "satellite %u", prn);
+                        }
+                    }
+                }
+
+                const bool allNew = m_gps.location.isUpdated() 
+                    && m_gps.altitude.isUpdated()
+                    && pppnavSolStatus.isUpdated()
+                    && ggaEpoch.isUpdated();
+                if (allNew) {
+                    const bool newLocation = processNewLocation();
+                    if (newLocation)
+                        ESP_LOGI(GPS_TASK_TAG, "new location reported");
+                }
+            }
 
             if (m_logger)
                 m_logger->addNmeaLog(dataAsString);
@@ -238,10 +286,6 @@ void GpsTask::executeTask()
             
             if (m_gps.location.isValid())
                 ESP_LOGI(GPS_TASK_TAG, "Valid location from GPS");
-
-            const bool newLocation = processNewLocation();
-            if (newLocation)
-                ESP_LOGI(GPS_TASK_TAG, "new location reported");
         }
 
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
@@ -293,12 +337,24 @@ bool GpsTask::processNewLocation()
     static const char * NEW_LOCATION_TAG = "read-gps-location";
     ESP_LOGD(NEW_LOCATION_TAG, "start reading GPS location");
 
-    if (!m_gps.location.isUpdated() && !m_gps.altitude.isUpdated()) {
-        ESP_LOGD(NEW_LOCATION_TAG, "GPS location or altitude is not updated, no new GPS logs");
+    ///first check if everything is updated
+    const bool allNew = m_gps.location.isUpdated() 
+        && m_gps.altitude.isUpdated()
+        && pppnavSolStatus.isUpdated()
+        && ggaEpoch.isUpdated();
+
+    if (!allNew) {
+        ESP_LOGD(NEW_LOCATION_TAG, "not all NMEA/Unicore messages accumulated, wait for them");
         return false;
     }
 
     ESP_LOGI(NEW_LOCATION_TAG, "location and altitude are updated");
+
+    GpsInfo gpsInfo{};
+    /// move now to clear m_pendingSatellites buffer even if location is bad and we 'return false;'
+    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %d", m_pendingSatellites.size());
+    gpsInfo.satellites = std::move(m_pendingSatellites);
+
     if (!m_gps.location.isValid()) {
         ESP_LOGD(NEW_LOCATION_TAG, "GPS location is invalid, no new GPS logs");
         return false;
@@ -317,7 +373,6 @@ bool GpsTask::processNewLocation()
 
     ESP_LOGI(NEW_LOCATION_TAG, "location, GSA-fix, time, date are fresh and valid");
 
-    GpsInfo gpsInfo{};
     gpsInfo.fixType = atoi(gsafixtype.value()); // will set to zero if no data
     gpsInfo.quality = m_gps.location.FixQuality();
     gpsInfo.lat = m_gps.location.lat();
@@ -328,7 +383,10 @@ bool GpsTask::processNewLocation()
     if (!hasLock(gpsInfo))
         return false;
     
-    ESP_LOGI(NEW_LOCATION_TAG, "GPS has 2D lock");
+    if (has3DLock(gpsInfo))
+        ESP_LOGI(NEW_LOCATION_TAG, "GPS has 3D lock");
+    else
+        ESP_LOGI(NEW_LOCATION_TAG, "GPS has 2D lock");
 
     // We know the solution is fresh and valid, so just read the data
     {
@@ -457,7 +515,7 @@ std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
         /// $ /usr/local/bin/Gravity -n egm96 --input-string "27.988 86.925" -H
         /// and result sould be ~ "-28.7422" in meters
     message += std::string(";UNDUL;") + std::to_string(p.geoidAlt);
-    message += std::string(";SATS;") + std::string("0"); //std::to_string(p.sats_in_view)
+    message += std::string(";SATS;") + std::to_string(p.satellites.size());
     message += std::string(";PDOP;") + dopToMeters(p.gsaPDOP);
     message += std::string(";HDOP;") + dopToMeters(p.gsaHDOP);
     message += std::string(";VDOP;") + dopToMeters(p.gsaVDOP);
@@ -657,8 +715,9 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const uint16_t maxSNR = 0;
     const float hdop = static_cast<float>(p.gsaHDOP) / 100.0f;
     const float vdop = static_cast<float>(p.gsaVDOP) / 100.0f;
-    const uint8_t numSatView = 0;
-    const uint8_t numSatUse = 0;
+    const uint8_t numSatUse = static_cast<uint8_t>(
+        std::min(p.satellites.size(), static_cast<size_t>(255)));
+    const uint8_t numSatView = numSatUse;   // GSA = used sats; view requires GSV (future)
     const uint8_t fixQual = static_cast<uint8_t>(p.quality);
     const uint8_t batPerc = 0;
     const uint16_t dummy = 0;
