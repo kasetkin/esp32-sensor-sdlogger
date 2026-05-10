@@ -71,6 +71,7 @@ void LoggerTask::executeTask()
         /// write-lock inside
         doLogging();
             
+        lastLogTime = millisFromStart();
         vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
     }
 }
