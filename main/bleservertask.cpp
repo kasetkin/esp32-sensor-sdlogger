@@ -734,7 +734,8 @@ void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_h
         /* Check if client has subscribed to notifications */
         if (conn_handle_subs[i]) {
 
-            const size_t attMtu = ble_att_mtu(i);
+            // const size_t attMtu = ble_att_mtu(i);
+            const size_t attMtu = 250; /// HARDCODED VALUE
             constexpr size_t attHeaderSize = 3; // ATT notification header: 1 opcode + 2 handle
             if (attMtu <= attHeaderSize) {
                 MODLOG_DFLT(ERROR, "BLE connection %d with strangely small MTU: %zu. Can not transmitt data", i, attMtu);
