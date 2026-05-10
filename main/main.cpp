@@ -13,7 +13,8 @@
 #include "errortask.h"
 #include "bleservertask.h"
 
-static const char *TAG = "example";
+static const char *TAG = "main-body";
+const uint32_t DEFAULT_TASK_STACK_SIZE = 16384;
 #define EXAMPLE_MAX_CHAR_SIZE    64
 
 static std::shared_ptr<GpsTask> gpsTask;
@@ -28,7 +29,7 @@ void startErrorTask(ErrorTask::ErrorCode code)
     xTaskCreate([](void *)
     { 
         errorTask->execute();
-    }, "error_task", 4096, nullptr, 6, nullptr);
+    }, "error_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 }
 
 extern "C" void app_main(void)
@@ -163,19 +164,19 @@ extern "C" void app_main(void)
     xTaskCreate([](void *)
     { 
         loggerTask->executeTask();
-    }, "logger_task", 4096, nullptr, 6, nullptr);
+    }, "logger_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "listen from GPS module, start task");
     xTaskCreate([](void *)
     { 
         gpsTask->executeTask();
-    }, "gps_task", 4096, nullptr, 6, nullptr);
+    }, "gps_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "read sensors, start task");
     xTaskCreate([](void *)
     { 
         sensorTask->executeTask();
-    }, "sensors_task", 4096, nullptr, 6, nullptr);
+    }, "sensors_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     startErrorTask(ErrorTask::ErrorCode::ecOK);
 }
