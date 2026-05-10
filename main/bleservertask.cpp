@@ -36,7 +36,7 @@ BleSppServerTask *BleSppServerTask::s_instance = nullptr;
 void BleSppServerTask::printBleAddress(const uint8_t value[])
 {
     if (value != nullptr)
-        MODLOG_DFLT(INFO, "addr = %d%d%d%d%d%d", value[0], value[1], value[2], value[3], value[4], value[5]);
+        MODLOG_DFLT(INFO, "addr = %u%u%u%u%u%u", value[0], value[1], value[2], value[3], value[4], value[5]);
 }
 
 ble_uuid16_t BleSppServerTask::buildBleUuid16(const uint16_t value)

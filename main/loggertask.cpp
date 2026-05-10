@@ -60,11 +60,11 @@ void LoggerTask::executeTask()
     static const char * LOGTASKTAG = "LogTask";
     while (true) {
         const unsigned long thisMoment = millisFromStart();
-        ESP_LOGI(LOGTASKTAG, "SdLoggerModule | runOnce, time is %d", thisMoment);
+        ESP_LOGI(LOGTASKTAG, "SdLoggerModule | runOnce, time is %lu", thisMoment);
 
         if (thisMoment < lastLogTime + LOG_PERIOD_MS) {
             const unsigned long timeToSleep = LOG_PERIOD_MS + lastLogTime - thisMoment + 1;
-            ESP_LOGI(LOGTASKTAG, "too early, sleep for %d millisec", timeToSleep);
+            ESP_LOGI(LOGTASKTAG, "too early, sleep for %lu millisec", timeToSleep);
             vTaskDelay(pdMS_TO_TICKS(timeToSleep));
         }
         

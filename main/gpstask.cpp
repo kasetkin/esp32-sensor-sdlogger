@@ -125,7 +125,7 @@ esp_err_t GpsTask::configureUM980()
     /// nice to have, but it will reboot UM980 module =( and it's not
     sendStringAndWait("CONFIG SIGNALGROUP 2\r\n", reply);
     if (reply.find("system is rebooting") != std::string::npos) {
-        ESP_LOGI(LOGTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %d ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
+        ESP_LOGI(LOGTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %u ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_REBOOT_DELAY_MICROSEC));
     }
 
@@ -769,12 +769,12 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     packets[3].append(buf.cbegin() + 60, buf.cbegin() + 64);
 
     ESP_LOGD(LOGTASKTAG, "first packet.length: %zu", packets[0].size());
-    ESP_LOGD(LOGTASKTAG, "first packet[0]: %u, should be 1, 2, 3", packets[0][0]);
+    ESP_LOGD(LOGTASKTAG, "first packet[0]: %d, should be 1, 2, 3", packets[0][0]);
     ESP_LOGD(LOGTASKTAG, "third packet.length: %zu", packets[2].size());
-    ESP_LOGD(LOGTASKTAG, "third packet[16]: %u", packets[2][16]);
-    ESP_LOGD(LOGTASKTAG, "third packet[17]: %u", packets[2][17]);
-    ESP_LOGD(LOGTASKTAG, "third packet[18]: %u", packets[2][18]);
-    ESP_LOGD(LOGTASKTAG, "third packet[19]: %u", packets[2][19]);
+    ESP_LOGD(LOGTASKTAG, "third packet[16]: %d", packets[2][16]);
+    ESP_LOGD(LOGTASKTAG, "third packet[17]: %d", packets[2][17]);
+    ESP_LOGD(LOGTASKTAG, "third packet[18]: %d", packets[2][18]);
+    ESP_LOGD(LOGTASKTAG, "third packet[19]: %d", packets[2][19]);
     
 
 
