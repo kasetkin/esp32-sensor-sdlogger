@@ -66,7 +66,6 @@ int hex2val(char c, uint8_t *value)
 
 ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
 {
-    ble_uuid_any_t result{};
     MODLOG_DFLT(INFO, "build UUID128 from %s", str);
 
     /// doesn't work as expected with UUID128 with "0000" in the begining
@@ -105,7 +104,6 @@ ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
         answer.value[i] = a * 16 + b;
     }
 
-    result.u128 = answer;
     return answer;
 }
 
@@ -887,6 +885,9 @@ void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
 
 void BleSppServerTask::sendAllData()
 {
+    if (!serverIsReady)
+        return;
+
     std::unique_lock readLock(m_dataMutex);
 
     for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
@@ -931,7 +932,7 @@ void BleSppServerTask::dataSenderTaskInit()
     { 
         auto asObject = reinterpret_cast<BleSppServerTask *>(bleTask);
         asObject->bleSenderTask();
-    }, "bleSppTask", 4096, this, 8, nullptr);
+    }, "bleSppTask", 16384, this, 6, nullptr);
 }
 
 void BleSppServerTask::startServer()
@@ -939,15 +940,10 @@ void BleSppServerTask::startServer()
     BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
     printUuid(BleSppServerTask::BLE_SVC_SPP_UUID128);
 
-    /* Initialize NVS — it is used to store PHY calibration data */
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
+    /// already done in main.cpp
+    // esp_err_t ret = nvs_flash_init();
 
-    ret = nimble_port_init();
+    esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK) {
         MODLOG_DFLT(ERROR, "Failed to init nimble %d \n", ret);
         return;
@@ -992,18 +988,20 @@ void BleSppServerTask::startServer()
     }
 
     nimble_port_freertos_init(ble_spp_server_host_task);
+    /// now can start sending data
+    serverIsReady = true;
 }
 
 void BleSppServerTask::printUuid(const ble_uuid16_t &uuid)
 {
     char buf[BLE_UUID_STR_LEN];
     const char * uuidAsStr = ble_uuid_to_str(reinterpret_cast<const ble_uuid_t *>(&uuid), buf);
-    MODLOG_DFLT(INFO, "uuid: type = %d, value = %s", uuid.u, uuidAsStr);
+    MODLOG_DFLT(INFO, "uuid: type = %u, value = %s", uuid.u, uuidAsStr);
 }
 
 void BleSppServerTask::printUuid(const ble_uuid128_t &uuid)
 {
     char buf[BLE_UUID_STR_LEN];
     const char * uuidAsStr = ble_uuid_to_str(reinterpret_cast<const ble_uuid_t *>(&uuid), buf);
-    MODLOG_DFLT(INFO, "uuid: type = %d, value = %s", uuid.u, uuidAsStr);
+    MODLOG_DFLT(INFO, "uuid: type = %u, value = %s", uuid.u, uuidAsStr);
 }
