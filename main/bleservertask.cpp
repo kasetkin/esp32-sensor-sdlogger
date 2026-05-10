@@ -19,6 +19,7 @@
 
 uint8_t BleSppServerTask::own_addr_type = 0;
 bool BleSppServerTask::conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
+std::mutex BleSppServerTask::m_dataMutex;
 uint16_t BleSppServerTask::ble_battery_read_val_handle = 0;
 uint16_t BleSppServerTask::ble_temperature_read_val_handle = 1;
 uint16_t BleSppServerTask::ble_humidity_read_val_handle = 2;
@@ -247,6 +248,10 @@ void BleSppServerTask::ble_spp_server_advertise()
  */
 int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void *arg)
 {
+    /// here can change number of connection -> 
+    /// conn_handle_subs[i] can change, than will modify sender logic
+    std::unique_lock readLock(m_dataMutex);
+
     struct ble_gap_conn_desc desc;
     int rc;
 
@@ -632,18 +637,27 @@ int BleSppServerTask::gatt_svr_init()
 
 void BleSppServerTask::setBatteryLevel(float level)
 {
+    if (std::isnan(level))
+        return;
+
     std::unique_lock writeLock(m_dataMutex);
     m_batteryLevel = level;
 }
 
 void BleSppServerTask::setEnvHumidity(float humidity)
 {
+    if (std::isnan(humidity))
+        return;
+
     std::unique_lock writeLock(m_dataMutex);
     m_envHumidity = humidity;
 }
 
 void BleSppServerTask::setEnvTemperature(float temperature)
 {
+    if (std::isnan(temperature))
+        return;
+
     std::unique_lock writeLock(m_dataMutex);
     m_envTemperature = temperature;
 }
@@ -662,6 +676,8 @@ void BleSppServerTask::appendLog(const std::string &newLog)
 
 void BleSppServerTask::transmitQstarzPackets(const std::array<std::string, 4> &packets)
 {
+    std::unique_lock readLock(m_dataMutex);
+
     for (const auto &packet: packets) {
         transmitLineNow(packet, ble_qstarz_read_val_handle);
         vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MICROSEC));
@@ -672,6 +688,11 @@ inline int BleSppServerTask::bleTx(const void *from, size_t length, uint16_t con
 {
     struct os_mbuf *txom;
     txom = ble_hs_mbuf_from_flat(from, length);
+    if (txom == nullptr) {
+        MODLOG_DFLT(ERROR, "can not allocate buffer, length %zu", length);
+        return ESP_FAIL;
+    }
+
     const int rc = ble_gatts_notify_custom(connHandle, valueHandle, txom);
     /// wait 1 millisec, not sure it's necessary 
     // constexpr size_t txDelay = 1; 
@@ -683,8 +704,6 @@ void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_h
 {
     if (line.size() == 0)
         return;
-
-    std::unique_lock txLock(m_dataTxMutex);
 
     MODLOG_DFLT(DEBUG, "transmitLineNow: valueHandle = %d, line ###%s###", value_handle, line.c_str());
 
@@ -734,6 +753,9 @@ void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_h
 
 void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 {
+    if (m_batteryLevel < 0)
+        return;
+
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr)
         return;
@@ -763,6 +785,9 @@ void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 
 void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
 {
+    if (m_envHumidity < 0)
+        return;
+
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr)
         return;
@@ -792,6 +817,9 @@ void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
 
 void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
 {
+    if (m_envTemperature < -274.0)
+        return;
+
     MODLOG_DFLT(DEBUG, "BLE: transmit temperature value %f", m_envTemperature);
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr) {

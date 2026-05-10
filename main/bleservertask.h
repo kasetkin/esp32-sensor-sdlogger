@@ -33,6 +33,7 @@ private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;
     static bool conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
+    static std::mutex m_dataMutex; /// protect connections states and data
 
     static uint16_t ble_battery_read_val_handle;
     static uint16_t ble_temperature_read_val_handle;
@@ -82,16 +83,12 @@ private:
     // static const ble_gatt_chr_def spp_characteristics[];
     // static const ble_gatt_svc_def new_ble_svc_gatt_defs[];
 
-
-    CommandReceivedEvent m_commandReceivedEvent;
-
-    mutable std::mutex m_dataMutex;
-    mutable std::mutex m_dataTxMutex;
     float m_batteryLevel = -1.0;
     float m_envTemperature = -275.0;
     float m_envHumidity = -1.0;
     std::vector<std::string> m_nmeaStream;
     std::vector<std::string> m_logStream;
+    CommandReceivedEvent m_commandReceivedEvent;
 
     static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
     static int ble_spp_server_gap_event(struct ble_gap_event *event, void *arg);
