@@ -8,6 +8,11 @@ static const char *TAGSD = "sdcard-log";
 
 esp_err_t SdCard::writeFile(const std::string &path, const char *data)
 {
+    if (data == nullptr) {
+        ESP_LOGE(TAGSD, "nullptr as data");
+        return ESP_FAIL;
+    }
+
     const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "w");
@@ -15,26 +20,39 @@ esp_err_t SdCard::writeFile(const std::string &path, const char *data)
         ESP_LOGE(TAGSD, "Failed to open file for writing");
         return ESP_FAIL;
     }
-    fprintf(f, "%s", data);
-    fclose(f);
-    ESP_LOGI(TAGSD, "File written");
 
+    const int printResult = fprintf(f, "%s", data);
+    fclose(f);
+    if (printResult < 0) {
+        ESP_LOGE(TAGSD, "Can not write to the file %s", path.c_str());
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAGSD, "File written");
     return ESP_OK;
 }
 
 esp_err_t SdCard::appendFile(const std::string &path, const char *data)
 {
+    if (data == nullptr) {
+        ESP_LOGE(TAGSD, "nullptr as data");
+        return ESP_FAIL;
+    }
+
     const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "a");
     if (f == NULL) {
-        ESP_LOGE(TAGSD, "Failed to open file for writing");
+        ESP_LOGE(TAGSD, "Failed to open file for appending");
         return ESP_FAIL;
     }
-    fprintf(f, "%s", data);
+    const int printResult = fprintf(f, "%s", data);
     fclose(f);
-    ESP_LOGI(TAGSD, "File written");
-
+    if (printResult < 0) {
+        ESP_LOGE(TAGSD, "Can not append to the file %s", path.c_str());
+        return ESP_FAIL;
+    }
+    ESP_LOGI(TAGSD, "File appended");
     return ESP_OK;
 }
 
@@ -138,7 +156,7 @@ esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
     }
     ESP_LOGI(TAGSD, "Filesystem mounted");
 
-    m_card = std::unique_ptr<sdmmc_card_t>(card);
+    m_card = card;
     m_spiDevice = spiDevice;
     m_mountPoint = mountPoint;
     return ESP_OK;
@@ -147,8 +165,8 @@ esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
 esp_err_t SdCard::unmount()
 {
     // All done, unmount partition and disable SPI peripheral
-    esp_vfs_fat_sdcard_unmount(m_mountPoint.c_str(), m_card.get());
-    m_card.reset();
+    esp_vfs_fat_sdcard_unmount(m_mountPoint.c_str(), m_card);
+    m_card = nullptr;
     m_mountPoint = "";
     ESP_LOGI(TAGSD, "Card unmounted");
 
@@ -163,15 +181,12 @@ void SdCard::printInfoToStdout()
 {
     // Card has been initialized, print its properties
     if (m_card)
-        sdmmc_card_print_info(stdout, m_card.get());
+        sdmmc_card_print_info(stdout, m_card);
 }
 
-sdmmc_card_t *SdCard::card() const
+bool SdCard::cardIsMounted() const
 {
-    if (m_card) 
-        return m_card.get();
-    else
-        return nullptr;
+    return m_card != nullptr;
 }
 
 std::string SdCard::mountPoint() const
@@ -182,7 +197,7 @@ std::string SdCard::mountPoint() const
 esp_err_t SdCard::format()
 {
     // Format FATFS
-    esp_err_t ret = esp_vfs_fat_sdcard_format(m_mountPoint.c_str(), m_card.get());
+    esp_err_t ret = esp_vfs_fat_sdcard_format(m_mountPoint.c_str(), m_card);
     if (ret != ESP_OK) {
         ESP_LOGE(TAGSD, "Failed to format FATFS (%s)", esp_err_to_name(ret));
         return ESP_FAIL;

@@ -95,8 +95,8 @@ extern "C" void app_main(void)
     }
 
     my_sdcard->printInfoToStdout();
-    const auto card = my_sdcard->card();
-    if (card == nullptr) {
+    const bool cardOk = my_sdcard->cardIsMounted();
+    if (!cardOk) {
         startErrorTask(ErrorTask::ErrorCode::ecSdCardFilesystemFail);
         return;
     }

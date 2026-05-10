@@ -21,7 +21,7 @@ public:
     void printInfoToStdout();
 
     std::string mountPoint() const;
-    sdmmc_card_t *card() const;
+    bool cardIsMounted() const;
 
     /// this functions (write/read) can be outside, but it's easy to read code if they are here
     /// filename should start with "/", for example "/myfile.txt"
@@ -32,7 +32,7 @@ public:
     /// filename should start with "/", for example "/myfile.txt"
     // esp_err_t readFileExample(const std::string &path);
 private:
-    std::unique_ptr<sdmmc_card_t> m_card;
+    sdmmc_card_t *m_card = nullptr;
     spi_host_device_t m_spiDevice = SPI_HOST_MAX;
     std::string m_mountPoint = "";
 
