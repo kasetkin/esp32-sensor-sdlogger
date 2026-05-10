@@ -236,9 +236,18 @@ int SensorsTask::readBatteryVoltageMilliV()
     int voltage = 0;
     int32_t voltage_mean = 0;
     for (size_t i = 0; i < ADC_READS_COUNT; ++i) {
-        ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw));
+        const esp_err_t adcReadError = adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw);
+        if (adcReadError != ESP_OK) {
+            ESP_LOGE(TAG, "ADC reading error %d", adcReadError);
+            return -1;
+        }
+
+        const esp_err_t calibrationErr = adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage);
+        if (calibrationErr != ESP_OK) {
+            ESP_LOGE(TAG, "ADC calibration error %d, raw value is %d", calibrationErr, adc_raw);
+            return -1;
+        }        
         // ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw);
-        ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage));
         // ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage);
         voltage_mean += voltage;
     }
@@ -268,15 +277,18 @@ void SensorsTask::executeTask()
     while (true) {
         SensorsValues v;
         v.batteryVoltageMilliV = readBatteryVoltageMilliV();
-        v.batteryPercent = convertVoltageToPercent(v.batteryVoltageMilliV);
+        if (v.batteryVoltageMilliV > 0) {
+            v.batteryPercent = convertVoltageToPercent(v.batteryVoltageMilliV);
+            if (v.batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
+                ESP_LOGE(TAG, "battery voltage too low (%d), sleep", v.batteryVoltageMilliV);
+                correctLightSleep();
 
-        if (v.batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
-            ESP_LOGE(TAG, "battery voltage too low (%d), sleep", v.batteryVoltageMilliV);
-            correctLightSleep();
+                /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices 
 
-            /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices 
-
-            continue;
+                continue;
+            }
+        } else {
+            ESP_LOGE(TAG, "battery ADC read error");
         }
 
         const esp_err_t readError = sht3x_measure(&m_sht3dev, &v.envTemperature, &v.envHumidity);
