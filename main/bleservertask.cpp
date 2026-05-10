@@ -248,13 +248,19 @@ void BleSppServerTask::ble_spp_server_advertise()
  */
 int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void *arg)
 {
-    /// here can change number of connection -> 
+    /// here can change state of active connections -> 
     /// conn_handle_subs[i] can change, than will modify sender logic
+    /// 
+    /// maybe
+    ///
+    /// we should use mutex
+    /// \todo check if this works
     std::unique_lock readLock(m_dataMutex);
 
     struct ble_gap_conn_desc desc;
     int rc = 0;
     int connFindRes = 0;
+    uint16_t connHandle = CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1;
 
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
@@ -282,7 +288,13 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
         ble_spp_server_print_conn_desc(&event->disconnect.conn);
         MODLOG_DFLT(INFO, "\n");
 
-        conn_handle_subs[event->disconnect.conn.conn_handle] = false;
+        connHandle = event->disconnect.conn.conn_handle;
+        if (connHandle > CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
+            MODLOG_DFLT(ERROR, "incorrect connection handle (disconnect) %u", connHandle);
+            return ESP_FAIL;
+        }
+
+        conn_handle_subs[connHandle] = false;
 
         /* Connection terminated; resume advertising. */
         ble_spp_server_advertise();
@@ -324,7 +336,14 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
                     event->subscribe.cur_notify,
                     event->subscribe.prev_indicate,
                     event->subscribe.cur_indicate);
-        conn_handle_subs[event->subscribe.conn_handle] = true;
+
+        connHandle = event->subscribe.conn_handle;
+        if (connHandle > CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
+            MODLOG_DFLT(ERROR, "incorrect connection handle (subscribe) %u", connHandle);
+            return ESP_FAIL;
+        }
+                            
+        conn_handle_subs[connHandle] = true;
         return 0;
     
     /* Encryption change event */
