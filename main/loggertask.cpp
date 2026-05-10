@@ -175,7 +175,7 @@ std::string LoggerTask::generateFilename()
 
     struct tm  gmTime{};
     const time_t stampT = static_cast<time_t>(rtc_sec);
-    gmTime = *gmtime(&stampT);
+    gmtime_r(&stampT, &gmTime);
 
     constexpr int GMTIME_YEAR_FIX = 1900;
     constexpr int GMTIME_MONTH_FIX = 1;
