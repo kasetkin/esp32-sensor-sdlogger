@@ -1029,8 +1029,8 @@ std::string fakeNmeaLine()
     }
         
     const size_t newSize = endPos - startPos + 1;
-    line.resize(newSize);
-    std::memcpy(const_cast<char*>(line.c_str()), &fakeNmeaLog[startPos], newSize);
+    line.reserve(newSize);
+    line.append(fakeNmeaLog[startPos], newSize);
     stringPosition = endPos + 1;
     if (stringPosition >= strlen(fakeNmeaLog))
         stringPosition = 0;
