@@ -140,6 +140,9 @@ void LoggerTask::logNmeaStream()
     if (!m_sdCard)
         return;
 
+    if (m_nmeaLog.empty())
+        return;
+        
     m_nmeaLog += std::string("\r\n");
     m_sdCard->appendFile(fullpath, m_nmeaLog.c_str());
 }
