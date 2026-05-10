@@ -553,7 +553,7 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
     const std::time_t stampT = std::chrono::system_clock::to_time_t(p.worldTime);
     const auto gpsSecs = std::chrono::duration_cast<std::chrono::seconds>(p.worldTime.time_since_epoch()).count();
     struct tm  gmTime{};
-    gmTime = *gmtime(&stampT);
+    gmtime_r(&stampT, &gmTime);
     
     constexpr int GMTIME_YEAR_FIX = 1900;
     constexpr int GMTIME_MONTH_FIX = 1;
