@@ -64,8 +64,12 @@ void LoggerTask::executeTask()
 
         if (thisMoment < lastLogTime + LOG_PERIOD_MS) {
             const unsigned long timeToSleep = LOG_PERIOD_MS + lastLogTime - thisMoment + 1;
-            ESP_LOGI(LOGTASKTAG, "too early, sleep for %lu millisec", timeToSleep);
-            vTaskDelay(pdMS_TO_TICKS(timeToSleep));
+            if (timeToSleep < 1000 * 3600 * 24) {
+                ESP_LOGI(LOGTASKTAG, "too early, sleep for %lu millisec", timeToSleep);
+                vTaskDelay(pdMS_TO_TICKS(timeToSleep));
+            } else {
+                ESP_LOGI(LOGTASKTAG, "timer value overflow, ignore and reset lastLogTime");
+            }
         }
         
         /// write-lock inside
