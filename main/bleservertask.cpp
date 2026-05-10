@@ -861,7 +861,8 @@ void BleSppServerTask::bleSenderTask()
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
     }
 
-    vTaskDelete(nullptr);
+    //! \todo add some task termination flag
+    // vTaskDelete(nullptr);
 }
 
 void BleSppServerTask::dataSenderTaskInit()
