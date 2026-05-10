@@ -22,25 +22,25 @@ static const std::string ownerFullName = "sdlogger_UM980"; // &ownerFullName = d
 
 void LoggerTask::setGpsLog(const std::string &gpsMessage)
 {
-    std::shared_lock oneModuleLock(m_mutex);
+    std::unique_lock oneModuleLock(m_mutex);
     m_gpsLog = gpsMessage;
 }
 
 void LoggerTask::setPppLog(const std::string &pppMessage)
 {
-    std::shared_lock oneModuleLock(m_mutex);
+    std::unique_lock oneModuleLock(m_mutex);
     m_pppLog = pppMessage;
 }
 
 void LoggerTask::setSensorsLog(const std::string &sensorsMessage)
 {
-    std::shared_lock oneModuleLock(m_mutex);
+    std::unique_lock oneModuleLock(m_mutex);
     m_sensorsLog = sensorsMessage;
 }
 
 void LoggerTask::addNmeaLog(const std::string &nmeaMessage)
 {
-    std::shared_lock oneModuleLock(m_mutex);
+    std::unique_lock oneModuleLock(m_mutex);
     /// add, not override!
     m_nmeaLog += nmeaMessage;
 }
@@ -142,7 +142,7 @@ void LoggerTask::logNmeaStream()
 
     if (m_nmeaLog.empty())
         return;
-        
+
     m_nmeaLog += std::string("\r\n");
     m_sdCard->appendFile(fullpath, m_nmeaLog.c_str());
 }
