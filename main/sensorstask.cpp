@@ -300,7 +300,9 @@ void SensorsTask::executeTask()
             v.envHumidity = std::numeric_limits<float>::quiet_NaN();
         }        
 
-        m_readyEvent(v);
+        if (m_readyEvent)
+            m_readyEvent(v);
+            
         vTaskDelay(pdMS_TO_TICKS(SENSORS_PERIOD_MS));
     }
 }
