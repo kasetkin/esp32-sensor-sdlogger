@@ -405,6 +405,7 @@ bool GpsTask::processNewLocation()
 
         const int32_t microsec = static_cast<int32_t>(m_gps.time.centisecond()) * 10000;
         struct timeval gpsTimeNow = { .tv_sec = timestamp, .tv_usec = microsec };
+        //! \todo read TimeZone from SDCard or internal memory
         struct timezone myZone = { .tz_minuteswest = -300, .tz_dsttime = DST_NONE };
         settimeofday(&gpsTimeNow, &myZone);
 
