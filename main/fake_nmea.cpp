@@ -1004,7 +1004,7 @@ static size_t stringPosition = 0;
 
 std::string fakeNmeaLine()
 {
-    MODLOG_DFLT(INFO, "request for next line from position %u, full NMEA log size %u", stringPosition, strlen(fakeNmeaLog));
+    MODLOG_DFLT(INFO, "request for next line from position %zu, full NMEA log size %zu", stringPosition, strlen(fakeNmeaLog));
     std::string line;
     constexpr size_t MAX_LINE_SIZE = 10000;
     const size_t startPos = stringPosition;
@@ -1017,13 +1017,13 @@ std::string fakeNmeaLine()
         }
     }
 
-    MODLOG_DFLT(INFO, "new line positions: %u to %u", startPos, endPos);
+    MODLOG_DFLT(INFO, "new line positions: %zu to %zu", startPos, endPos);
 
     if (endPos == std::string::npos)
         endPos = strlen(fakeNmeaLog) - 1;
 
     if (endPos < startPos) {
-        MODLOG_DFLT(ERROR, "error in logic, start = %u, end = %u", startPos, endPos);
+        MODLOG_DFLT(ERROR, "error in logic, start = %zu, end = %zu", startPos, endPos);
         stringPosition = 0;
         return {};
     }
@@ -1035,7 +1035,7 @@ std::string fakeNmeaLine()
     if (stringPosition >= strlen(fakeNmeaLog))
         stringPosition = 0;
 
-    MODLOG_DFLT(INFO, "new stringPosition: %u", stringPosition);
+    MODLOG_DFLT(INFO, "new stringPosition: %zu", stringPosition);
 
     return line;
 }
