@@ -692,23 +692,35 @@ void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_h
         /* Check if client has subscribed to notifications */
         if (conn_handle_subs[i]) {
 
-            const size_t BLE_MTU = ble_att_mtu(i);
-            const size_t fullPacketsCount = line.size() / BLE_MTU;
-            
+            const size_t attMtu = ble_att_mtu(i);
+            constexpr size_t attHeaderSize = 3; // ATT notification header: 1 opcode + 2 handle
+            if (attMtu <= attHeaderSize) {
+                MODLOG_DFLT(ERROR, "BLE connection %d with strangely small MTU: %zu. Can not transmitt data", i, attMtu);
+                continue;
+            }
+                
+            const size_t maximumPayloadSize = attMtu - attHeaderSize;
+            if (maximumPayloadSize == 0) {
+                MODLOG_DFLT(ERROR, "code logic error, should be impossible, payloadSize == 0 at connection %d", i);
+                continue;
+            }
+
+            const size_t fullPacketsCount = line.size() / maximumPayloadSize;
+
             for (size_t fullPacketIndex = 0; fullPacketIndex < fullPacketsCount; ++fullPacketIndex) {
-                const void *packetStart = line.c_str() + fullPacketIndex * BLE_MTU;
-                const int rc = bleTx(packetStart, BLE_MTU, i, value_handle);
+                const void *packetStart = line.c_str() + fullPacketIndex * maximumPayloadSize;
+                const int rc = bleTx(packetStart, maximumPayloadSize, i, value_handle);
                 if (rc == 0) {
-                    MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, BLE_MTU);
+                    MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, maximumPayloadSize);
                 } else {
-                    MODLOG_DFLT(ERROR, "Error in sending full notification (%zu of %zu, size %zu) rc = %d", fullPacketIndex, fullPacketsCount, BLE_MTU, rc);
+                    MODLOG_DFLT(ERROR, "Error in sending full notification (%zu of %zu, size %zu) rc = %d", fullPacketIndex, fullPacketsCount, maximumPayloadSize, rc);
                 }
             }
 
-            const bool needSmallPacket = (line.size() % BLE_MTU > 0 ? 1 : 0);
+            const bool needSmallPacket = line.size() % maximumPayloadSize != 0;
             if (needSmallPacket) {
-                const void *packetStart = line.c_str() + fullPacketsCount * BLE_MTU;
-                const size_t packetSize = line.size() % BLE_MTU;
+                const void *packetStart = line.c_str() + fullPacketsCount * maximumPayloadSize;
+                const size_t packetSize = line.size() % maximumPayloadSize;
                 const int rc = bleTx(packetStart, packetSize, i, value_handle);
                 if (rc == 0) {
                     MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", packetSize);
