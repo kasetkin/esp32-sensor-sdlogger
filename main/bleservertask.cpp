@@ -804,7 +804,8 @@ void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
         return;
     
     /* Update access buffer value */
-    const uint16_t humidityPrepared = static_cast<uint16_t>(std::round(m_envHumidity * 100.0));
+    const int16_t humidityPreparedSigned = static_cast<int16_t>(std::round(m_envHumidity * 100.0));
+    const uint16_t humidityPrepared = static_cast<uint16_t>(humidityPreparedSigned);
     static uint8_t env_humidity_chr_val[2] = {0, 0};
     env_humidity_chr_val[1] = humidityPrepared / 256;
     env_humidity_chr_val[0] = humidityPrepared % 256;
@@ -840,7 +841,8 @@ void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
     
     MODLOG_DFLT(DEBUG, "BLE: transmit temperature, buffer allocation - ok");
     /* Update access buffer value */
-    const int16_t temperaturePrepared = static_cast<int16_t>(std::round(m_envTemperature * 100.0));
+    const int16_t temperaturePreparedSigned = static_cast<int16_t>(std::round(m_envTemperature * 100.0));
+    const uint16_t temperaturePrepared = static_cast<uint16_t>(temperaturePreparedSigned); /// prepare for bytes operations
     static uint8_t env_temperature_chr_val[2] = {0, 0};
     env_temperature_chr_val[1] = temperaturePrepared / 256;
     env_temperature_chr_val[0] = temperaturePrepared % 256;
