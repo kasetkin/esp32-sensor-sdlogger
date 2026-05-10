@@ -33,7 +33,7 @@ public:
 private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;
-    static bool conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
+    static std::array<std::atomic<bool>, CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1> conn_handle_subs;
     static std::mutex m_dataMutex; /// protect connections states and data
 
     static uint16_t ble_battery_read_val_handle;

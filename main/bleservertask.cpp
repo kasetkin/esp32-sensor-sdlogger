@@ -18,7 +18,7 @@
 #include "bleservertask.h"
 
 uint8_t BleSppServerTask::own_addr_type = 0;
-bool BleSppServerTask::conn_handle_subs[CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1];
+std::array<std::atomic<bool>, CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1> BleSppServerTask::conn_handle_subs;
 std::mutex BleSppServerTask::m_dataMutex;
 uint16_t BleSppServerTask::ble_battery_read_val_handle = 0;
 uint16_t BleSppServerTask::ble_temperature_read_val_handle = 1;
@@ -248,12 +248,7 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
 {
     /// here can change state of active connections -> 
     /// conn_handle_subs[i] can change, than will modify sender logic
-    /// 
-    /// maybe
-    ///
-    /// we should use mutex
-    /// \todo check if this works
-    std::unique_lock readLock(m_dataMutex);
+    /// for now try to use std::atomic inside conn_handle_subs
 
     struct ble_gap_conn_desc desc;
     int rc = 0;
@@ -984,6 +979,13 @@ void BleSppServerTask::startServer()
     const int gapNameSetRes = ble_svc_gap_device_name_set(BLE_DEVICE_NAME);
     if (gapNameSetRes != 0) {
         MODLOG_DFLT(ERROR, "can not setup GAP name");
+        return;
+    }
+
+    /// maximum possible MTU
+    const int mtuSetupRes = ble_att_set_preferred_mtu(BLE_ATT_MTU_MAX);
+    if (mtuSetupRes != 0) {
+        MODLOG_DFLT(ERROR, "can not setup MTU to %d", BLE_ATT_MTU_MAX);
         return;
     }
 
