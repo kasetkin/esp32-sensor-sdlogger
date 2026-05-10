@@ -26,6 +26,7 @@ esp_err_t GpsTask::configureUart()
         .source_clk = UART_SCLK_DEFAULT,
         .flags = {}
     };
+
     // We won't use a buffer for sending data.
     const esp_err_t driverRet = uart_driver_install(GPS_UART_PORT, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     if (driverRet != ESP_OK)
@@ -70,19 +71,19 @@ esp_err_t GpsTask::configureUM980()
     sendStringAndWait("CONFIG\r\n", reply);
 
     // /// setup baudrate (needed if it is different and we want to switch it)
-    // sendStringAndWait("CONFIG COM1 115200\r\n");
-    // sendStringAndWait("CONFIG COM2 115200\r\n");
-    // sendStringAndWait("CONFIG COM3 115200\r\n");
-    // sendStringAndWait("SAVECONFIG\r\n");
+    // sendStringAndWait("CONFIG COM1 115200\r\n", reply);
+    // sendStringAndWait("CONFIG COM2 115200\r\n", reply);
+    // sendStringAndWait("CONFIG COM3 115200\r\n", reply);
+    // sendStringAndWait("SAVECONFIG\r\n", reply);
 
     sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n", reply);
     sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n", reply);
     /// 'AUTO' or 'E6-HAS' or 'B2b-PPP' or 'SSR-RX' or 'L6MDCPPP' ?
-    sendStringAndWait("CONFIG PPP ENABLE AUTO\r\n", reply);
+    sendStringAndWait("CONFIG PPP ENABLE E6-HAS\r\n", reply);
     /// we don't need default 15cm precision, 70cm in horizontal and 100cm in vertical should be enough
     sendStringAndWait("CONFIG PPP CONVERGE 75 200\r\n", reply);
     sendStringAndWait("CONFIG PPP DATUM WGS84\r\n", reply);
-    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n", reply);
+    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n", reply); 
     sendStringAndWait("CONFIG MMP ENABLE\r\n", reply);
     sendStringAndWait("CONFIG PVTALG MULTI\r\n", reply);
     sendStringAndWait("CONFIG IONMODE GPSK8\r\n", reply);
@@ -101,16 +102,16 @@ esp_err_t GpsTask::configureUM980()
     sendStringAndWait("UNMASK GAL\r\n", reply); /// Galileo, Europe
     sendStringAndWait("UNMASK QZSS\r\n", reply); /// Quasi-Zenith Satellite System, Japanese
     sendStringAndWait("UNMASK IRNSS\r\n", reply); /// NavIC, Indian
-    sendStringAndWait("MASK 0.0\r\n", reply); /// mask elevation angle
+    sendStringAndWait("MASK 10.0\r\n", reply); /// mask elevation angle
 
     /// disable currently enabled messages
     sendStringAndWait("UNLOG\r\n", reply);
 
     /// enable necessary NMEA messages
-    sendStringAndWait("GPGGA 1\r\n", reply);
-    sendStringAndWait("GPGSA 1\r\n", reply);
-    sendStringAndWait("GPRMC 1\r\n", reply);
-    sendStringAndWait("GPGSV 1\r\n", reply);
+    sendStringAndWait("GNGGA 1\r\n", reply);
+    sendStringAndWait("GNGSA 1\r\n", reply);
+    sendStringAndWait("GNRMC 1\r\n", reply);
+    sendStringAndWait("GNGSV 1\r\n", reply);
     /// Enable Unicore specific PPP messages
     sendStringAndWait("PPPNAVA 1\r\n", reply);
 
