@@ -15,7 +15,7 @@ esp_err_t SdCard::writeFile(const std::string &path, const char *data)
         ESP_LOGE(TAGSD, "Failed to open file for writing");
         return ESP_FAIL;
     }
-    fprintf(f, data);
+    fprintf(f, "%s", data);
     fclose(f);
     ESP_LOGI(TAGSD, "File written");
 
@@ -31,7 +31,7 @@ esp_err_t SdCard::appendFile(const std::string &path, const char *data)
         ESP_LOGE(TAGSD, "Failed to open file for writing");
         return ESP_FAIL;
     }
-    fprintf(f, data);
+    fprintf(f, "%s", data);
     fclose(f);
     ESP_LOGI(TAGSD, "File written");
 
