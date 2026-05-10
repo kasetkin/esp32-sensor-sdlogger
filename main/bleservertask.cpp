@@ -668,19 +668,53 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::string, 4> &p
     }
 }
 
+inline int BleSppServerTask::bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle)
+{
+    struct os_mbuf *txom;
+    txom = ble_hs_mbuf_from_flat(from, length);
+    const int rc = ble_gatts_notify_custom(connHandle, valueHandle, txom);
+    /// wait 1 millisec, not sure it's necessary 
+    // constexpr size_t txDelay = 1; 
+    // vTaskDelay(pdMS_TO_TICKS(txDelay));
+    return rc;
+}
+
 void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_handle) 
 {
+    if (line.size() == 0)
+        return;
+
     std::unique_lock txLock(m_dataTxMutex);
+
+    MODLOG_DFLT(DEBUG, "transmitLineNow: valueHandle = %d, line ###%s###", value_handle, line.c_str());
+
     for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
         /* Check if client has subscribed to notifications */
         if (conn_handle_subs[i]) {
-            struct os_mbuf *txom;
-            txom = ble_hs_mbuf_from_flat(line.c_str(), line.size());
-            const int rc = ble_gatts_notify_custom(i, value_handle, txom);
-            if (rc == 0) {
-                MODLOG_DFLT(DEBUG, "Notification sent successfully");
-            } else {
-                MODLOG_DFLT(INFO, "Error in sending notification rc = %d", rc);
+
+            const size_t BLE_MTU = ble_att_mtu(i);
+            const size_t fullPacketsCount = line.size() / BLE_MTU;
+            
+            for (size_t fullPacketIndex = 0; fullPacketIndex < fullPacketsCount; ++fullPacketIndex) {
+                const void *packetStart = line.c_str() + fullPacketIndex * BLE_MTU;
+                const int rc = bleTx(packetStart, BLE_MTU, i, value_handle);
+                if (rc == 0) {
+                    MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, BLE_MTU);
+                } else {
+                    MODLOG_DFLT(ERROR, "Error in sending full notification (%zu of %zu, size %zu) rc = %d", fullPacketIndex, fullPacketsCount, BLE_MTU, rc);
+                }
+            }
+
+            const bool needSmallPacket = (line.size() % BLE_MTU > 0 ? 1 : 0);
+            if (needSmallPacket) {
+                const void *packetStart = line.c_str() + fullPacketsCount * BLE_MTU;
+                const size_t packetSize = line.size() % BLE_MTU;
+                const int rc = bleTx(packetStart, packetSize, i, value_handle);
+                if (rc == 0) {
+                    MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", packetSize);
+                } else {
+                    MODLOG_DFLT(ERROR, "Error in sending the last notification (size %zu) rc = %d", packetSize, rc);
+                }
             }
         }
     }

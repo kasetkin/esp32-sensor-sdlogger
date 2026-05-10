@@ -117,6 +117,7 @@ private:
     void dataSenderTaskInit();
     void bleSenderTask();
     void sendAllData();
+    inline int bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle);
     void transmitLineNow(const std::string &line, uint16_t value_handle);
     void transmitEnvHumidity(uint16_t conn_handle);
     void transmitEnvTemperature(uint16_t conn_handle);
