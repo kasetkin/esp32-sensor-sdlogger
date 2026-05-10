@@ -253,7 +253,8 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
     std::unique_lock readLock(m_dataMutex);
 
     struct ble_gap_conn_desc desc;
-    int rc;
+    int rc = 0;
+    int connFindRes = 0;
 
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
@@ -262,8 +263,11 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
                     event->connect.status == 0 ? "established" : "failed",
                     event->connect.status);
         if (event->connect.status == 0) {
-            rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
-            assert(rc == 0);
+            connFindRes = ble_gap_conn_find(event->connect.conn_handle, &desc);
+            if (connFindRes != 0) {
+                MODLOG_DFLT(ERROR, "can not find connection hangle");
+                return connFindRes;
+            }
             ble_spp_server_print_conn_desc(&desc);
         }
         MODLOG_DFLT(INFO, "\n");
@@ -288,8 +292,11 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
         /* The central has updated the connection parameters. */
         MODLOG_DFLT(INFO, "connection updated; status=%d ",
                     event->conn_update.status);
-        rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
-        assert(rc == 0);
+        connFindRes = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
+        if (connFindRes != 0) {
+            MODLOG_DFLT(ERROR, "can not find connection hangle");
+            return connFindRes;
+        }
         ble_spp_server_print_conn_desc(&desc);
         MODLOG_DFLT(INFO, "\n");
         return 0;
@@ -387,8 +394,11 @@ void BleSppServerTask::ble_spp_server_on_sync()
 {
     int rc;
 
-    rc = ble_hs_util_ensure_addr(0);
-    assert(rc == 0);
+    const int bleAddrSetupRes = ble_hs_util_ensure_addr(0);
+    if (bleAddrSetupRes != 0) {
+        MODLOG_DFLT(ERROR, "can not restore BLE MAC address");
+        return;
+    }
 
     /* Figure out address to use while advertising (no privacy for now) */
     rc = ble_hs_id_infer_auto(0, &own_addr_type);
@@ -472,6 +482,7 @@ void BleSppServerTask::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
 
     default:
         assert(0);
+        MODLOG_DFLT(ERROR, "Incorrect value %u", ctxt->op);
         break;
     }
 }
@@ -777,7 +788,7 @@ void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 
     const int rc2 = ble_gatts_notify_custom(conn_handle, ble_battery_read_val_handle, txom);
     if (rc2 == 0) {
-        MODLOG_DFLT(DEBUG, "Notification sent successfully: humidity");
+        MODLOG_DFLT(DEBUG, "Notification sent successfully: battery");
     } else {
         MODLOG_DFLT(ERROR, "Error in sending notification rc = %d", rc2);
     }
@@ -944,15 +955,20 @@ void BleSppServerTask::startServer()
     ble_hs_cfg.sm_sc_only = 1;
     ble_hs_cfg.sm_sec_lvl = 4;
 
-    int rc;
     /* Register custom service */
-    rc = gatt_svr_init();
-    assert(rc == 0);
+    const int gattInitRes = gatt_svr_init();
+    if (gattInitRes != 0) {
+        MODLOG_DFLT(ERROR, "can not inin GATT server");
+        return;
+    }
 
     /* Set the default device name. */
     MODLOG_DFLT(INFO, "pre-setup BLE device name");
-    rc = ble_svc_gap_device_name_set(BLE_DEVICE_NAME);
-    assert(rc == 0);
+    const int gapNameSetRes = ble_svc_gap_device_name_set(BLE_DEVICE_NAME);
+    if (gapNameSetRes != 0) {
+        MODLOG_DFLT(ERROR, "can not setup GAP name");
+        return;
+    }
 
     nimble_port_freertos_init(ble_spp_server_host_task);
 }
