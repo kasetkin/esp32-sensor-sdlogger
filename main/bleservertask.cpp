@@ -829,7 +829,7 @@ void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
     
     MODLOG_DFLT(DEBUG, "BLE: transmit temperature, buffer allocation - ok");
     /* Update access buffer value */
-    const uint16_t temperaturePrepared = static_cast<uint16_t>(std::round(m_envTemperature * 100.0));
+    const int16_t temperaturePrepared = static_cast<int16_t>(std::round(m_envTemperature * 100.0));
     static uint8_t env_temperature_chr_val[2] = {0, 0};
     env_temperature_chr_val[1] = temperaturePrepared / 256;
     env_temperature_chr_val[0] = temperaturePrepared % 256;
