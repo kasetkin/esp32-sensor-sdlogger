@@ -132,6 +132,8 @@ esp_err_t SdCard::mountFilesystem(const std::string &mountPoint)
             ESP_LOGE(TAGSD, "Failed to initialize the card (%s). "
                      "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
         }
+
+        spi_bus_free(spiDevice);
         return ESP_FAIL;
     }
     ESP_LOGI(TAGSD, "Filesystem mounted");
