@@ -243,7 +243,7 @@ void GpsTask::executeTask()
     while (true) {
         readFromUart(dataAsString);
         if (dataAsString.size() > 0) {
-            ESP_LOGI(GPS_TASK_TAG, "Read %u bytes: '%s'", dataAsString.size(), dataAsString.c_str());
+            ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes: '%s'", dataAsString.size(), dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
             for (const auto c : dataAsString) {
@@ -353,7 +353,7 @@ bool GpsTask::processNewLocation()
 
     GpsInfo gpsInfo{};
     /// move now to clear m_pendingSatellites buffer even if location is bad and we 'return false;'
-    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %d", m_pendingSatellites.size());
+    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %zu", m_pendingSatellites.size());
     gpsInfo.satellites = std::move(m_pendingSatellites);
 
     if (!m_gps.location.isValid()) {
@@ -768,9 +768,9 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     packets[2].append(buf.cbegin() + 40, buf.cbegin() + 60);
     packets[3].append(buf.cbegin() + 60, buf.cbegin() + 64);
 
-    ESP_LOGD(LOGTASKTAG, "first packet.length: %u", packets[0].size());
+    ESP_LOGD(LOGTASKTAG, "first packet.length: %zu", packets[0].size());
     ESP_LOGD(LOGTASKTAG, "first packet[0]: %u, should be 1, 2, 3", packets[0][0]);
-    ESP_LOGD(LOGTASKTAG, "third packet.length: %u", packets[2].size());
+    ESP_LOGD(LOGTASKTAG, "third packet.length: %zu", packets[2].size());
     ESP_LOGD(LOGTASKTAG, "third packet[16]: %u", packets[2][16]);
     ESP_LOGD(LOGTASKTAG, "third packet[17]: %u", packets[2][17]);
     ESP_LOGD(LOGTASKTAG, "third packet[18]: %u", packets[2][18]);

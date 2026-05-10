@@ -85,7 +85,7 @@ ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
     constexpr size_t CORRECT_SIZE = 16 * 2;
     if (onlyCharsStr.size() != 32) {
         MODLOG_DFLT(ERROR, "cannot build UUID from %s", str);
-        MODLOG_DFLT(ERROR, "wrong string size after '-' removal, should be %d, but it is %d", CORRECT_SIZE, onlyCharsStr.size());
+        MODLOG_DFLT(ERROR, "wrong string size after '-' removal, should be %zu, but it is %zu", CORRECT_SIZE, onlyCharsStr.size());
         return {};
     }
 
@@ -174,7 +174,7 @@ void BleSppServerTask::ble_spp_server_advertise()
     name = ble_svc_gap_device_name();
     const auto name_length = strlen(name);
 
-    MODLOG_DFLT(INFO, "advertise BLE device name, length: %u, name: %s", name_length, name);
+    MODLOG_DFLT(INFO, "advertise BLE device name, length: %zu, name: %s", name_length, name);
 
     constexpr size_t MAX_NAME_LENGTH = 2;
     if (name_length < MAX_NAME_LENGTH) {
