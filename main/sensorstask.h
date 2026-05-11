@@ -5,13 +5,13 @@
 #include <memory>
 #include <string>
 #include <functional>
-#include "esp_err.h"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_cali.h"
-#include "esp_adc/adc_cali_scheme.h"
-#include "driver/gpio.h"
-#include <i2cdev.h>
-#include <sht3x.h>
+#include <esp_err.h>
+#include <esp_adc/adc_oneshot.h>
+#include <esp_adc/adc_cali.h>
+#include <esp_adc/adc_cali_scheme.h>
+#include <driver/gpio.h>
+#include "i2cdev.h"
+#include "sht3x.h"
 
 struct SensorsValues
 {
