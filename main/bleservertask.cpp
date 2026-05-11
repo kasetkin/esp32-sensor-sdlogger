@@ -270,8 +270,10 @@ int BleSppServerTask::ble_spp_server_gap_event(struct ble_gap_event *event, void
             const uint8_t tx_phy = BLE_GAP_LE_PHY_2M;
             const uint8_t rx_phy = BLE_GAP_LE_PHY_2M;
             rc = ble_gap_set_prefered_le_phy(event->connect.conn_handle, tx_phy, rx_phy, 0);
-            if (rc != 0)
-                ESP_LOGW("PHY", "2M PHY negotiation failed, using 1M");
+            if (rc == 0)
+                MODLOG_DFLT(INFO, "2M PHY negotiation OK");
+            else
+                MODLOG_DFLT(WARN, "2M PHY negotiation failed, using 1M");
 
             ble_spp_server_print_conn_desc(&desc);
         }
