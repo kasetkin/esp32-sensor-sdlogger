@@ -5,12 +5,12 @@
 #include <chrono>
 #include <vector>
 #include <set>
-#include "driver/gpio.h"
-#include "driver/uart.h"
+#include <atomic>
+#include <functional>
+#include <driver/gpio.h>
+#include <driver/uart.h>
 #include "TinyGPSPlus.h"    /// TinyGPSLocation
 #include "unicore.h"        /// PPPInfo
-#include "loggertask.h"
-#include "bleservertask.h"
 
 struct PppInfo;
 
@@ -78,9 +78,19 @@ public:
     /// configure TinyGPS library 
     esp_err_t configureTinyGps();
 
-    esp_err_t setupLogger(std::shared_ptr<LoggerTask> logger);
-    esp_err_t setupBleTask(std::shared_ptr<BleSppServerTask> ble);
+    using QStarZPackets = std::array<std::string, 4>;
+    using NmeaStringReadyEvent = std::function<void(const std::string &nmea)>;
+    using GnssLogReadyEvent = std::function<void(const std::string &gnssLog)>;
+    using PppLogReadyEvent = std::function<void(const std::string &pppLog)>;
+    using QStarZPacketsReadyEvent = std::function<void(const QStarZPackets &packets)>;
+
+    void configureNmeaEvent(NmeaStringReadyEvent event);
+    void configureGnssEvent(GnssLogReadyEvent event);
+    void configurePppEvent(PppLogReadyEvent event);
+    void configureQStarZEvent(QStarZPacketsReadyEvent event);
+
     void executeTask();
+    void terminate();
 
     static bool hasLock(const GpsInfo &info);
     static bool has3DLock(const GpsInfo &info);
@@ -91,7 +101,7 @@ public:
     static std::string dopToMeters(const uint32_t dop);
     static std::string printGpsTimeInfo(const GpsInfo &p);
     static std::string printGpsGeoInfo(const GpsInfo &p);
-    static std::array<std::string, 4> emulateQstarzBinary(const GpsInfo &p);
+    static QStarZPackets emulateQstarzBinary(const GpsInfo &p);
     static std::string printPppTimeInfo(const PppInfo &p);
     static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
     static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
@@ -101,8 +111,11 @@ private:
     const char * NMEA_MSG_GXGGA = "GNGGA"; // GGA message (GPGGA, GNGGA etc)
     const char * UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
 
-    std::shared_ptr<LoggerTask> m_logger;
-    std::shared_ptr<BleSppServerTask> m_ble;
+    std::atomic<bool> m_terminateASAP{false};
+    NmeaStringReadyEvent m_nmeaEvent;
+    GnssLogReadyEvent m_gnssEvent;
+    PppLogReadyEvent m_pppEvent;
+    QStarZPacketsReadyEvent m_qstarzEvent;
     TinyGPSPlus m_gps;
 
     TinyGPSCustom gsafixtype; // custom extract fix type from GPGSA, , GSA element #2

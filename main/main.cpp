@@ -12,6 +12,7 @@
 #include "sensorstask.h"
 #include "errortask.h"
 #include "bleservertask.h"
+#include "loggertask.h"
 
 static const char *TAG = "main-body";
 const uint32_t DEFAULT_TASK_STACK_SIZE = 16384;
@@ -29,6 +30,7 @@ void startErrorTask(ErrorTask::ErrorCode code)
     xTaskCreate([](void *)
     { 
         errorTask->execute();
+        vTaskDelete(nullptr);
     }, "error_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 }
 
@@ -114,10 +116,31 @@ extern "C" void app_main(void)
         bleTask->appendLog("\r\n");
     });
     
-    ESP_LOGI(TAG, "pass Logger to GpsTask");
-    gpsTask->setupLogger(loggerTask);
-    ESP_LOGI(TAG, "pass BleServer to GpsTask");
-    gpsTask->setupBleTask(bleTask);
+    ESP_LOGI(TAG, "configure GpsTask events - begin");
+    gpsTask->configureNmeaEvent([](const std::string &nmea)
+    {
+        if (bleTask)
+            bleTask->appendNmea(nmea);
+
+        if (loggerTask)
+            loggerTask->addNmeaLog(nmea);
+    });
+    gpsTask->configureGnssEvent([](const std::string &gnss)
+    {
+        if (loggerTask)
+            loggerTask->setGpsLog(gnss);
+    });
+    gpsTask->configurePppEvent([](const std::string &ppp)
+    {
+        if (loggerTask)
+            loggerTask->setGpsLog(ppp);
+    });
+    gpsTask->configureQStarZEvent([](const GpsTask::QStarZPackets &packets)
+    {
+        if (bleTask)
+            bleTask->transmitQstarzPackets(packets);
+    });
+    ESP_LOGI(TAG, "configure GpsTask events - end");
 
     ESP_LOGI(TAG, "configure Sensors::ReadyEvent (pass battery, temp, humidity to BLE task)");
     sensorTask->configureReadyEvent([](const SensorsValues &values)
@@ -164,18 +187,21 @@ extern "C" void app_main(void)
     xTaskCreate([](void *)
     { 
         loggerTask->executeTask();
+        vTaskDelete(nullptr);
     }, "logger_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "listen from GPS module, start task");
     xTaskCreate([](void *)
     { 
         gpsTask->executeTask();
+        vTaskDelete(nullptr);
     }, "gps_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "read sensors, start task");
     xTaskCreate([](void *)
     { 
         sensorTask->executeTask();
+        vTaskDelete(nullptr);
     }, "sensors_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     startErrorTask(ErrorTask::ErrorCode::ecOK);

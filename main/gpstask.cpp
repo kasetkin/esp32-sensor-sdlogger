@@ -5,9 +5,9 @@
 #include <chrono>
 #include <array>
 #include <iostream>
-#include "esp_log.h"
-#include "driver/uart.h"
-#include "driver/gpio.h"
+#include <esp_log.h>
+#include <driver/uart.h>
+#include <driver/gpio.h>
 #include "common_utils.h"
 #include "unicore.h"
 // #include "fake_nmea.h"
@@ -165,26 +165,6 @@ esp_err_t GpsTask::configureTinyGps()
     return ESP_OK;
 }
 
-esp_err_t GpsTask::setupLogger(std::shared_ptr<LoggerTask> logger)
-{
-    m_logger.reset();
-    if (!logger)
-        return ESP_FAIL;
-    
-    m_logger = logger;
-    return ESP_OK;
-}
-
-esp_err_t GpsTask::setupBleTask(std::shared_ptr<BleSppServerTask> ble)
-{
-    m_ble.reset();
-    if (!ble)
-        return ESP_FAIL;
-    
-    m_ble = ble;
-    return ESP_OK;
-}
-
 int GpsTask::sendData(const char* data)
 {
     static const char *TX_TASK_TAG = "TX_TASK1";
@@ -236,11 +216,36 @@ void GpsTask::readFromUart(std::string &newData)
     }
 }
 
+void GpsTask::configureNmeaEvent(NmeaStringReadyEvent event)
+{
+    m_nmeaEvent = event;
+}
+
+void GpsTask::configureGnssEvent(GnssLogReadyEvent event)
+{
+    m_gnssEvent = event;
+}
+
+void GpsTask::configurePppEvent(PppLogReadyEvent event)
+{
+    m_pppEvent = event;
+}
+
+void GpsTask::configureQStarZEvent(QStarZPacketsReadyEvent event)
+{
+    m_qstarzEvent = event;
+}
+
+void GpsTask::terminate()
+{
+    m_terminateASAP = true;
+}
+
 void GpsTask::executeTask()
 {
     static const char *GPS_TASK_TAG = "GPS_TASK";
     std::string dataAsString;
-    while (true) {
+    while (!m_terminateASAP) {
         readFromUart(dataAsString);
         if (dataAsString.size() > 0) {
             ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes: '%s'", dataAsString.size(), dataAsString.c_str());
@@ -277,11 +282,8 @@ void GpsTask::executeTask()
                 }
             }
 
-            if (m_logger)
-                m_logger->addNmeaLog(dataAsString);
-
-            if (m_ble)
-                 m_ble->appendNmea(dataAsString); /// send NMEA stream only, QSTARZ emlation is done inside `processNewLocation()`
+            if (m_nmeaEvent)
+                m_nmeaEvent(dataAsString);
 
             dataAsString.clear();
             
@@ -307,7 +309,7 @@ bool GpsTask::hasLock(const GpsInfo &info)
         // 3 -- 3D fix
         if (info.fixType == 3 
             || info.fixType == 2
-            || info.fixType == 0)
+            || info.fixType == 0) /// \todo check "== 0" condition
             return true;
     }
 
@@ -444,14 +446,14 @@ bool GpsTask::processNewLocation()
 
     {
         const std::string gpsLog = printGpsTimeInfo(gpsInfo) + printGpsGeoInfo(gpsInfo);
-        if (m_logger)
-            m_logger->setGpsLog(gpsLog);
+        if (m_gnssEvent)
+            m_gnssEvent(gpsLog);
     }
 
     {
         const std::array<std::string, 4> emulatedQstarz = emulateQstarzBinary(gpsInfo);
-        if (m_ble)
-            m_ble->transmitQstarzPackets(emulatedQstarz);
+        if (m_qstarzEvent)
+            m_qstarzEvent(emulatedQstarz);
     }
 
     {
@@ -462,8 +464,8 @@ bool GpsTask::processNewLocation()
         const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
         
         const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
-        if (m_logger)
-            m_logger->setPppLog(pppLog);
+        if (m_pppEvent)
+            m_pppEvent(pppLog);
     }
     
     return true;
@@ -562,15 +564,15 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
     const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = LoggerTask::toStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = LoggerTask::toStringWithZeros(gmTime.tm_mday, 2);
+    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
+    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
     const std::string dateString = yearStr + "-" + monthStr + "-" + dayStr;
 
-    const std::string hoursStr = LoggerTask::toStringWithZeros(gmTime.tm_hour, 2);
-    const std::string minutesStr = LoggerTask::toStringWithZeros(gmTime.tm_min, 2);
-    const std::string secondsStr = LoggerTask::toStringWithZeros(gmTime.tm_sec, 2);
+    const std::string hoursStr = intToStringWithZeros(gmTime.tm_hour, 2);
+    const std::string minutesStr = intToStringWithZeros(gmTime.tm_min, 2);
+    const std::string secondsStr = intToStringWithZeros(gmTime.tm_sec, 2);
     const std::string millisWithZeros = std::string();
-    // p.timestamp_millis_adjust > 0 ? '.' + LoggerTask::toStringWithZeros(p.timestamp_millis_adjust, 3) : std::string();
+    // p.timestamp_millis_adjust > 0 ? '.' + intToStringWithZeros(p.timestamp_millis_adjust, 3) : std::string();
 
     const std::string timeString = hoursStr + ":" + minutesStr + ":" + secondsStr + millisWithZeros;
     const std::string dateTimeStringFull = dateString + 'T' + timeString + 'Z';
@@ -613,15 +615,15 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
     const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = LoggerTask::toStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = LoggerTask::toStringWithZeros(gmTime.tm_mday, 2);
+    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
+    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
     const std::string dateString = yearStr + "-" + monthStr + "-" + dayStr;
 
-    const std::string hoursStr = LoggerTask::toStringWithZeros(gmTime.tm_hour, 2);
-    const std::string minutesStr = LoggerTask::toStringWithZeros(gmTime.tm_min, 2);
-    const std::string secondsStr = LoggerTask::toStringWithZeros(gmTime.tm_sec, 2);
+    const std::string hoursStr = intToStringWithZeros(gmTime.tm_hour, 2);
+    const std::string minutesStr = intToStringWithZeros(gmTime.tm_min, 2);
+    const std::string secondsStr = intToStringWithZeros(gmTime.tm_sec, 2);
     const std::string millisWithZeros = p.millisecs > 0
-        ? '.' + LoggerTask::toStringWithZeros(p.millisecs, 3)
+        ? '.' + intToStringWithZeros(p.millisecs, 3)
         : std::string();
 
     const std::string timeString = hoursStr + ":" + minutesStr + ":" + secondsStr + millisWithZeros;
