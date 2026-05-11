@@ -44,30 +44,30 @@ void ErrorTask::execute()
 
 void ErrorTask::sendOK()
 {
-
+    //! \todo 
 }
 
 void ErrorTask::sendGpsUartFail()
 {
-
+    //! \todo 
 }
 
 void ErrorTask::sendTinyGpsFail()
 {
-
+    //! \todo 
 }
 
 void ErrorTask::sendUM980Fail()
 {
-
+    //! \todo 
 }
 
 void ErrorTask::sendSensorsFail()
 {
-
+    //! \todo 
 }
 
 void ErrorTask::sendSdCardFilesystemFail()
 {
-
+    //! \todo 
 }
