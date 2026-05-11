@@ -22,7 +22,7 @@ static void ensureMounted(void)
 static void test_hw_sdcard_mounts(void)
 {
     ensureMounted();
-    TEST_ASSERT_NOT_NULL(g_sdCard.card());
+    TEST_ASSERT_TRUE(g_sdCard.cardIsMounted());
 }
 
 static void test_hw_sdcard_write_returns_ok(void)
