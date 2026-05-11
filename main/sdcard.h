@@ -2,10 +2,10 @@
 
 #include <optional>
 #include <memory>
-#include "esp_err.h"
-#include "driver/gpio.h"
-#include "sd_protocol_types.h"
-#include "hal/spi_types.h"
+#include <esp_err.h>
+#include <driver/gpio.h>
+#include <sd_protocol_types.h>
+#include <hal/spi_types.h>
 
 class SdCard
 {
