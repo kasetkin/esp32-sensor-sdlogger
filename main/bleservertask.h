@@ -46,7 +46,7 @@ private:
     static uint16_t ble_tx_write_val_handle;
     static BleSppServerTask *s_instance;
 
-    static constexpr uint32_t TX_DELAY_MICROSEC = 10;
+    static constexpr uint32_t TX_DELAY_MS = 10;
 
     static constexpr char BLE_DEVICE_NAME[] = "QSTARZ_EMULATOR"; // so 'Bluetooth GNSS' app will try to connect
 
@@ -62,8 +62,8 @@ private:
     /// Nordic semiconductors == UART SPP
     /// some info can be found here: https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/bluetooth/services/nus.html
     static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";         // NordicSemiCond value for UART (SPP mode in classic bluetooth)
-    static constexpr char BLE_CHR_NMEA_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";        // NMEA (and more) output from GNSS module (default UART RX from NordicSemiCond)
-    static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";          // UART input (send to UM980) and some custom cmds
+    static constexpr char BLE_CHR_NMEA_UUID128_VALUE[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";        // NUS TX: peripheral notifies central — NMEA/GNSS output
+    static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";          // NUS RX: central writes to peripheral — UART input (send to UM980) and custom cmds
     static constexpr char BLE_CHR_QSTARZ_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";      // from "qstarz" racing gps, binary format, 4 packets (20 + 20 + 20 + 4) bytes
     static constexpr char BLE_CHR_FULL_LOG_UUID128_VALUE[] = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E";    // full log, same as SD card "xxx.log" file
     

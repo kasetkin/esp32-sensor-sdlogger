@@ -158,8 +158,7 @@ void BleSppServerTask::ble_spp_server_advertise()
      *     o BLE-only (BR/EDR unsupported).
      */
     fields.flags = BLE_HS_ADV_F_DISC_GEN |
-                   BLE_HS_ADV_F_BREDR_UNSUP |
-                   BLE_HS_ADV_F_DISC_LTD;
+                   BLE_HS_ADV_F_BREDR_UNSUP;
 
     /* Indicate that the TX power level field should be included; have the
      * stack fill this value automatically.  This is done by assigning the
@@ -427,6 +426,9 @@ void BleSppServerTask::ble_spp_server_on_sync()
     MODLOG_DFLT(INFO, "\n");
     /* Begin advertising. */
     ble_spp_server_advertise();
+
+    if (s_instance)
+        s_instance->m_serverIsReady = true;
 }
 
 void BleSppServerTask::ble_spp_server_host_task(void *param)
@@ -520,11 +522,12 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_battery_read_val_handle,
             .cpfd = nullptr
-        }, 
+        },
         { }
     };
 
@@ -536,21 +539,23 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_temperature_read_val_handle,
             .cpfd = nullptr
-        }, 
+        },
         {
             .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_HUMIDITY_UUID16),
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_humidity_read_val_handle,
             .cpfd = nullptr
-        }, 
+        },
         { }
     };
 
@@ -573,8 +578,9 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_nmea_read_val_handle,
             .cpfd = nullptr
         },
@@ -583,8 +589,8 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_WRITE,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_tx_write_val_handle,
             .cpfd = nullptr
         },
@@ -593,8 +599,9 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_qstarz_read_val_handle,
             .cpfd = nullptr
         },
@@ -603,8 +610,9 @@ int BleSppServerTask::gatt_svr_init()
             .access_cb = ble_svc_gatt_handler,
             .arg = nullptr,
             .descriptors = nullptr,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = 0,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC
+                   | BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
+            .min_key_size = 16,
             .val_handle = &ble_full_log_read_val_handle,
             .cpfd = nullptr
         },
@@ -702,7 +710,7 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::string, 4> &p
 
     for (const auto &packet: packets) {
         transmitLineNow(packet, ble_qstarz_read_val_handle);
-        vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MICROSEC));
+        vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MS));
     }
 }
 
@@ -783,12 +791,10 @@ void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
     if (txom == nullptr)
         return;
     
-    /* Update access buffer value */
-    const uint16_t batteryLevelPrepared = static_cast<uint16_t>(std::round(m_batteryLevel));
-    static uint8_t env_battery_level_chr_val[2] = {0, 0};
-    env_battery_level_chr_val[1] = batteryLevelPrepared / 256;
-    env_battery_level_chr_val[0] = batteryLevelPrepared % 256;
-    const int rc1 = os_mbuf_append(txom, &env_battery_level_chr_val, sizeof(env_battery_level_chr_val));
+    /* Update access buffer value — Battery Level (0x2A19) is uint8, range 0-100% */
+    const uint8_t batteryLevelPrepared = static_cast<uint8_t>(
+        std::min(100.0f, std::max(0.0f, std::round(m_batteryLevel))));
+    const int rc1 = os_mbuf_append(txom, &batteryLevelPrepared, sizeof(batteryLevelPrepared));
 
     if (rc1 != 0) {
         /// not shure if this is correct way to free
@@ -995,8 +1001,7 @@ void BleSppServerTask::startServer()
     }
 
     nimble_port_freertos_init(ble_spp_server_host_task);
-    /// now can start sending data
-    m_serverIsReady = true;
+    /// m_serverIsReady is set in ble_spp_server_on_sync() after the host stack synchronizes
 }
 
 void BleSppServerTask::printUuid(const ble_uuid16_t &uuid)
