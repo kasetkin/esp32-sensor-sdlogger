@@ -7,7 +7,7 @@ This is an ESP-IDF project targeting the ESP32-C6. Use **ESP-IDF v6.0** (not v5.
 Before any `idf.py` call, source the ESP-IDF v6.0 environment:
 
 ```bash
-source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh
+source ~/.espressif/release-v6.0/esp-idf/export.sh
 ```
 
 ## Device
@@ -17,7 +17,7 @@ The ESP32-C6 board is connected at `/dev/ttyACM0`.
 ## Compiling the test app
 
 ```bash
-source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh
+source ~/.espressif/release-v6.0/esp-idf/export.sh
 cd test_app
 idf.py build
 ```
@@ -29,7 +29,7 @@ Use the two-step approach instead:
 
 **Step 1 — flash** (from `test_app/build/` directory):
 ```bash
-source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh
+source ~/.espressif/release-v6.0/esp-idf/export.sh
 cd test_app/build
 python -m esptool --chip esp32c6 -b 460800 -p /dev/ttyACM0 \
     --before default-reset --after hard-reset write-flash \
@@ -59,7 +59,7 @@ with serial.Serial('/dev/ttyACM0', 115200, timeout=1) as ser:
 
 Or as a one-liner shell command (build + flash):
 ```bash
-source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh && \
+source ~/.espressif/release-v6.0/esp-idf/export.sh && \
   cd test_app && idf.py build && \
   cd build && python -m esptool --chip esp32c6 -b 460800 -p /dev/ttyACM0 \
     --before default-reset --after hard-reset write-flash \
@@ -69,7 +69,7 @@ source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh && \
 ## Compiling the main app
 
 ```bash
-source /home/kasetkin/.espressif/release-v6.0/esp-idf/export.sh
+source ~/.espressif/release-v6.0/esp-idf/export.sh
 idf.py build
 ```
 

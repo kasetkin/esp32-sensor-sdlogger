@@ -18,6 +18,17 @@ import subprocess
 import sys
 import time
 
+try:
+    import esptool  # noqa: F401
+except ImportError:
+    _idf_python = os.path.expanduser(
+        "~/.espressif/python_env/idf6.0_py3.14_env/bin/python"
+    )
+    if os.path.exists(_idf_python) and sys.executable != _idf_python:
+        os.execv(_idf_python, [_idf_python] + sys.argv)
+    print("[run_tests] esptool not found and ESP-IDF Python not available", file=sys.stderr)
+    sys.exit(1)
+
 import serial
 
 
