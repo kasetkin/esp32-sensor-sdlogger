@@ -742,7 +742,7 @@ void BleSppServerTask::transmitLineNow(const std::string &line, uint16_t value_h
         if (conn_handle_subs[i]) {
 
             // const size_t attMtu = ble_att_mtu(i);
-            const size_t attMtu = 250; /// HARDCODED VALUE
+            const size_t attMtu = 247; /// HARDCODED VALUE, from Interner: The ESP32-C6's controller supports up to 251 bytes PDU, but the GATT layer limits to 247 due to L2CAP overhead. 
             constexpr size_t attHeaderSize = 3; // ATT notification header: 1 opcode + 2 handle
             if (attMtu <= attHeaderSize) {
                 MODLOG_DFLT(ERROR, "BLE connection %d with strangely small MTU: %zu. Can not transmitt data", i, attMtu);
