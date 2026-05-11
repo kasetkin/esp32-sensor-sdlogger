@@ -9,9 +9,9 @@
 #include <array>
 #include <vector>
 #include <string>
-#include "host/ble_hs.h"
-#include "nimble/ble.h"
-#include "nimble/nimble_port_freertos.h"
+#include <host/ble_hs.h>
+#include <nimble/ble.h>
+#include <nimble/nimble_port_freertos.h>
 
 
 class BleSppServerTask

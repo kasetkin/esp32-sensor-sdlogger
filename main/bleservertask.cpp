@@ -1,19 +1,18 @@
 #include <string>
 #include <mutex>
 #include <cmath>
-
-#include "esp_log.h"
-#include "esp_random.h"
-#include "nvs_flash.h"
-#include "freertos/FreeRTOS.h"
-/* BLE */
-#include "nimble/nimble_port.h"
-#include "nimble/nimble_port_freertos.h"
-#include "host/ble_hs.h"
-#include "host/util/util.h"
-#include "console/console.h"
-#include "services/gap/ble_svc_gap.h"
-#include "services/gatt/ble_svc_gatt.h"
+/// ESP-IDF
+#include <esp_log.h>
+#include <esp_random.h>
+#include <freertos/FreeRTOS.h>
+/// NimBLE
+#include <nimble/nimble_port.h>
+#include <nimble/nimble_port_freertos.h>
+#include <host/ble_hs.h>
+#include <host/util/util.h>
+#include <console/console.h>
+#include <services/gap/ble_svc_gap.h>
+#include <services/gatt/ble_svc_gatt.h>
 
 #include "bleservertask.h"
 
@@ -912,15 +911,11 @@ void BleSppServerTask::sendAllData()
 void BleSppServerTask::bleSenderTask()
 {
     MODLOG_DFLT(INFO, "BLE server DataSender started\n");
-    for (;;) {
+    while (!m_terminateASAP) {
         sendAllData();
         const uint32_t sleepTimeMilliSec = 1000; // 1 sec
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
-        if (m_terminateASAP)
-            break;
     }
-
-    vTaskDelete(nullptr);
 }
 
 void BleSppServerTask::dataSenderTaskInit()
@@ -929,6 +924,7 @@ void BleSppServerTask::dataSenderTaskInit()
     { 
         auto asObject = reinterpret_cast<BleSppServerTask *>(bleTask);
         asObject->bleSenderTask();
+        vTaskDelete(nullptr);
     }, "bleSppTask", 16384, this, 6, nullptr);
 }
 

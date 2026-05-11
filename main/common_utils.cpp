@@ -1,18 +1,14 @@
 #include "common_utils.h"
 
 #include <chrono>
-#include "esp_log.h"
-#include "esp_sleep.h"
-#include "esp_check.h"
-#include "esp_timer.h"
-#include "nvs_flash.h"
-// #include "esp_random.h"
-
-#include "driver/gpio.h"
-// #include "driver/uart.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <esp_log.h>
+#include <esp_sleep.h>
+#include <esp_check.h>
+#include <esp_timer.h>
+#include <nvs_flash.h>
+#include <driver/gpio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 esp_err_t registerWakeupTimer(const uint32_t wakeupMicrosec)
 {

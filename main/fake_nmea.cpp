@@ -3,10 +3,6 @@
 #include <sstream>
 #include <cstring>
 
-#include "host/ble_hs.h"
-#include "log_common/log_common.h"
-#include "modlog/modlog.h"
-
 /// generated using nmeasim project from https://gitlab.com/nmeasim/nmeasim
 static const char * fakeNmeaLog = R"(
 $GPGGA,152943.873,4800.000,N,00200.000,E,1,12,1.0,0.0,M,,M,,*4A

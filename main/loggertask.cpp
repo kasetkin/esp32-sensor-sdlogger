@@ -4,14 +4,8 @@
 #include <cmath>
 #include <chrono>
 #include <mutex>
-#include "freertos/FreeRTOS.h"
-#include "esp_log.h"
-// #include "Telemetry/EnvironmentTelemetry.h"
-// #include "FSCommon.h"
-// #include "SPILock.h"
-// #include "RTC.h"
-// #include "main.h"
-// #include "configuration.h"
+#include <freertos/FreeRTOS.h>
+#include <esp_log.h>
 #include "TinyGPS++.h"
 #include "common_utils.h"
 #include "unicore.h"
@@ -178,8 +172,8 @@ std::string LoggerTask::generateFilename()
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
     const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = toStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = toStringWithZeros(gmTime.tm_mday, 2);
+    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
+    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
     std::string filename = yearStr + "-" + monthStr + "-" + dayStr + "-" + ownerFullName;
 
     ESP_LOGI(LOGFILENAMETAG, "timestamp from RTC: %lld, date string: %s", rtc_sec, filename.c_str());
