@@ -67,7 +67,8 @@ esp_err_t GpsTask::configureUM980()
             hasCorrectAnswer = true;
             break;
         }
-        
+
+        //! \todo try different UART speed (9600 ... 460800)
         ESP_LOGI(LOGTASKTAG, "UM980 not detected, VERSION reply: %s", reply.c_str());
         gpsUartDelay();
     }
@@ -170,22 +171,22 @@ esp_err_t GpsTask::configureTinyGps()
     return ESP_OK;
 }
 
-int GpsTask::sendData(const char* data)
+int GpsTask::sendData(std::string_view data)
 {
     static const char *TX_TASK_TAG = "TX_TASK1";
-    const int len = strlen(data);
-    const int txBytes = uart_write_bytes(GPS_UART_PORT, data, len);
+    const int len = data.size();
+    const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), len);
     if (txBytes != len)
         ESP_LOGE(TX_TASK_TAG, "wrong string size");
         
     return txBytes;
 }
 
-int GpsTask::sendStringAndWait(const std::string &str, std::string &reply)
+int GpsTask::sendStringAndWait(std::string_view data, std::string &reply)
 {
     static const char *TX_TASK_TAG = "TX_TASK2";
-    const int len = str.size();
-    const int txBytes = uart_write_bytes(GPS_UART_PORT, str.c_str(), len);
+    const int len = data.size();
+    const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), len);
     if (txBytes != len)
         ESP_LOGE(TX_TASK_TAG, "wrong string size");
 
@@ -215,10 +216,8 @@ void GpsTask::readFromUart(std::string &newData)
     const uint32_t readTimeoutInTicks = pdMS_TO_TICKS(1);
     std::array<char, RX_BUF_SIZE + 1> data;
     const int rxBytes = uart_read_bytes(GPS_UART_PORT, data.data(), RX_BUF_SIZE, readTimeoutInTicks);
-    if (rxBytes > 0) {
-        for (size_t i = 0; i < static_cast<size_t>(rxBytes); ++i) 
-            newData.push_back(data[i]);
-    }
+    if (rxBytes > 0)
+        newData.append(&data[0], static_cast<size_t>(rxBytes));
 }
 
 void GpsTask::configureNmeaEvent(NmeaStringReadyEvent event)

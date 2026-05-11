@@ -178,7 +178,8 @@ extern "C" void app_main(void)
         } else if (trimmed == "led=off") {
             enableUserLED(false);
         } else if (!trimmed.empty() && gpsTask) {
-            gpsTask->sendData((trimmed + "\r\n").c_str());
+            gpsTask->sendData(trimmed);
+            gpsTask->sendData("\r\n");
         }
     });
 

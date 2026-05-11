@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <memory>
 #include <chrono>
 #include <vector>
@@ -95,8 +96,8 @@ public:
     static bool hasLock(const GpsInfo &info);
     static bool has3DLock(const GpsInfo &info);
     bool processNewLocation();
-    int sendData(const char* data);
-    int sendStringAndWait(const std::string &str, std::string &reply);
+    int sendData(std::string_view data);
+    int sendStringAndWait(std::string_view data, std::string &reply);
 
     static std::string dopToMeters(const uint32_t dop);
     static std::string printGpsTimeInfo(const GpsInfo &p);
