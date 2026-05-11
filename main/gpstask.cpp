@@ -54,17 +54,22 @@ esp_err_t GpsTask::configureUM980()
     ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
 
     sendStringAndWait("UNLOG\r\n", reply);
-    gpsUartDelay();
-    gpsUartDelay();
-    gpsUartDelay();
-    gpsUartDelay();
-    gpsUartDelay();
+
 
     /// check for receiver
-    sendStringAndWait("VERSION\r\n", reply);
-    if (reply.find("UM980") == std::string::npos) {
-        ESP_LOGE(LOGTASKTAG, "UM980 not detected, VERSION reply: %s", reply.c_str());
-        return ESP_FAIL;
+    bool hasCorrectAnswer = false;
+    while (!hasCorrectAnswer) {
+        gpsUartDelay();
+
+        sendStringAndWait("VERSION\r\n", reply);
+        if (reply.find("UM980") != std::string::npos) {
+            ESP_LOGI(LOGTASKTAG, "UM980 detected, VERSION reply: %s", reply.c_str());
+            hasCorrectAnswer = true;
+            break;
+        }
+        
+        ESP_LOGI(LOGTASKTAG, "UM980 not detected, VERSION reply: %s", reply.c_str());
+        gpsUartDelay();
     }
 
     /// request config, only for debug
