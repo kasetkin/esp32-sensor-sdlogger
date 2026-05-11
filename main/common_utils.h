@@ -1,6 +1,7 @@
 #pragma once
 
-#include "esp_err.h"
+#include <esp_err.h>
+#include <string>
 
 /// intended only for ESP32-C6 from SeeedStudio
 
@@ -20,6 +21,8 @@ esp_err_t initNvsFlash();
 unsigned long millisFromStart();
 /// emulate code from RTC.h
 uint64_t getValidTime();
+
+std::string intToStringWithZeros(const int value, const size_t numberOfDigits);
 
 // esp_err_t initI2C();
 /// ESP tasks

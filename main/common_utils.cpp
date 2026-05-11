@@ -150,3 +150,12 @@ uint64_t getValidTime()
     const uint64_t rtc_sec = static_cast<uint64_t>(durationSec.count());
     return rtc_sec;
 }
+
+std::string intToStringWithZeros(const int value, const size_t numberOfDigits)
+{
+    const std::string basicString = std::to_string(value);
+    if (numberOfDigits > basicString.size())
+        return std::string(numberOfDigits - basicString.size(), '0') + basicString;
+    else
+        return basicString;
+}

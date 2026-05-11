@@ -88,15 +88,6 @@ void LoggerTask::doLogging()
     resetState();
 }
 
-std::string LoggerTask::toStringWithZeros(const int value, const size_t numberOfDigits)
-{
-    const std::string basicString = std::to_string(value);
-    if (numberOfDigits > basicString.size())
-        return std::string(numberOfDigits - basicString.size(), '0') + basicString;
-    else
-        return basicString;
-}
-
 /// lock messages before!
 void LoggerTask::resetState()
 {

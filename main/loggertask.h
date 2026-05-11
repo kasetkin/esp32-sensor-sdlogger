@@ -16,7 +16,7 @@ class LoggerTask
     // static void appendSDFile(const char * path, const char * message);
     // static void readSDFile(const char * path, std::vector<uint8_t> &fileData);
     static std::string generateFilename();
-    static std::string toStringWithZeros(const int value, const size_t numberOfDigits);
+
 
     using LogReadyEvent = std::function<void(const std::string &log)>;
     void configureLogReadyEvent(LogReadyEvent readyEvent);
