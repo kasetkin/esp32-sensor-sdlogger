@@ -881,7 +881,7 @@ void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
 
 void BleSppServerTask::sendAllData()
 {
-    if (!serverIsReady)
+    if (!m_serverIsReady)
         return;
 
     std::unique_lock readLock(m_dataMutex);
@@ -914,12 +914,13 @@ void BleSppServerTask::bleSenderTask()
     MODLOG_DFLT(INFO, "BLE server DataSender started\n");
     for (;;) {
         sendAllData();
-        const uint32_t sleepTimeMilliSec = 1000; // 0.1 sec
+        const uint32_t sleepTimeMilliSec = 1000; // 1 sec
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
+        if (m_terminateASAP)
+            break;
     }
 
-    //! \todo add some task termination flag
-    // vTaskDelete(nullptr);
+    vTaskDelete(nullptr);
 }
 
 void BleSppServerTask::dataSenderTaskInit()
@@ -930,6 +931,13 @@ void BleSppServerTask::dataSenderTaskInit()
         asObject->bleSenderTask();
     }, "bleSppTask", 16384, this, 6, nullptr);
 }
+
+void BleSppServerTask::terminate()
+{
+    m_terminateASAP = true;
+    nimble_port_stop();
+    /// what else?
+};
 
 void BleSppServerTask::startServer()
 {
@@ -992,7 +1000,7 @@ void BleSppServerTask::startServer()
 
     nimble_port_freertos_init(ble_spp_server_host_task);
     /// now can start sending data
-    serverIsReady = true;
+    m_serverIsReady = true;
 }
 
 void BleSppServerTask::printUuid(const ble_uuid16_t &uuid)

@@ -18,6 +18,7 @@ class BleSppServerTask
 {
 public:
     void startServer();
+    void terminate();
 
     void setBatteryLevel(float level);
     void setEnvHumidity(float humidity);
@@ -90,7 +91,8 @@ private:
     std::vector<std::string> m_nmeaStream;
     std::vector<std::string> m_logStream;
     CommandReceivedEvent m_commandReceivedEvent;
-    std::atomic<bool> serverIsReady{false};
+    std::atomic<bool> m_serverIsReady{false};
+    std::atomic<bool> m_terminateASAP{false};
 
     static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
     static int ble_spp_server_gap_event(struct ble_gap_event *event, void *arg);
