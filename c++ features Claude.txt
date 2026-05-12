@@ -1,0 +1,43 @@
+c++ features
+
+
+Promt:
+
+Use the Internet, build list of C++ features from C++20 up to C++26 (including).
+For each point in the list write simple annotation about this feature.
+
+    bla-bla-bla
+
+Now iterate through each c++ feature in the list (starting from c++20 and to the end) and launch child Claude session, pass feature description to new session. Child session should analyze project sources and think if this feature can be applied to this project sources in benefitial way. If yes -- generate offer how to modify sources and why it would be benefitial.
+
+    bla-bla-bla
+
+    limit reached
+
+try to continue only first subtask
+
+    bla
+
+Ok, next feature. Wait for answer, print it and after that launch next agent. And so on to the end.
+
+    bla
+    bla
+    bla
+
+
+#1 .. #20, #59 -- retry
+
+#21 std::format (C++20) -- good
+#22 std::span (C++20) -- good
+#32 std::numbers::* (C++20) -- good
+#35 Ranges views (C++20) -- good?
+#37 starts_with / ends_with (C++20) -- good
+#44 static operator() (C++23) -- good, for lambdas
+#47 #warning (C++23) -- good, replace \todo in comments
+#49 [[assume(expr)]] (C++23) -- good, checks for hardcoded consts
+#53 std::string / std::vector as constexpr (C++23) -- good, for 'ownerId' and some consts
+#55 std::expected<T, E> (C++23) -- good, return errors
+#56 std::flat_set (C++23) -- nice! no tree overhead
+#58 New ranges views (zip, enumerate, chunk, etc.) -- good, not sure I like them though
+#60 std::ranges::contains -- VERY good, nice 'if' replacement
+#64 std::to_underlying -- maaaybe, not too interesting
