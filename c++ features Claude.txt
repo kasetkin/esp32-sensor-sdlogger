@@ -25,8 +25,128 @@ Ok, next feature. Wait for answer, print it and after that launch next agent. An
     bla
 
 
+## Full Feature List (94 features, numbered for iteration)
+
+### C++20 — Language (20)
+1. Concepts — Named compile-time constraints on template parameters via `requires` clauses
+2. Coroutines — Functions suspendable/resumable via `co_await`, `co_yield`, `co_return`
+3. Modules — `import` replaces `#include`; eliminates header re-parsing and macro leakage
+4. Ranges — Composable lazy view pipelines over containers via `std::views::*`
+5. Spaceship operator `<=>` — Single three-way comparison auto-generating all six relational operators
+6. `[[likely]]` / `[[unlikely]]` — Branch-hint attributes for the optimizer
+7. `[[no_unique_address]]` — Allows an empty member to share address; zero-overhead empty-type storage
+8. Designated initializers — `Foo f = {.x = 1, .y = 2};` — named struct member initialization
+9. `consteval` — Forces compile-time-only evaluation; stricter than `constexpr`
+10. `constinit` — Guarantees compile-time initialization while allowing runtime mutation
+11. Template lambda — `[]<typename T>(T x){}` — explicit template parameters in lambdas
+12. `requires` expressions — Inline boolean expressions testing template operation validity
+13. `using enum` — Brings enum values into local scope without prefix
+14. NTTP user-defined types — User-defined class types usable as non-type template parameters
+15. `char8_t` — Distinct type for UTF-8 characters, separate from `char`
+16. `[[nodiscard]]` with reason — `[[nodiscard("reason")]]` adds message to ignored-return-value warning
+17. Aggregate init with parentheses — `Foo f(1, 2)` now works for aggregates
+18. `__VA_OPT__` — In variadic macros, expands only when variadic args are non-empty
+19. Lambdas in unevaluated contexts — `decltype([](){})` is now valid
+20. Implicit move in more cases — Return statements can implicitly move more local objects
+
+### C++20 — Library (21)
+21. `std::format` — Python-style type-safe string formatting: `std::format("Hello, {}!", name)`
+22. `std::span` — Non-owning view over contiguous sequences; safer than pointer+length
+23. `std::ranges::*` algorithms — Range-based versions of all standard algorithms
+24. `std::jthread` — Joining thread that auto-joins on destruction with cooperative cancellation
+25. `std::stop_token` / `std::stop_source` — Cooperative cancellation mechanism for threads
+26. Calendar & time zones in `<chrono>` — `year_month_day`, timezone database, `zoned_time`
+27. `std::bit_cast` — Type-punning with defined behavior; replaces `memcpy` hacks
+28. `std::to_address` — Obtains raw pointer from pointer-like object; usable in `constexpr`
+29. Atomic `wait` / `notify` — `std::atomic::wait()`, `notify_one()`, `notify_all()` — futex-like primitives
+30. `std::atomic<shared_ptr>` — Atomic operations on `shared_ptr` as first-class citizens
+31. `std::source_location` — Compile-time `__FILE__`/`__LINE__`/function info as a proper type
+32. `std::numbers::*` — Mathematical constants: `pi`, `e`, `sqrt2`, etc.
+33. `std::midpoint` / `std::lerp` — Correct, overflow-safe midpoint and linear interpolation
+34. `std::bind_front` — Binds leading arguments of a callable; simpler and faster than `std::bind`
+35. Ranges views — `std::views::filter`, `transform`, `take`, `drop`, `split`, `join`, etc.
+36. `std::is_constant_evaluated()` — Inside `constexpr`, detects compile-time execution
+37. `starts_with` / `ends_with` on `std::string`/`string_view` — Prefix/suffix membership checks
+38. `contains` on associative containers — `map.contains(key)` replaces `map.count(key) > 0`
+39. `std::erase` / `std::erase_if` — Free function removing elements without the erase-remove idiom
+40. Semaphores — `std::counting_semaphore`, `std::binary_semaphore` in `<semaphore>`
+41. Latches & barriers — `std::latch` (one-shot countdown) and `std::barrier` (reusable sync point)
+
+### C++23 — Language (12)
+42. Deducing `this` — Explicit object parameter `void foo(this Self&& self)`; enables recursive lambdas, CRTP without macros
+43. Multidimensional `operator[]` — `m[i, j, k]` now valid; enables clean matrix/tensor APIs
+44. `static operator()` / `static operator[]` — Stateless lambdas/callables can be `static`
+45. `if consteval` — Branch that executes only in constant-evaluated context
+46. `#elifdef` / `#elifndef` — Preprocessor shorthand for `#elif defined(X)`
+47. `#warning` — Standardized `#warning "msg"` compiler warning directive
+48. `#embed` — Includes binary file as byte sequence at compile time
+49. `[[assume(expr)]]` — Tells optimizer to assume `expr` is always true
+50. `auto(x)` decay-copy — Explicit decay-copy; useful in lambdas for capturing by value
+51. `z`/`Z` size literal suffix — `0uz` is `(size_t)0`; prevents signed/unsigned warnings
+52. `\N{name}` Unicode escapes — `"\N{SNOWMAN}"` named Unicode character in string literals
+53. `std::string` / `std::vector` as `constexpr` — Usable in constant expressions
+
+### C++23 — Library (18)
+54. `std::print` / `std::println` — Direct formatted output; combines `std::format` with I/O
+55. `std::expected<T, E>` — Value-or-error type (like Rust's `Result`); alternative to exceptions
+56. `std::mdspan` — Non-owning multidimensional array view with customizable layout
+57. `std::flat_map` / `std::flat_set` — Sorted associative containers backed by contiguous arrays
+58. New ranges views — `std::views::zip`, `enumerate`, `chunk`, `slide`, `join_with`, `repeat`, `cartesian_product`
+59. `std::ranges::fold_left` / `fold_right` — Standard fold/reduce algorithms for ranges
+60. `std::ranges::contains` — `ranges::contains(v, x)` replaces `std::find` + end check
+61. `std::ranges::find_last` — Finds last matching element in a range
+62. `std::generator<T>` — Coroutine-based range generator; standard way to write `co_yield` sequences
+63. `std::stacktrace` — Capture and inspect call stack at runtime
+64. `std::to_underlying` — `std::to_underlying(e)` casts enum to its underlying integer type
+65. `std::move_only_function` — Like `std::function` but supports move-only callables
+66. `std::string_view` range constructor — Construct `string_view` from any contiguous `char` range
+67. Format for ranges, pairs, tuples — `std::format("{}", my_vector)` works out of the box
+68. `std::byteswap` — Portable byte-order reversal of integer types
+69. `std::unreachable()` — Marks unreachable code; replaces `__builtin_unreachable()`
+70. `std::out_ptr` / `std::inout_ptr` — Adapters for passing smart pointers to C output-pointer APIs
+71. `std::optional` monadic ops — `.and_then()`, `.or_else()`, `.transform()` for chaining optionals
+
+### C++26 — Language (10)
+72. Static reflection (`^^`) — Compile-time introspection producing `std::meta::info` values
+73. Contracts (`pre`, `post`, `contract_assert`) — Formal preconditions/postconditions on functions
+74. Pack indexing — `Args...[0]` accesses Nth element of parameter pack directly
+75. Variadic friends — `friend Types...;` grants friendship to a pack of types
+76. Structured bindings as `static`/`thread_local` — `static auto [a, b] = f();` now permitted
+77. Attributes on structured bindings — `auto [x, [[nodiscard]] y] = f();`
+78. `= delete("reason")` — Deleted functions carry a diagnostic message
+79. Pack in `using` declarations — `using Bases::foo...;` unpacks a base-class member pack
+80. `constexpr` placement new — `std::construct_at` and placement new in `constexpr`
+81. Erroneous behavior — Replaces some UB (e.g., reading uninitialized locals) with defined termination
+
+### C++26 — Library (13)
+82. `std::execution` (senders/receivers) — Unified async framework: schedulers, senders, receivers
+83. `std::async_scope` — RAII scope tracking lifetimes of spawned async work
+84. Parallel algorithms for Ranges — `std::ranges::for_each` etc. gain execution policy overloads
+85. Bounds safety for containers — `vector`, `span`, `string`, `string_view` gain hardened iterators
+86. `std::inplace_vector<T, N>` — Fixed-capacity inline vector; no heap allocation
+87. `std::hazard_pointer` — Lock-free memory reclamation for concurrent data structures
+88. `std::indirect` / `std::polymorphic` — Value-semantic wrappers for heap-allocated polymorphic types
+89. Reflection-based annotations — `[[=expr]]` attaches compile-time metadata to declarations
+90. `std::simd` — Portable SIMD data types and operations without intrinsics
+91. `std::linalg` — Linear algebra (BLAS-style) routines over `mdspan`
+92. `std::optional` formatting — `std::format("{}", opt)` works natively
+93. `std::format` pointer formatting — `std::format("{:p}", ptr)` standardized
+94. `std::string` `contains` — `str.contains(substr)` membership check
+
+
+
 #1 .. #20, #59 -- retry
 
+
+#01 concepts    -- good,     requires std::is_trivially_copyable_v<T>  for gpstask
+#04 ranges -- good (with some c++23 features, see feature #35)
+#05 spaceship operator  -- good, for SatelliteInfo struct
+#06 [[likely]] / [[unlikely]] -- yes, in NMEA processing loop
+#08 Designated initializers -- yes, tm struct initialization
+#09 consteval -- for UUID16 building
+#10 constinit -- yes, own_addr_type
+#13 using enum -- yes,
+#16 [[nodiscard]] with reason -- for SD card logging
 #21 std::format (C++20) -- good
 #22 std::span (C++20) -- good
 #32 std::numbers::* (C++20) -- good
@@ -41,3 +161,271 @@ Ok, next feature. Wait for answer, print it and after that launch next agent. An
 #58 New ranges views (zip, enumerate, chunk, etc.) -- good, not sure I like them though
 #60 std::ranges::contains -- VERY good, nice 'if' replacement
 #64 std::to_underlying -- maaaybe, not too interesting
+#69 std::unreachable() -- good, for switch - default section
+#78 = delete("reason") -- good, for SdCard      
+        SdCard(const SdCard &) = delete("SdCard owns an SPI bus handle and sdmmc_card_t* — copying aliases hardware resources");
+        esp_err_t registerWakeupTimer(int) = delete("wakeup duration must be uint32_t microseconds — negative values silently wrap to enormous sleep");
+
+//////////////////////////////////////////////////////////////////////////
+continue from c++26 feature #81 "Erroneous behavior"
+//////////////////////////////////////////////////////////////////////////
+
+
+
+now build full list of C++17 features (get them from the Internet), keep only that features, that are still actual when compiling with c++26 flag
+
+Now iterate through each c++ feature in the c++17 only list and launch child Claude session, pass feature description to new session. Child session should analyze project sources and think if this feature can be applied to this project sources in benefitial way. If yes -- generate offer how to modify sources and why it would be benefitial.
+Launch only one agent at time.
+
+
+C++17 Features — Still Relevant in C++26
+C++17 — Language (19)
+Class Template Argument Deduction (CTAD) — std::pair p{1, "x"} instead of std::pair<int, const char*>. Deduction guides still authored and used in C++26.
+auto non-type template parameters — template<auto N> deduces the type of a non-type template parameter; avoids writing template<int N> when the type should be inferred.
+Fold expressions — (args + ...), (args op ... op init) — the standard way to operate over parameter packs; no replacement in any later standard.
+constexpr lambdas — lambdas are constexpr by default when possible; foundation for compile-time algorithms.
+Lambda capture *this — captures the object by value, avoids dangling-reference bugs with async code.
+Inline variables — inline constexpr in headers; standard way to define ODR-safe global/static constants in header-only libraries.
+Nested namespaces — namespace A::B::C {} shorthand; ubiquitous in C++20/23/26 code.
+Structured bindings — auto [a, b, c] = expr; — still primary destructuring mechanism; C++26 adds static/thread_local and attribute extensions on top.
+if/switch with initializer — if (auto it = m.find(k); it != m.end()) — still idiomatic.
+if constexpr — compile-time branch in templates; companion to C++23's if consteval; neither replaces the other.
+[[fallthrough]] — marks intentional switch fallthrough; still the standard attribute.
+[[nodiscard]] — basic form; C++20 adds [[nodiscard("reason")]] on top, but the C++17 attribute itself is unchanged and still placed on functions.
+[[maybe_unused]] — suppresses unused-variable warnings; no replacement.
+__has_include — preprocessor check for header availability; still widely used for optional dependencies.
+Guaranteed copy elision — mandatory RVO/NRVO for prvalues; compiler behavior that C++26 code still relies on.
+noexcept as part of function type — void(*)() noexcept is a distinct type from void(*)() — part of the type system.
+std::launder — required for certain placement-new pointer provenance scenarios; no replacement.
+std::byte — the canonical raw-byte type (unsigned char alias with restricted arithmetic); still the right type for byte buffers.
+Hexadecimal floating-point literals — 0x1.8p+1 for exact float representation; niche but valid in numeric/embedded code.
+C++17 — Library (24)
+std::optional<T> — value-or-empty wrapper; C++23 adds monadic ops (.and_then, .transform, .or_else) but the type itself is C++17 and fully alive.
+std::variant<Ts...> — type-safe union; std::visit still the standard way to dispatch on runtime types; no C++26 replacement.
+std::any — type-erased value container; still the standard solution for "any type" storage.
+std::string_view — non-owning string reference; C++23 adds range constructor; the type is foundational to all post-C++17 API design.
+std::filesystem — std::filesystem::path, directory_iterator, copy, file_size, etc.; still the standard cross-platform file I/O API.
+std::invoke / std::invoke_result_t — uniform callable invocation; std::invoke_result_t<F, Args...> replaces std::result_of (removed in C++26).
+std::apply — calls a callable with arguments unpacked from a tuple; no replacement.
+std::make_from_tuple — constructs an object from a tuple of constructor arguments; useful with std::apply.
+std::to_chars / std::from_chars — locale-independent, allocation-free, fastest number-to-string conversion; no C++26 replacement for performance-sensitive code.
+std::gcd / std::lcm — compile-time-friendly integer math utilities.
+std::clamp(v, lo, hi) — bounds a value; cleaner than std::min(std::max(...)).
+std::reduce / std::transform_reduce — parallel-friendly accumulation (unlike std::accumulate); C++26 parallel range algorithms build on this.
+std::exclusive_scan / std::inclusive_scan — prefix sum algorithms; no later replacement.
+Parallel execution policies — std::execution::seq, par, par_unseq for STL algorithms; C++26 adds parallel range algorithms but these remain for classic iterator-pair algorithms.
+std::sample — random sampling from a range; no replacement.
+std::not_fn — negates a predicate callable; still idiomatic for algorithms.
+Map/set node handles + splicing — extract(), merge(), insert(node_handle) — transfer elements between containers without allocation; no replacement.
+Map try_emplace / insert_or_assign — correct insert-or-update semantics without double-lookup; still idiomatic.
+std::as_const — returns a const reference; useful in templates and lambda captures to prevent unintended mutation.
+Non-member std::size / std::empty / std::data — work on arrays, containers, and initializer lists uniformly; superseded in ranges context by std::ranges::size etc., but plain-std:: versions still idiomatic outside ranges.
+Polymorphic memory resources (std::pmr::*) — std::pmr::vector, monotonic_buffer_resource, pool_resource, etc.; the only standard allocator customization story; no C++26 replacement.
+std::conjunction / std::disjunction / std::negation — logical metafunctions on type traits; still used in SFINAE/requires hybrid code.
+std::void_t<...> — detection idiom helper; largely superseded by C++20 Concepts but still appears in legacy and compatibility code.
+Mathematical special functions — Bessel functions, Legendre polynomials, elliptic integrals, etc. in <cmath>; scientific/numeric code.
+
+
+
+good c++17 features
+
+1. Inline variables
+    inline constexpr std::uint32_t aulCrcTable[256] = { 0x00000000UL, ... };
+2. Structured bindings
+    const auto [leapSecsStr, solStatusStr] = splitAndPrepareString(str);
+3. if/switch with initializer
+    if (const auto delimiterPos = cppStr.find(';'); delimiterPos != std::string::npos) {
+4. [[fallthrough]]
+5. [[nodiscard]]
+6. std::byte
+    appendRaw + emulateQstarzBinary
+    void appendRaw(std::vector<std::byte> &buf, const T &data) {
+7. std::optional
+    struct SensorsValues {
+        std::optional<int> batteryVoltageMilliV;
+8. std::string_view
+    void addNmeaLog(std::string_view nmeaMessage);
+    void setGpsLog(std::string_view log);
+9. std::to_chars / std::from_chars
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), p.satellites.size());
+    std::from_chars(str, str + len, val);
+10. std::clamp
+    Before: return std::max<double>(0.0f, std::min<double>(100.0, value));
+    After: return std::clamp(value, 0.0, 100.0);
+11. Non-member std::size
+    static const char* directions[] = {"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"};
+    return directions[direction % std::size(directions)];
+12. std::pmr (polymorphic memory resources)
+    Not so sure, 
+        std::array<std::byte, 4096> m_streamBuf;
+        std::pmr::monotonic_buffer_resource m_streamPool{m_streamBuf.data(), m_streamBuf.size()};
+        std::pmr::vector<std::pmr::string> m_nmeaStream{&m_streamPool};
+    current code (std::vector<std::string> m_nmeaStream)
+    does not free memory after .clean(), so it only grow in the begining and then stay at some fixed heap memory size
+
+
+
+C++17 — Language (19)
+#	Feature	Verdict
+1	Class Template Argument Deduction (CTAD)	✗
+2	auto non-type template parameters	✗
+3	Fold expressions	✗
+4	constexpr lambdas	✗
+5	Lambda capture *this	✗
+6	Inline variables	✓
+7	Nested namespaces	✗
+8	Structured bindings	✓
+9	if/switch with initializer	✓
+10	if constexpr	✗
+11	[[fallthrough]]	✓
+12	[[nodiscard]]	✓
+13	[[maybe_unused]]	✗
+14	__has_include	✗
+15	Guaranteed copy elision	✗
+16	noexcept as function type	✗
+17	std::launder	✗
+18	std::byte	✓
+19	Hexadecimal floating-point literals	✗
+C++17 — Library (24)
+#	Feature	Verdict
+20	std::optional<T>	✓
+21	std::variant<Ts...>	✗
+22	std::any	✗
+23	std::string_view	✓
+24	std::filesystem	✗
+25	std::invoke / std::invoke_result_t	✗
+26	std::apply	✗
+27	std::make_from_tuple	✗
+28	std::to_chars / std::from_chars	✓
+29	std::gcd / std::lcm	✗
+30	std::clamp	✓
+31	std::reduce / std::transform_reduce	✗
+32	std::exclusive_scan / std::inclusive_scan	✗
+33	Parallel execution policies	✗
+34	std::sample	✗
+35	std::not_fn	✗
+36	Map/set node handles + splice	✗
+37	try_emplace / insert_or_assign	✗
+38	std::as_const	✗
+39	Non-member std::size / std::empty / std::data	✓
+40	std::pmr (polymorphic memory resources)	✓
+41	std::conjunction / std::disjunction / std::negation	✗
+42	std::void_t	✗
+43	Mathematical special functions (<cmath>)	✗
+C++17 applicable: 12 / 43
+
+C++20 — Language (20)
+#	Feature	Verdict
+1	Concepts	✓
+2	Coroutines	✗
+3	Modules	✗
+4	Ranges	✓
+5	Spaceship operator <=>	✓
+6	[[likely]] / [[unlikely]]	✓
+7	[[no_unique_address]]	✗
+8	Designated initializers	✓
+9	consteval	✓
+10	constinit	✓
+11	Template lambda	✗
+12	requires expressions	✗
+13	using enum	✓
+14	NTTP user-defined types	✗
+15	char8_t	✗
+16	[[nodiscard]] with reason	✓
+17	Aggregate init with parentheses	✗
+18	__VA_OPT__	✗
+19	Lambdas in unevaluated contexts	✗
+20	Implicit move in more cases	✗
+C++20 — Library (21)
+#	Feature	Verdict
+21	std::format	✓
+22	std::span	✓
+23	std::ranges::* algorithms	✗
+24	std::jthread	✗
+25	std::stop_token / std::stop_source	✗
+26	Calendar & time zones in <chrono>	✗
+27	std::bit_cast	✗
+28	std::to_address	✗
+29	Atomic wait / notify	✗
+30	std::atomic<shared_ptr>	✗
+31	std::source_location	✗
+32	std::numbers::*	✓
+33	std::midpoint / std::lerp	✗
+34	std::bind_front	✗
+35	Ranges views	✓
+36	std::is_constant_evaluated()	✗
+37	starts_with / ends_with	✓
+38	contains on associative containers	✗
+39	std::erase / std::erase_if	✗
+40	Semaphores	✗
+41	Latches & barriers	✗
+C++20 applicable: 14 / 41
+
+C++23 — Language (12)
+#	Feature	Verdict
+42	Deducing this	✗
+43	Multidimensional operator[]	✗
+44	static operator() / static operator[]	✓
+45	if consteval	✗
+46	#elifdef / #elifndef	✗
+47	#warning	✓
+48	#embed	✗
+49	[[assume(expr)]]	✓
+50	auto(x) decay-copy	✗
+51	z/Z size literal suffix	✗
+52	\N{name} Unicode escapes	✗
+53	std::string / std::vector as constexpr	✓
+C++23 — Library (18)
+#	Feature	Verdict
+54	std::print / std::println	✗
+55	std::expected<T, E>	✓
+56	std::mdspan	✗
+57	std::flat_map / std::flat_set	✓
+58	New ranges views (zip, enumerate, chunk, etc.)	✓
+59	std::ranges::fold_left / fold_right	✗
+60	std::ranges::contains	✓
+61	std::ranges::find_last	✗
+62	std::generator<T>	✗
+63	std::stacktrace	✗
+64	std::to_underlying	✓
+65	std::move_only_function	✗
+66	std::string_view range constructor	✗
+67	Format for ranges, pairs, tuples	✗
+68	std::byteswap	✗
+69	std::unreachable()	✓
+70	std::out_ptr / std::inout_ptr	✗
+71	std::optional monadic ops	✗
+C++23 applicable: 10 / 30
+
+C++26 — Language (10)
+#	Feature	Verdict
+72	Static reflection (^^)	✗
+73	Contracts (pre, post, contract_assert)	✗
+74	Pack indexing	✗
+75	Variadic friends	✗
+76	Structured bindings as static/thread_local	✗
+77	Attributes on structured bindings	✗
+78	= delete("reason")	✗
+79	Pack in using declarations	✗
+80	constexpr placement new	✗
+81	Erroneous behavior	✗
+C++26 — Library (13)
+#	Feature	Verdict
+82	std::execution (senders/receivers)	✗
+83	std::async_scope	✗
+84	Parallel algorithms for Ranges	✗
+85	Bounds safety for containers	✗
+86	std::inplace_vector<T, N>	✗
+87	std::hazard_pointer	✗
+88	std::indirect / std::polymorphic	✗
+89	Reflection-based annotations	✗
+90	std::simd	✗
+91	std::linalg	✗
+92	std::optional formatting	✗
+93	std::format pointer formatting	✗
+94	std::string::contains	✓
+C++26 applicable: 1 / 23
+
+
+
+
