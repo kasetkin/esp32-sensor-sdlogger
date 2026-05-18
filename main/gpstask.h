@@ -70,13 +70,16 @@ public:
     static constexpr uart_port_t GPS_UART_PORT = UART_NUM_1;
 
     /// init UART and structures
+    [[nodiscard("GPS UART misconfigured if unchecked")]]
     esp_err_t configureUart();
 
     /// configure GPS module (internal settings, modes, etc.)
     /// call AFTER task start to see UART output
+    [[nodiscard("GPS module misconfigured if unchecked")]]
     esp_err_t configureUM980();
 
-    /// configure TinyGPS library 
+    /// configure TinyGPS library
+    [[nodiscard("GPS parser misconfigured if unchecked")]]
     esp_err_t configureTinyGps();
 
     using QStarZPackets = std::array<std::string, 4>;

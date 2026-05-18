@@ -15,8 +15,11 @@ public:
     static constexpr gpio_num_t PIN_NUM_CLK = GPIO_NUM_19;
     static constexpr gpio_num_t PIN_NUM_CS = GPIO_NUM_21;
 
+    [[nodiscard("SD card format failure silently ignored")]]
     esp_err_t format();
+    [[nodiscard("SD card not mounted on failure")]]
     esp_err_t mountFilesystem(const std::string &mountPoint = "/sdcard");
+    [[nodiscard("unmount failure may corrupt card state")]]
     esp_err_t unmount();
     void printInfoToStdout();
 
@@ -25,8 +28,10 @@ public:
 
     /// this functions (write/read) can be outside, but it's easy to read code if they are here
     /// filename should start with "/", for example "/myfile.txt"
+    [[nodiscard("write failure silently drops data")]]
     esp_err_t writeFile(const std::string &path, const char *data);
 
+    [[nodiscard("append failure silently drops data")]]
     esp_err_t appendFile(const std::string &path, const char *data);
 
     /// filename should start with "/", for example "/myfile.txt"

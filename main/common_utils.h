@@ -10,11 +10,13 @@ void enableExtAntenna(const bool enableExtAnt);
 void enableUserLED(const bool enableLED);
 
 /// configure wakeup timer
+[[nodiscard("device won't wake on timer if unchecked")]]
 esp_err_t registerWakeupTimer(const uint32_t wakeupMicrosec);
 
 /// sleep for wakeupMicrosec from above + ?10ms? using esp_light_sleep
 void correctLightSleep();
 
+[[nodiscard("NVS unavailable if init failure ignored")]]
 esp_err_t initNvsFlash();
 
 /// for loggertask code migration, because it was written for Arduino

@@ -119,11 +119,13 @@ void LoggerTask::logCurrentState()
     if (m_readyEvent)
         m_readyEvent(fullLogMessage);
         
-    m_sdCard->appendFile(fullpath, fullLogMessage.c_str());
+    if (const esp_err_t err = m_sdCard->appendFile(fullpath, fullLogMessage.c_str()); err != ESP_OK)
+        ESP_LOGE(LOGSTATETAG, "appendFile failed: %d", err);
 }
 
 void LoggerTask::logNmeaStream()
 {
+    static const char * LOGNMEATAG = "LogNmea";
     const std::string filename = generateFilename() + "_nmea.csv";
     const std::string fullpath = "/" + filename;
     if (!m_sdCard)
@@ -133,7 +135,8 @@ void LoggerTask::logNmeaStream()
         return;
 
     m_nmeaLog += std::string("\r\n");
-    m_sdCard->appendFile(fullpath, m_nmeaLog.c_str());
+    if (const esp_err_t err = m_sdCard->appendFile(fullpath, m_nmeaLog.c_str()); err != ESP_OK)
+        ESP_LOGE(LOGNMEATAG, "appendFile failed: %d", err);
 }
 
 std::string LoggerTask::generateDeviceInfoLog() const

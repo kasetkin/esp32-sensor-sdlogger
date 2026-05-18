@@ -44,7 +44,8 @@ extern "C" void app_main(void)
 
     enableRf(true);
     enableExtAntenna(false);
-    registerWakeupTimer(100 * 1000);
+    if (const esp_err_t timerErr = registerWakeupTimer(100 * 1000); timerErr != ESP_OK)
+        ESP_LOGE(TAG, "registerWakeupTimer failed: %d", timerErr);
 
     ESP_LOGI(TAG, "create GPS task object");
     gpsTask = std::make_shared<GpsTask>();

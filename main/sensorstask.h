@@ -30,9 +30,11 @@ public:
 class SensorsTask
 {
 public:
+    [[nodiscard("sensors unavailable if init failure ignored")]]
     esp_err_t init();
     ~SensorsTask();
     void executeTask();
+    [[nodiscard("output params undefined on failure")]]
     esp_err_t readEnvironment(float &temperature, float &humidity);
 
     using SensorsReadyEvent = std::function<void(const SensorsValues &values)>;
@@ -66,10 +68,13 @@ private:
     SensorsReadyEvent m_readyEvent;
     sht3x_t m_sht3dev;
 
+    [[nodiscard("false means ADC is uncalibrated")]]
     static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
     static void adc_calibration_deinit(adc_cali_handle_t handle);
 
+    [[nodiscard("ADC unavailable if init failure ignored")]]
     esp_err_t initAdc();
+    [[nodiscard("I2C unavailable if init failure ignored")]]
     esp_err_t initI2C();
     void deinitAdc();
     void deinitI2C();

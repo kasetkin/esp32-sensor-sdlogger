@@ -113,6 +113,7 @@ private:
     //                              uint16_t conn_handle);
 
     /// @brief register GATT services
+    [[nodiscard("BLE services not registered on failure")]]
     int gatt_svr_init();
 
     void dataSenderTaskInit();
