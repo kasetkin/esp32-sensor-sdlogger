@@ -487,8 +487,8 @@ void GpsTask::logNmeaMessageToSd(const std::string &msg)
 
 std::string GpsTask::dopToMeters(const uint32_t dop)
 {
-    const auto dv = std::div(dop, 100);
-    return std::to_string(dv.quot) + '.' + std::to_string(dv.rem);
+    const auto [quot, rem] = std::div(dop, 100);
+    return std::to_string(quot) + '.' + std::to_string(rem);
 }
 
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
