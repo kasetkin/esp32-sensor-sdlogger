@@ -11,12 +11,8 @@
 std::string SensorsValues::toTelemetryRoundedString(const float value)
 {
     std::string fullString = std::to_string(value);
-    const size_t dotPos = fullString.find('.');
-    if (dotPos == std::string::npos)
-        return fullString;
-
-    const size_t newLenght = std::min(dotPos + static_cast<size_t>(4), fullString.size());
-    fullString.resize(newLenght);
+    if (const size_t dotPos = fullString.find('.'); dotPos != std::string::npos)
+        fullString.resize(std::min(dotPos + static_cast<size_t>(4), fullString.size()));
     return fullString;
 }
 
@@ -131,22 +127,21 @@ esp_err_t SensorsTask::initAdc()
 esp_err_t SensorsTask::initI2C() 
 {
     static const char * TAG = "sensors-init-i2c";
-    const esp_err_t initErr = i2cdev_init();
-    if (initErr != ESP_OK) {
+    if (const esp_err_t initErr = i2cdev_init(); initErr != ESP_OK) {
         ESP_LOGE(TAG, "can not init I2C: %d err", initErr);
         return ESP_FAIL;
     }
 
     memset(&m_sht3dev, 0, sizeof(sht3x_t));
-    const esp_err_t descriptorInitErr = sht3x_init_desc(&m_sht3dev, SHT3X_ADDR, SHT3X_I2C_PORT, I2C_MASTER_SDA, I2C_MASTER_SCL);
-    if (descriptorInitErr != ESP_OK) {
+    if (const esp_err_t descriptorInitErr = sht3x_init_desc(
+            &m_sht3dev, SHT3X_ADDR, SHT3X_I2C_PORT, I2C_MASTER_SDA, I2C_MASTER_SCL);
+        descriptorInitErr != ESP_OK) {
         ESP_LOGE(TAG, "can not init I2C descriptor structure: %d err", descriptorInitErr);
         i2cdev_done();
         return ESP_FAIL;
     }
 
-    const esp_err_t sensorInitErr = sht3x_init(&m_sht3dev);
-    if (sensorInitErr != ESP_OK) {
+    if (const esp_err_t sensorInitErr = sht3x_init(&m_sht3dev); sensorInitErr != ESP_OK) {
         ESP_LOGE(TAG, "can not init SHT3X sensor via I2C: %d err", sensorInitErr);
         sht3x_free_desc(&m_sht3dev);
         i2cdev_done();
@@ -165,18 +160,15 @@ esp_err_t SensorsTask::init()
     deinitI2C();
     deinitAdc();
 
-    const esp_err_t adcErr = initAdc();
-    if (adcErr != ESP_OK)
+    if (const esp_err_t adcErr = initAdc(); adcErr != ESP_OK)
         return adcErr;
 
-    const esp_err_t i2cErr = initI2C();
-    if (i2cErr != ESP_OK) {
+    if (const esp_err_t i2cErr = initI2C(); i2cErr != ESP_OK) {
         deinitAdc();
         return i2cErr;
     }
 
-    const esp_err_t timerErr = registerWakeupTimer(LOW_POWER_SLEEP_TIMER_DURATION_US);
-    if (timerErr != ESP_OK)
+    if (const esp_err_t timerErr = registerWakeupTimer(LOW_POWER_SLEEP_TIMER_DURATION_US); timerErr != ESP_OK)
         return timerErr;
 
     return ESP_OK;
@@ -236,14 +228,14 @@ int SensorsTask::readBatteryVoltageMilliV()
     int voltage = 0;
     int32_t voltage_mean = 0;
     for (size_t i = 0; i < ADC_READS_COUNT; ++i) {
-        const esp_err_t adcReadError = adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw);
-        if (adcReadError != ESP_OK) {
+        if (const esp_err_t adcReadError = adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw);
+            adcReadError != ESP_OK) {
             ESP_LOGE(TAG, "ADC reading error %d", adcReadError);
             return -1;
         }
 
-        const esp_err_t calibrationErr = adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage);
-        if (calibrationErr != ESP_OK) {
+        if (const esp_err_t calibrationErr = adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage);
+            calibrationErr != ESP_OK) {
             ESP_LOGE(TAG, "ADC calibration error %d, raw value is %d", calibrationErr, adc_raw);
             return -1;
         }        
@@ -291,8 +283,8 @@ void SensorsTask::executeTask()
             ESP_LOGE(TAG, "battery ADC read error");
         }
 
-        const esp_err_t readError = sht3x_measure(&m_sht3dev, &v.envTemperature, &v.envHumidity);
-        if (readError == ESP_OK) {
+        if (const esp_err_t readError = sht3x_measure(&m_sht3dev, &v.envTemperature, &v.envHumidity);
+            readError == ESP_OK) {
             ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", v.envTemperature, v.envHumidity);
         } else {
             ESP_LOGE(TAG, "sensor read error: %d", readError);

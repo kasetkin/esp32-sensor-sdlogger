@@ -28,16 +28,16 @@ esp_err_t GpsTask::configureUart()
     };
 
     // We won't use a buffer for sending data.
-    const esp_err_t driverRet = uart_driver_install(GPS_UART_PORT, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
-    if (driverRet != ESP_OK)
+    if (const esp_err_t driverRet = uart_driver_install(GPS_UART_PORT, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+        driverRet != ESP_OK)
         return driverRet;
 
-    const esp_err_t uartConfigRet = uart_param_config(GPS_UART_PORT, &uart_config);
-    if (uartConfigRet != ESP_OK) 
+    if (const esp_err_t uartConfigRet = uart_param_config(GPS_UART_PORT, &uart_config); uartConfigRet != ESP_OK)
         return uartConfigRet;
 
-    const esp_err_t gpioConfigRet = uart_set_pin(GPS_UART_PORT, UART_TX_GPIO_PIN, UART_RX_GPIO_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    if (gpioConfigRet != ESP_OK)
+    if (const esp_err_t gpioConfigRet = uart_set_pin(GPS_UART_PORT, UART_TX_GPIO_PIN, UART_RX_GPIO_PIN,
+                                                     UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+        gpioConfigRet != ESP_OK)
         return gpioConfigRet;
     
     return ESP_OK;

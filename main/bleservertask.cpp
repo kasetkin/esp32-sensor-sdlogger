@@ -190,10 +190,8 @@ void BleSppServerTask::ble_spp_server_advertise()
         scan_response_fields.name = (uint8_t *)name;
         scan_response_fields.name_len = name_length;
         scan_response_fields.name_is_complete = 1;
-        const int err = ble_gap_adv_rsp_set_fields(&scan_response_fields);
-        if (err != 0) {
+        if (const int err = ble_gap_adv_rsp_set_fields(&scan_response_fields); err != 0)
             MODLOG_DFLT(ERROR, "can not setup long name");
-        }
     }
 
     // fields.uuids16 = (ble_uuid16_t[]) {

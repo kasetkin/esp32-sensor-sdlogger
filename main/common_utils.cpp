@@ -38,8 +38,8 @@ void correctLightSleep()
     const int64_t t_after_us = esp_timer_get_time();
     const char* wakeup_reason;
 
-    const uint32_t wakeupCauses = esp_sleep_get_wakeup_causes();
-    if (wakeupCauses & BIT(ESP_SLEEP_WAKEUP_TIMER))
+    if (const uint32_t wakeupCauses = esp_sleep_get_wakeup_causes();
+        wakeupCauses & BIT(ESP_SLEEP_WAKEUP_TIMER))
         wakeup_reason = "timer";
     else if (wakeupCauses & BIT(ESP_SLEEP_WAKEUP_GPIO))
         wakeup_reason = "pin";
