@@ -9,10 +9,12 @@
 #include <array>
 #include <vector>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <host/ble_hs.h>
 #include <nimble/ble.h>
 #include <nimble/nimble_port_freertos.h>
+#include "sensorstask.h"
 
 
 class BleSppServerTask
@@ -21,9 +23,7 @@ public:
     void startServer();
     void terminate();
 
-    void setBatteryLevel(float level);
-    void setEnvHumidity(float humidity);
-    void setEnvTemperature(float temperature);
+    void setSensorsValues(const SensorsValues &values);
 
     void appendNmea(const std::string &newNmea);
     void appendLog(const std::string &newNmea);
@@ -86,9 +86,9 @@ private:
     // static const ble_gatt_chr_def spp_characteristics[];
     // static const ble_gatt_svc_def new_ble_svc_gatt_defs[];
 
-    float m_batteryLevel = -1.0;
-    float m_envTemperature = -275.0;
-    float m_envHumidity = -1.0;
+    std::optional<float> m_batteryLevel;
+    std::optional<float> m_envTemperature;
+    std::optional<float> m_envHumidity;
     std::vector<std::string> m_nmeaStream;
     std::vector<std::string> m_logStream;
     CommandReceivedEvent m_commandReceivedEvent;

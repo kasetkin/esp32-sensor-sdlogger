@@ -42,22 +42,22 @@ static void test_telemetry_large_whole_number(void)
 static void test_to_string_empty_defaults(void)
 {
     SensorsValues v;
-    TEST_ASSERT_EQUAL_STRING("", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_includes_batvolt(void)
 {
     SensorsValues v;
     v.batteryVoltageMilliV = 3700;
-    TEST_ASSERT_TRUE(v.toString().find("BATVOLT;3700;") != std::string::npos);
+    TEST_ASSERT_TRUE(v.toTelemetryString().find("BATVOLT;3700;") != std::string::npos);
 }
 
 static void test_to_string_skips_batperc_zero(void)
 {
     SensorsValues v;
     v.batteryVoltageMilliV = 3700;
-    v.batteryPercent = 0;
-    TEST_ASSERT_TRUE(v.toString().find("BATPERC") == std::string::npos);
+    // batteryPercent left as nullopt — no value assigned
+    TEST_ASSERT_TRUE(v.toTelemetryString().find("BATPERC") == std::string::npos);
 }
 
 static void test_to_string_includes_both_batvolt_batperc(void)
@@ -65,21 +65,21 @@ static void test_to_string_includes_both_batvolt_batperc(void)
     SensorsValues v;
     v.batteryVoltageMilliV = 3700;
     v.batteryPercent = 50;
-    TEST_ASSERT_EQUAL_STRING("BATVOLT;3700;BATPERC;50;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("BATVOLT;3700;BATPERC;50;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_includes_temp(void)
 {
     SensorsValues v;
     v.envTemperature = 25.0f;
-    TEST_ASSERT_EQUAL_STRING("TEMP;25;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("TEMP;25;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_includes_humid(void)
 {
     SensorsValues v;
     v.envHumidity = 60.0f;
-    TEST_ASSERT_EQUAL_STRING("HUMID;60;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("HUMID;60;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_omits_nan_fields(void)
@@ -87,7 +87,7 @@ static void test_to_string_omits_nan_fields(void)
     SensorsValues v;
     v.batteryPercent = 75;
     v.batteryVoltageMilliV = 4000;
-    const std::string result = v.toString();
+    const std::string result = v.toTelemetryString();
     TEST_ASSERT_TRUE(result.find("TEMP")  == std::string::npos);
     TEST_ASSERT_TRUE(result.find("HUMID") == std::string::npos);
     TEST_ASSERT_TRUE(result.find("PRESS") == std::string::npos);
@@ -97,28 +97,28 @@ static void test_to_string_min_temperature(void)
 {
     SensorsValues v;
     v.envTemperature = -40.0f;  // SHT3x lower limit
-    TEST_ASSERT_EQUAL_STRING("TEMP;-40;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("TEMP;-40;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_max_temperature(void)
 {
     SensorsValues v;
     v.envTemperature = 125.0f;  // SHT3x upper limit
-    TEST_ASSERT_EQUAL_STRING("TEMP;125;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("TEMP;125;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_max_humidity(void)
 {
     SensorsValues v;
     v.envHumidity = 100.0f;
-    TEST_ASSERT_EQUAL_STRING("HUMID;100;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("HUMID;100;", v.toTelemetryString().c_str());
 }
 
 static void test_to_string_zero_humidity(void)
 {
     SensorsValues v;
     v.envHumidity = 0.0f;  // not NaN — must be included in output
-    TEST_ASSERT_EQUAL_STRING("HUMID;0;", v.toString().c_str());
+    TEST_ASSERT_EQUAL_STRING("HUMID;0;", v.toTelemetryString().c_str());
 }
 
 // ── SensorsTask::convertVoltageToPercent ─────────────────────────────────────

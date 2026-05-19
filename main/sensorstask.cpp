@@ -16,25 +16,36 @@ std::string SensorsValues::toTelemetryRoundedString(const float value)
     return fullString;
 }
 
-std::string SensorsValues::toString() const
+std::string SensorsValues::toTelemetryString() const
 {
     std::string message;
-    if (batteryVoltageMilliV > 0)
-        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV) + std::string(";");
+    if (batteryVoltageMilliV)
+        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV.value()) + std::string(";");
 
-    if (batteryPercent > 0)
-        message += std::string("BATPERC;") + std::to_string(batteryPercent) + std::string(";");
+    if (batteryPercent)
+        message += std::string("BATPERC;") + std::to_string(batteryPercent.value()) + std::string(";");
 
-    if (!std::isnan(envTemperature))
-        message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature) + std::string(";");
+    if (envTemperature)
+        message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature.value()) + std::string(";");
 
-    if (!std::isnan(envHumidity))
-        message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity) + std::string(";");
+    if (envHumidity)
+        message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity.value()) + std::string(";");
 
-    if (!std::isnan(barometricPressure))
-        message += std::string("PRESS;") + toTelemetryRoundedString(barometricPressure) + std::string(";");
+    if (barometricPressure)
+        message += std::string("PRESS;") + toTelemetryRoundedString(barometricPressure.value()) + std::string(";");
 
     return message;
+}
+
+std::string SensorsValues::toLogString() const
+{
+    auto intStr   = [](const std::optional<int>   &v) { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
+    auto floatStr = [](const std::optional<float> &v) { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
+    return std::string("batteryVoltageMilliV: ") + intStr(batteryVoltageMilliV)
+         + ", batteryPercent: "     + intStr(batteryPercent)
+         + ", envTemperature: "     + floatStr(envTemperature)
+         + ", envHumidity: "        + floatStr(envHumidity)
+         + ", barometricPressure: " + floatStr(barometricPressure);
 }
 
 void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
@@ -268,14 +279,15 @@ void SensorsTask::executeTask()
     static const char * TAG = "sensors-task";
     while (true) {
         SensorsValues v;
-        v.batteryVoltageMilliV = readBatteryVoltageMilliV();
-        if (v.batteryVoltageMilliV > 0) {
-            v.batteryPercent = convertVoltageToPercent(v.batteryVoltageMilliV);
-            if (v.batteryVoltageMilliV < LOW_DISCHARGE_VOLTAGE) {
-                ESP_LOGE(TAG, "battery voltage too low (%d), sleep", v.batteryVoltageMilliV);
+        const int rawVoltage = readBatteryVoltageMilliV();
+        if (rawVoltage > 0) {
+            v.batteryVoltageMilliV = rawVoltage;
+            v.batteryPercent = convertVoltageToPercent(rawVoltage);
+            if (rawVoltage < LOW_DISCHARGE_VOLTAGE) {
+                ESP_LOGE(TAG, "battery voltage too low (%d), sleep", rawVoltage);
                 correctLightSleep();
 
-                /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices 
+                /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices
 
                 continue;
             }
@@ -283,13 +295,14 @@ void SensorsTask::executeTask()
             ESP_LOGE(TAG, "battery ADC read error");
         }
 
-        if (const esp_err_t readError = sht3x_measure(&m_sht3dev, &v.envTemperature, &v.envHumidity);
+        float tempVal, humidVal;
+        if (const esp_err_t readError = sht3x_measure(&m_sht3dev, &tempVal, &humidVal);
             readError == ESP_OK) {
-            ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", v.envTemperature, v.envHumidity);
+            v.envTemperature = tempVal;
+            v.envHumidity = humidVal;
+            ESP_LOGI(TAG, "SHT3x Sensor: %.2f °C, %.2f %%", tempVal, humidVal);
         } else {
             ESP_LOGE(TAG, "sensor read error: %d", readError);
-            v.envTemperature = std::numeric_limits<float>::quiet_NaN();
-            v.envHumidity = std::numeric_limits<float>::quiet_NaN();
         }        
 
         if (m_readyEvent)

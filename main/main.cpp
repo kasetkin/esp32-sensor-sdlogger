@@ -147,14 +147,10 @@ extern "C" void app_main(void)
     sensorTask->configureReadyEvent([](const SensorsValues &values)
     {
         ESP_LOGI(TAG, "Logger: ReadyEnevt");
-        const std::string message = values.toString();
+        const std::string message = values.toTelemetryString();
         if (bleTask) {
-            ESP_LOGI(TAG, "Logger: ReadyEnevt: set sensors values: %d, %f, %f, %s", 
-                values.batteryPercent, values.envTemperature, values.envHumidity, message.c_str());
-
-            bleTask->setBatteryLevel(values.batteryPercent);
-            bleTask->setEnvTemperature(values.envTemperature);
-            bleTask->setEnvHumidity(values.envHumidity);
+            ESP_LOGI(TAG, "Logger: ReadyEnevt: %s", values.toLogString().c_str());
+            bleTask->setSensorsValues(values);
         }
 
         if (loggerTask)

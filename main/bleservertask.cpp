@@ -674,31 +674,14 @@ int BleSppServerTask::gatt_svr_init()
     return 0;
 }
 
-void BleSppServerTask::setBatteryLevel(float level)
+void BleSppServerTask::setSensorsValues(const SensorsValues &values)
 {
-    if (std::isnan(level))
-        return;
-
     std::unique_lock writeLock(m_dataMutex);
-    m_batteryLevel = level;
-}
-
-void BleSppServerTask::setEnvHumidity(float humidity)
-{
-    if (std::isnan(humidity))
-        return;
-
-    std::unique_lock writeLock(m_dataMutex);
-    m_envHumidity = humidity;
-}
-
-void BleSppServerTask::setEnvTemperature(float temperature)
-{
-    if (std::isnan(temperature))
-        return;
-
-    std::unique_lock writeLock(m_dataMutex);
-    m_envTemperature = temperature;
+    m_batteryLevel = values.batteryPercent.has_value()
+        ? std::optional<float>{static_cast<float>(values.batteryPercent.value())}
+        : std::nullopt;
+    m_envTemperature = values.envTemperature;
+    m_envHumidity = values.envHumidity;
 }
 
 void BleSppServerTask::appendNmea(const std::string &newNmea)
@@ -793,16 +776,16 @@ void BleSppServerTask::transmitBuffer(const std::byte *bufferStart, size_t buffe
 
 void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 {
-    if (m_batteryLevel < 0)
+    if (!m_batteryLevel)
         return;
 
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr)
         return;
-    
+
     /* Update access buffer value — Battery Level (0x2A19) is uint8, range 0-100% */
     const uint8_t batteryLevelPrepared = static_cast<uint8_t>(
-        std::min(100.0f, std::max(0.0f, std::round(m_batteryLevel))));
+        std::min(100.0f, std::max(0.0f, std::round(m_batteryLevel.value()))));
     const int rc1 = os_mbuf_append(txom, &batteryLevelPrepared, sizeof(batteryLevelPrepared));
 
     if (rc1 != 0) {
@@ -823,15 +806,15 @@ void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 
 void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
 {
-    if (m_envHumidity < 0)
+    if (!m_envHumidity)
         return;
 
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr)
         return;
-    
+
     /* Update access buffer value */
-    const int16_t humidityPreparedSigned = static_cast<int16_t>(std::round(m_envHumidity * 100.0));
+    const int16_t humidityPreparedSigned = static_cast<int16_t>(std::round(m_envHumidity.value() * 100.0));
     const uint16_t humidityPrepared = static_cast<uint16_t>(humidityPreparedSigned);
     static uint8_t env_humidity_chr_val[2] = {0, 0};
     env_humidity_chr_val[1] = humidityPrepared / 256;
@@ -856,19 +839,19 @@ void BleSppServerTask::transmitEnvHumidity(uint16_t conn_handle)
 
 void BleSppServerTask::transmitEnvTemperature(uint16_t conn_handle)
 {
-    if (m_envTemperature < -274.0)
+    if (!m_envTemperature)
         return;
 
-    MODLOG_DFLT(DEBUG, "BLE: transmit temperature value %f", m_envTemperature);
+    MODLOG_DFLT(DEBUG, "BLE: transmit temperature value %f", m_envTemperature.value());
     struct os_mbuf *txom = ble_hs_mbuf_att_pkt();
     if (txom == nullptr) {
         MODLOG_DFLT(ERROR, "BLE: transmit temperature, buffer allocation - ERROR");
         return;
     }
-    
+
     MODLOG_DFLT(DEBUG, "BLE: transmit temperature, buffer allocation - ok");
     /* Update access buffer value */
-    const int16_t temperaturePreparedSigned = static_cast<int16_t>(std::round(m_envTemperature * 100.0));
+    const int16_t temperaturePreparedSigned = static_cast<int16_t>(std::round(m_envTemperature.value() * 100.0));
     const uint16_t temperaturePrepared = static_cast<uint16_t>(temperaturePreparedSigned); /// prepare for bytes operations
     static uint8_t env_temperature_chr_val[2] = {0, 0};
     env_temperature_chr_val[1] = temperaturePrepared / 256;

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <numeric>
+#include <optional>
 #include <memory>
 #include <string>
 #include <functional>
@@ -16,13 +17,14 @@
 struct SensorsValues
 {
 public:
-    int batteryVoltageMilliV = -1;
-    int batteryPercent = -1;
-    float envTemperature = std::numeric_limits<float>::quiet_NaN();
-    float envHumidity = std::numeric_limits<float>::quiet_NaN();
-    float barometricPressure = std::numeric_limits<float>::quiet_NaN();
+    std::optional<int> batteryVoltageMilliV;
+    std::optional<int> batteryPercent;
+    std::optional<float> envTemperature;
+    std::optional<float> envHumidity;
+    std::optional<float> barometricPressure;
 
-    std::string toString() const;
+    std::string toTelemetryString() const;
+    std::string toLogString() const;
     /// always 3 digits after '.'
     static std::string toTelemetryRoundedString(const float value);
 };
