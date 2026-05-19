@@ -8,6 +8,7 @@
 #include <atomic>
 #include <array>
 #include <vector>
+#include <cstddef>
 #include <string>
 #include <host/ble_hs.h>
 #include <nimble/ble.h>
@@ -26,7 +27,7 @@ public:
 
     void appendNmea(const std::string &newNmea);
     void appendLog(const std::string &newNmea);
-    void transmitQstarzPackets(const std::array<std::string, 4> &packets);
+    void transmitQstarzPackets(const std::array<std::vector<std::byte>, 4> &packets);
 
     using CommandReceivedEvent = std::function<void(const std::string &command)>;
     void configureCommandReceivedEvent(CommandReceivedEvent event);
@@ -108,6 +109,7 @@ private:
     static void printUuid(const ble_uuid16_t &uuid);
     static void printUuid(const ble_uuid128_t &uuid);
     static void printBleAddress(const uint8_t value[]);
+    static std::vector<std::byte> copyStringToBytes(const std::string &str);
     // static int ble_store_gen_key(uint8_t key,
     //                              struct ble_store_gen_key *gen_key,
     //                              uint16_t conn_handle);
@@ -120,7 +122,9 @@ private:
     void bleSenderTask();
     void sendAllData();
     inline int bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle);
-    void transmitLineNow(const std::string &line, uint16_t value_handle);
+    //! \todo replace std::string with std::vector<std::byte> or some range-based template/type 
+    //!         it should accept both std::vector<std::byte> and std::string
+    void transmitLineNow(const std::vector<std::byte> &line, uint16_t value_handle);
     void transmitEnvHumidity(uint16_t conn_handle);
     void transmitEnvTemperature(uint16_t conn_handle);
     void transmitBatteryLevel(uint16_t conn_handle);

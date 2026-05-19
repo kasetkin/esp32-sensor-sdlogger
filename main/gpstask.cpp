@@ -455,7 +455,7 @@ bool GpsTask::processNewLocation()
     }
 
     {
-        const std::array<std::string, 4> emulatedQstarz = emulateQstarzBinary(gpsInfo);
+        const auto emulatedQstarz = emulateQstarzBinary(gpsInfo);
         if (m_qstarzEvent)
             m_qstarzEvent(emulatedQstarz);
     }
@@ -685,13 +685,14 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
 }
 
 template<typename T>
-void appendRaw(std::string &buf, const T &data)
+void appendRaw(std::vector<std::byte> &buf, const T &data)
 {
-    buf.append(reinterpret_cast<const char *>(&data), sizeof(T));
+    const auto *p = reinterpret_cast<const std::byte *>(&data);
+    buf.insert(buf.end(), p, p + sizeof(T));
 }
 
 // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
-std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
+GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
 {
     const auto epoch = p.worldTime.time_since_epoch();
     const auto secs = std::chrono::duration_cast<std::chrono::seconds>(epoch);
@@ -731,7 +732,7 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const uint16_t dummy = 0;
     const uint8_t series_number = 0; /// Bluetooth GNSS expects '0'
 
-    std::string buf;
+    std::vector<std::byte> buf;
     buf.reserve(64);
     /// first
     appendRaw(buf, mode);
@@ -768,20 +769,20 @@ std::array<std::string, 4> GpsTask::emulateQstarzBinary(const GpsInfo &p)
     assert(buf.size() == 64);
 
     /// emulate QSTARZ connections specific: send data by packets of 20 bytes
-    std::array<std::string, 4> packets;
+    QStarZPackets packets;
 
-    packets[0].append(buf.cbegin(), buf.cbegin() + 20);
-    packets[1].append(buf.cbegin() + 20, buf.cbegin() + 40);
-    packets[2].append(buf.cbegin() + 40, buf.cbegin() + 60);
-    packets[3].append(buf.cbegin() + 60, buf.cbegin() + 64);
+    packets[0].assign(buf.cbegin(), buf.cbegin() + 20);
+    packets[1].assign(buf.cbegin() + 20, buf.cbegin() + 40);
+    packets[2].assign(buf.cbegin() + 40, buf.cbegin() + 60);
+    packets[3].assign(buf.cbegin() + 60, buf.cbegin() + 64);
 
     ESP_LOGD(LOGTASKTAG, "first packet.length: %zu", packets[0].size());
-    ESP_LOGD(LOGTASKTAG, "first packet[0]: %d, should be 1, 2, 3", packets[0][0]);
+    ESP_LOGD(LOGTASKTAG, "first packet[0]: %d, should be 1, 2, 3", std::to_integer<int>(packets[0][0]));
     ESP_LOGD(LOGTASKTAG, "third packet.length: %zu", packets[2].size());
-    ESP_LOGD(LOGTASKTAG, "third packet[16]: %d", packets[2][16]);
-    ESP_LOGD(LOGTASKTAG, "third packet[17]: %d", packets[2][17]);
-    ESP_LOGD(LOGTASKTAG, "third packet[18]: %d", packets[2][18]);
-    ESP_LOGD(LOGTASKTAG, "third packet[19]: %d", packets[2][19]);
+    ESP_LOGD(LOGTASKTAG, "third packet[16]: %d", std::to_integer<int>(packets[2][16]));
+    ESP_LOGD(LOGTASKTAG, "third packet[17]: %d", std::to_integer<int>(packets[2][17]));
+    ESP_LOGD(LOGTASKTAG, "third packet[18]: %d", std::to_integer<int>(packets[2][18]));
+    ESP_LOGD(LOGTASKTAG, "third packet[19]: %d", std::to_integer<int>(packets[2][19]));
     
 
 

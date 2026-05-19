@@ -5,6 +5,7 @@
 #include <memory>
 #include <chrono>
 #include <vector>
+#include <cstddef>
 #include <set>
 #include <atomic>
 #include <functional>
@@ -82,7 +83,7 @@ public:
     [[nodiscard("GPS parser misconfigured if unchecked")]]
     esp_err_t configureTinyGps();
 
-    using QStarZPackets = std::array<std::string, 4>;
+    using QStarZPackets = std::array<std::vector<std::byte>, 4>;
     using NmeaStringReadyEvent = std::function<void(const std::string &nmea)>;
     using GnssLogReadyEvent = std::function<void(const std::string &gnssLog)>;
     using PppLogReadyEvent = std::function<void(const std::string &pppLog)>;
