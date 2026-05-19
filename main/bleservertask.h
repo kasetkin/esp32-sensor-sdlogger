@@ -109,7 +109,6 @@ private:
     static void printUuid(const ble_uuid16_t &uuid);
     static void printUuid(const ble_uuid128_t &uuid);
     static void printBleAddress(const uint8_t value[]);
-    static std::vector<std::byte> copyStringToBytes(const std::string &str);
     // static int ble_store_gen_key(uint8_t key,
     //                              struct ble_store_gen_key *gen_key,
     //                              uint16_t conn_handle);
@@ -124,7 +123,7 @@ private:
     inline int bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle);
     //! \todo replace std::string with std::vector<std::byte> or some range-based template/type 
     //!         it should accept both std::vector<std::byte> and std::string
-    void transmitLineNow(const std::vector<std::byte> &line, uint16_t value_handle);
+    void transmitBuffer(const std::byte *bufferStart, size_t bufferSize, uint16_t value_handle);
     void transmitEnvHumidity(uint16_t conn_handle);
     void transmitEnvTemperature(uint16_t conn_handle);
     void transmitBatteryLevel(uint16_t conn_handle);

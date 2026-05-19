@@ -40,15 +40,6 @@ void BleSppServerTask::printBleAddress(const uint8_t value[])
 
 }
 
-std::vector<std::byte> BleSppServerTask::copyStringToBytes(const std::string &str)
-{
-    std::vector<std::byte> result;
-    const std::byte *strAsBytes = reinterpret_cast<const std::byte *>(str.data());
-    result.assign(strAsBytes, strAsBytes + str.size());
-    return result;
-}
-
-
 ble_uuid16_t BleSppServerTask::buildBleUuid16(const uint16_t value)
 {
     return {
@@ -727,7 +718,7 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::vector<std::b
     std::unique_lock readLock(m_dataMutex);
 
     for (const auto &packet: packets) {
-        transmitLineNow(packet, ble_qstarz_read_val_handle);
+        transmitBuffer(packet.data(), packet.size(), ble_qstarz_read_val_handle);
         vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MS));
     }
 }
@@ -748,9 +739,9 @@ inline int BleSppServerTask::bleTx(const void *from, size_t length, uint16_t con
     return rc;
 }
 
-void BleSppServerTask::transmitLineNow(const std::vector<std::byte> &line, uint16_t value_handle) 
+void BleSppServerTask::transmitBuffer(const std::byte *bufferStart, size_t bufferSize, uint16_t value_handle) 
 {
-    if (line.size() == 0)
+    if (bufferSize == 0)
         return;
 
     MODLOG_DFLT(DEBUG, "transmitLineNow: valueHandle = %d", value_handle);
@@ -773,10 +764,10 @@ void BleSppServerTask::transmitLineNow(const std::vector<std::byte> &line, uint1
                 continue;
             }
 
-            const size_t fullPacketsCount = line.size() / maximumPayloadSize;
+            const size_t fullPacketsCount = bufferSize / maximumPayloadSize;
 
             for (size_t fullPacketIndex = 0; fullPacketIndex < fullPacketsCount; ++fullPacketIndex) {
-                const void *packetStart = line.data() + fullPacketIndex * maximumPayloadSize;
+                const void *packetStart = bufferStart + fullPacketIndex * maximumPayloadSize;
                 const int rc = bleTx(packetStart, maximumPayloadSize, i, value_handle);
                 if (rc == 0) {
                     MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, maximumPayloadSize);
@@ -785,10 +776,10 @@ void BleSppServerTask::transmitLineNow(const std::vector<std::byte> &line, uint1
                 }
             }
 
-            const bool needSmallPacket = line.size() % maximumPayloadSize != 0;
+            const bool needSmallPacket = bufferSize % maximumPayloadSize != 0;
             if (needSmallPacket) {
-                const void *packetStart = line.data() + fullPacketsCount * maximumPayloadSize;
-                const size_t packetSize = line.size() % maximumPayloadSize;
+                const void *packetStart = bufferStart + fullPacketsCount * maximumPayloadSize;
+                const size_t packetSize = bufferSize % maximumPayloadSize;
                 const int rc = bleTx(packetStart, packetSize, i, value_handle);
                 if (rc == 0) {
                     MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", packetSize);
@@ -919,14 +910,14 @@ void BleSppServerTask::sendAllData()
     
     {
         for (const auto &line : m_logStream)
-            transmitLineNow(copyStringToBytes(line), ble_full_log_read_val_handle);
+            transmitBuffer(reinterpret_cast<const std::byte *>(line.c_str()), line.size(), ble_full_log_read_val_handle);
 
         m_logStream.clear();
     }
 
     {
         for (const auto &line : m_nmeaStream)
-            transmitLineNow(copyStringToBytes(line), ble_nmea_read_val_handle);
+            transmitBuffer(reinterpret_cast<const std::byte *>(line.c_str()), line.size(), ble_nmea_read_val_handle);
 
         m_nmeaStream.clear();
     }
