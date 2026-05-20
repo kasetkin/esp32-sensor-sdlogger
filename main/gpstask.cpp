@@ -708,6 +708,7 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
 }
 
 template<typename T>
+    requires std::is_trivially_copyable_v<T>
 void appendRaw(std::vector<std::byte> &buf, const T &data)
 {
     const auto *p = reinterpret_cast<const std::byte *>(&data);

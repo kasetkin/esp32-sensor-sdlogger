@@ -27,6 +27,7 @@ uint64_t getValidTime();
 std::string intToStringWithZeros(const int value, const size_t numberOfDigits);
 
 #include <charconv>
+#include <type_traits>
 
 // Append any integer or float/double to `out` via to_chars — zero heap allocation.
 // Buffer sizing (shortest round-trip, base 10):
@@ -36,6 +37,7 @@ std::string intToStringWithZeros(const int value, const size_t numberOfDigits);
 // On ESP32-C6 long double == double (24 chars), but 28 = 26 + 2 keeps the template
 // correct on any platform without wasting stack space.
 template<typename T>
+    requires std::is_arithmetic_v<T>
 inline void appendNum(std::string& out, T value) noexcept {
     char buf[28];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
