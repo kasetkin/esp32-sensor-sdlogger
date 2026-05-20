@@ -1,5 +1,7 @@
 #include "sensorstask.h"
 
+#include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -10,24 +12,24 @@
 
 std::string SensorsValues::toTelemetryRoundedString(const float value)
 {
-    std::string fullString = std::to_string(value);
-    if (const size_t dotPos = fullString.find('.'); dotPos != std::string::npos)
-        fullString.resize(std::min(dotPos + static_cast<size_t>(4), fullString.size()));
-    return fullString;
+    // buf[24]: fixed,3 for sensor ranges (±150 °C, 0–1200 hPa) never exceeds 10 chars.
+    char buf[24];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value, std::chars_format::fixed, 3);
+    return ec == std::errc{} ? std::string(buf, ptr) : "ERR";
 }
 
 std::string SensorsValues::toTelemetryString() const
 {
     std::string message;
     if (batteryVoltageMilliV) {
-        message += std::string_view("BATVOLT;");
-        message += std::to_string(batteryVoltageMilliV.value());
-        message += std::string_view(";");
+        message += "BATVOLT;";
+        appendNum(message, batteryVoltageMilliV.value());
+        message += ';';
     }
     if (batteryPercent) {
-        message += std::string_view("BATPERC;");
-        message += std::to_string(batteryPercent.value());
-        message += std::string_view(";");
+        message += "BATPERC;";
+        appendNum(message, batteryPercent.value());
+        message += ';';
     }
     if (envTemperature) {
         message += std::string_view("TEMP;");
@@ -49,20 +51,22 @@ std::string SensorsValues::toTelemetryString() const
 
 std::string SensorsValues::toLogString() const
 {
-    auto intStr   = [](const std::optional<int>   &v) -> std::string { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
-    auto floatStr = [](const std::optional<float> &v) -> std::string { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
+    auto appendOpt = [](std::string& out, const auto& opt) {
+        if (opt.has_value()) appendNum(out, opt.value());
+        else out += "NO_VALUE";
+    };
     std::string result;
     result.reserve(128);
-    result += std::string_view("batteryVoltageMilliV: ");
-    result += intStr(batteryVoltageMilliV);
-    result += std::string_view(", batteryPercent: ");
-    result += intStr(batteryPercent);
-    result += std::string_view(", envTemperature: ");
-    result += floatStr(envTemperature);
-    result += std::string_view(", envHumidity: ");
-    result += floatStr(envHumidity);
-    result += std::string_view(", barometricPressure: ");
-    result += floatStr(barometricPressure);
+    result += "batteryVoltageMilliV: ";
+    appendOpt(result, batteryVoltageMilliV);
+    result += ", batteryPercent: ";
+    appendOpt(result, batteryPercent);
+    result += ", envTemperature: ";
+    appendOpt(result, envTemperature);
+    result += ", envHumidity: ";
+    appendOpt(result, envHumidity);
+    result += ", barometricPressure: ";
+    appendOpt(result, barometricPressure);
     return result;
 }
 
@@ -289,7 +293,7 @@ int SensorsTask::convertVoltageToPercent(int batteryVoltageMilliV)
 {
     constexpr double VOLTAGE_DELTA = MAX_VOLTAGE - MIN_VOLTAGE;
     const double value = (batteryVoltageMilliV - MIN_VOLTAGE) / VOLTAGE_DELTA * 100.0f;
-    return std::max<double>(0.0f, std::min<double>(100.0, value));
+    return static_cast<int>(std::clamp(value, 0.0, 100.0));
 }
 
 void SensorsTask::executeTask()

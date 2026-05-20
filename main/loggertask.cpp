@@ -1,5 +1,6 @@
 #include "loggertask.h"
 
+#include <format>
 #include <array>
 #include <cmath>
 #include <chrono>
@@ -155,7 +156,7 @@ std::string LoggerTask::generateDeviceInfoLog() const
     message += std::string_view(";FULLNAME;");
     message += ownerFullName;
     message += std::string_view(";RTCSEC;");
-    message += std::to_string(rtc_sec);
+    appendNum(message, rtc_sec);
     message += std::string_view(";");
 
     // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device info - end | result: %s", message.c_str());
@@ -179,10 +180,9 @@ std::string LoggerTask::generateFilename()
     gmTime.tm_year += GMTIME_YEAR_FIX;
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
-    const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
-    std::string filename = yearStr + "-" + monthStr + "-" + dayStr + "-" + ownerFullName;
+    std::string filename = std::format("{:04d}-{:02d}-{:02d}-{}",
+                                       gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                                       ownerFullName);
 
     ESP_LOGI(LOGFILENAMETAG, "timestamp from RTC: %lld, date string: %s", rtc_sec, filename.c_str());
 

@@ -147,11 +147,20 @@ uint64_t getValidTime()
     return rtc_sec;
 }
 
+void appendZeroPadded(std::string& out, int value, int width) noexcept
+{
+    char buf[12];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
+    const int written = static_cast<int>(ptr - buf);
+    if (written < width)
+        out.append(static_cast<size_t>(width - written), '0');
+    out.append(buf, ptr);
+}
+
 std::string intToStringWithZeros(const int value, const size_t numberOfDigits)
 {
-    const std::string basicString = std::to_string(value);
-    if (numberOfDigits > basicString.size())
-        return std::string(numberOfDigits - basicString.size(), '0') + basicString;
-    else
-        return basicString;
+    std::string result;
+    result.reserve(std::max(numberOfDigits, static_cast<size_t>(12)));
+    appendZeroPadded(result, value, static_cast<int>(numberOfDigits));
+    return result;
 }

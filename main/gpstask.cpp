@@ -1,5 +1,7 @@
 #include "gpstask.h"
 
+#include <charconv>
+#include <format>
 #include <cmath>
 #include <ctime>
 #include <chrono>
@@ -265,7 +267,9 @@ void GpsTask::executeTask()
                 if (gsaUpdated) {
                     ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
                     for (int i = 0; i < GSA_SAT_FIELDS; ++i) {
-                        const uint8_t prn = static_cast<uint8_t>(atoi(gsaSat[i].value()));
+                        uint8_t prn = 0;
+                        const char* sv = gsaSat[i].value();
+                        std::from_chars(sv, sv + strlen(sv), prn);
                         if (prn != 0) {
                             SatelliteInfo sat{};
                             sat.prn = prn;
@@ -380,7 +384,8 @@ bool GpsTask::processNewLocation()
 
     ESP_LOGI(NEW_LOCATION_TAG, "location, GSA-fix, time, date are fresh and valid");
 
-    gpsInfo.fixType = atoi(gsafixtype.value()); // will set to zero if no data
+    const char* fv = gsafixtype.value();
+    std::from_chars(fv, fv + strlen(fv), gpsInfo.fixType); // leaves fixType == 0 if no data
     gpsInfo.quality = m_gps.location.FixQuality();
     gpsInfo.lat = m_gps.location.lat();
     gpsInfo.lon = m_gps.location.lng();
@@ -428,21 +433,25 @@ bool GpsTask::processNewLocation()
     {
         pppInfo.lat = parseDegreesLatLon(pppnavLat.value());
         pppInfo.lon = parseDegreesLatLon(pppnavLon.value());
-        pppInfo.alt = static_cast<int32_t>(atol(pppnavAlt.value()));
-        pppInfo.latStdDev = static_cast<float>(atof(pppnavLatStdDev.value()));
-        pppInfo.lonStdDev = static_cast<float>(atof(pppnavLonStdDev.value()));
-        pppInfo.altStdDev = static_cast<float>(atof(pppnavAltStdDev.value()));
-        pppInfo.satellites = static_cast<int32_t>(atol(pppnavSatellites.value()));
-        pppInfo.solutionAge = static_cast<int32_t>(atol(pppnavSolAge.value()));
+        auto fromField = [](const char* s, auto& val) {
+            if (s && *s) std::from_chars(s, s + strlen(s), val);
+        };
+        fromField(pppnavAlt.value(),        pppInfo.alt);
+        fromField(pppnavLatStdDev.value(),  pppInfo.latStdDev);
+        fromField(pppnavLonStdDev.value(),  pppInfo.lonStdDev);
+        fromField(pppnavAltStdDev.value(),  pppInfo.altStdDev);
+        fromField(pppnavSatellites.value(), pppInfo.satellites);
+        fromField(pppnavSolAge.value(),     pppInfo.solutionAge);
         pppInfo.solutionStatus = parseSolutionStatus(pppnavSolStatus.value(), pppInfo.outputDelayMs);
         pppInfo.positionType = parsePositionType(pppnavPosType.value());
         pppInfo.datumId = parseDatumId(pppnavDatumId.value());
         pppInfo.stationId = parseStationId(pppnavStationId.value());
         pppInfo.serviceId = parsePppService(pppInfo.stationId);
 
-        uint32_t week = static_cast<int32_t>(atol(pppnavWeek.value()));
-        uint32_t millisOfWeek = static_cast<int32_t>(atoll(pppnavSecsOFWeek.value()));
-        uint32_t leapSecs = static_cast<uint32_t>(atol(pppnavLeapSecs.value()));
+        uint32_t week{}, millisOfWeek{}, leapSecs{};
+        fromField(pppnavWeek.value(),       week);
+        fromField(pppnavSecsOFWeek.value(), millisOfWeek);
+        fromField(pppnavLeapSecs.value(),   leapSecs);
         pppInfo.utxSeconds = computeUtxTime(week, millisOfWeek, leapSecs, pppInfo.millisecs);
 
         ESP_LOGI(NEW_LOCATION_TAG, "PPP info parsed");
@@ -485,10 +494,14 @@ void GpsTask::logNmeaMessageToSd(const std::string &msg)
 //     sdLoggerModule->appendSDFile(fullpath.c_str(), fullLogMessage.c_str());
 }
 
-std::string GpsTask::dopToMeters(const uint32_t dop)
+void GpsTask::dopToMeters(std::string& out, const uint32_t dop) noexcept
 {
     const auto [quot, rem] = std::div(dop, 100);
-    return std::to_string(quot) + '.' + std::to_string(rem);
+    char buf[16];
+    auto [p1, ec1] = std::to_chars(buf, buf + sizeof(buf), quot);
+    *p1++ = '.';
+    auto [p2, ec2] = std::to_chars(p1, buf + sizeof(buf), rem);
+    out.append(buf, p2);
 }
 
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
@@ -513,21 +526,32 @@ double GpsTask::geoDistance(const double &lat1, const double &lon1, const double
 
 std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
 {
-    std::string message = std::string("LAT;") + std::to_string(p.lat);
-    message += std::string(";LON;") + std::to_string(p.lon);
-        /// over ellipsoid (WGS-84)
-    message += std::string(";ALT;") + std::to_string(p.altitude);
-        /// altitude over geoid, but which one???
-    message += std::string(";ALTHAE;") + std::to_string(p.altitude);
-        /// geoid undulation (separation), use 'Gravity' tool from 'geographiclib' library
-        /// $ /usr/local/bin/Gravity -n egm96 --input-string "27.988 86.925" -H
-        /// and result sould be ~ "-28.7422" in meters
-    message += std::string(";UNDUL;") + std::to_string(p.geoidAlt);
-    message += std::string(";SATS;") + std::to_string(p.satellites.size());
-    message += std::string(";PDOP;") + dopToMeters(p.gsaPDOP);
-    message += std::string(";HDOP;") + dopToMeters(p.gsaHDOP);
-    message += std::string(";VDOP;") + dopToMeters(p.gsaVDOP);
-    message += std::string(";");
+    std::string message;
+    message.reserve(160);
+    message += "LAT;";
+    appendNum(message, p.lat);
+    message += ";LON;";
+    appendNum(message, p.lon);
+    /// over ellipsoid (WGS-84)
+    message += ";ALT;";
+    appendNum(message, p.altitude);
+    /// altitude over geoid, but which one???
+    message += ";ALTHAE;";
+    appendNum(message, p.altitude);
+    /// geoid undulation (separation), use 'Gravity' tool from 'geographiclib' library
+    /// $ /usr/local/bin/Gravity -n egm96 --input-string "27.988 86.925" -H
+    /// and result sould be ~ "-28.7422" in meters
+    message += ";UNDUL;";
+    appendNum(message, p.geoidAlt);
+    message += ";SATS;";
+    appendNum(message, p.satellites.size());
+    message += ";PDOP;";
+    dopToMeters(message, p.gsaPDOP);
+    message += ";HDOP;";
+    dopToMeters(message, p.gsaHDOP);
+    message += ";VDOP;";
+    dopToMeters(message, p.gsaVDOP);
+    message += ";";
     return message;
 }
 
@@ -567,32 +591,18 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
     gmTime.tm_year += GMTIME_YEAR_FIX;
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
-    const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
-    const std::string dateString = yearStr + "-" + monthStr + "-" + dayStr;
-
-    const std::string hoursStr = intToStringWithZeros(gmTime.tm_hour, 2);
-    const std::string minutesStr = intToStringWithZeros(gmTime.tm_min, 2);
-    const std::string secondsStr = intToStringWithZeros(gmTime.tm_sec, 2);
-    const std::string millisWithZeros = std::string();
-    // p.timestamp_millis_adjust > 0 ? '.' + intToStringWithZeros(p.timestamp_millis_adjust, 3) : std::string();
-
-    const std::string timeString = hoursStr + ":" + minutesStr + ":" + secondsStr + millisWithZeros;
-    const std::string dateTimeStringFull = dateString + 'T' + timeString + 'Z';
-
-    // ESP_LOGI(LOGTASKTAG, "date from GPS: %d-%d-%dT%d:%d:%d.%dZ",
-    //     gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
-    //     gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec,
-    //     p.timestamp_millis_adjust
-    // );
-    // ESP_LOGI(LOGTASKTAG, "date formatted by code: %s", dateTimeStringFull.c_str());
-
     // const double lat = static_cast<double>(p.location.lat()) * 1e-7;
     // const double lon = static_cast<double>(p.location.lng()) * 1e-7;
 
-    std::string message = std::string("DT;") + dateTimeStringFull;
-    message += std::string(";GNSSSEC;") + std::to_string(gpsSecs) + ";";
+    std::string message;
+    message.reserve(80);
+    message += "DT;";
+    message += std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
+                           gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                           gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
+    message += ";GNSSSEC;";
+    appendNum(message, gpsSecs);
+    message += ';';
 
     return message;
 }
@@ -618,20 +628,13 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
     gmTime.tm_year += GMTIME_YEAR_FIX;
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
-    const std::string yearStr = std::to_string(gmTime.tm_year);
-    const std::string monthStr = intToStringWithZeros(gmTime.tm_mon, 2);
-    const std::string dayStr = intToStringWithZeros(gmTime.tm_mday, 2);
-    const std::string dateString = yearStr + "-" + monthStr + "-" + dayStr;
-
-    const std::string hoursStr = intToStringWithZeros(gmTime.tm_hour, 2);
-    const std::string minutesStr = intToStringWithZeros(gmTime.tm_min, 2);
-    const std::string secondsStr = intToStringWithZeros(gmTime.tm_sec, 2);
-    const std::string millisWithZeros = p.millisecs > 0
-        ? '.' + intToStringWithZeros(p.millisecs, 3)
-        : std::string();
-
-    const std::string timeString = hoursStr + ":" + minutesStr + ":" + secondsStr + millisWithZeros;
-    const std::string dateTimeStringFull = dateString + 'T' + timeString + 'Z';
+    const std::string dateTimeStringFull = p.millisecs > 0
+        ? std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:03d}Z",
+                      gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                      gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec, p.millisecs)
+        : std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
+                      gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                      gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
 
     ESP_LOGI(LOGTASKTAG, "date from PPP: %d-%d-%dT%d:%d:%d.%dZ",
         gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
@@ -640,14 +643,22 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
     );
     ESP_LOGI(LOGTASKTAG, "date formatted by code: %s", dateTimeStringFull.c_str());
 
-    const std::string message =
-        std::string("PPP_SOLUTION_STATUS;") + solutionStatusStr(p.solutionStatus)
-        + std::string(";PPP_POSITION;") + positionTypeStr(p.positionType)
-        + std::string(";PPP_SERVICE;") + serviceIdStr(p.serviceId)
-        + std::string(";PPP_DATUM;") + datumIdStr(p.datumId)
-        + std::string(";PPP_DT;") + dateTimeStringFull
-        + std::string(";PPP_TIME;") + std::to_string(p.utxSeconds)
-        + std::string(";PPP_AGE;") + std::to_string(p.solutionAge);
+    std::string message;
+    message.reserve(200);
+    message += "PPP_SOLUTION_STATUS;";
+    message += solutionStatusStr(p.solutionStatus);
+    message += ";PPP_POSITION;";
+    message += positionTypeStr(p.positionType);
+    message += ";PPP_SERVICE;";
+    message += serviceIdStr(p.serviceId);
+    message += ";PPP_DATUM;";
+    message += datumIdStr(p.datumId);
+    message += ";PPP_DT;";
+    message += dateTimeStringFull;
+    message += ";PPP_TIME;";
+    appendNum(message, p.utxSeconds);
+    message += ";PPP_AGE;";
+    appendNum(message, p.solutionAge);
 
     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP Time info - end");
     return message;
@@ -661,24 +672,36 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
     const double latPpp = static_cast<double>(p.lat) * 1e-7;
     const double lonPpp = static_cast<double>(p.lon) * 1e-7;
 
-    const std::string message =
-        std::string(";PPP_LAT;") + std::to_string(latPpp)
-        + std::string(";PPP_LON;") + std::to_string(lonPpp)
-        + std::string(";PPP_GNSS_OFFSET;") + std::to_string(gnssToPppDistance)
-        /// over ellipsoid (WGS-84)
-        + std::string(";PPP_ALT;") + std::to_string(p.alt)
-        /// altitude over geoid, but which one???
-        // + std::string(";ALTHAE;") + std::to_string(p.altitude_hae)
-        /// geoid undulation (separation), use 'Gravity' tool from 'geographiclib' library
-        /// $ /usr/local/bin/Gravity -n egm96 --input-string "27.988 86.925" -H
-        /// and result sould be ~ "-28.7422" in meters
-        // + std::string(";UNDUL;") + std::to_string(p.altitude_geoidal_separation)
-        + std::string(";PPP_SATS;") + std::to_string(p.satellites)
-        + std::string(";PPP_STATION_ID;") + std::to_string(p.stationId)
-        + std::string(";PPP_LATSTDDEV;") + std::to_string(p.latStdDev)
-        + std::string(";PPP_LONSTDDEV;") + std::to_string(p.lonStdDev)
-        + std::string(";PPP_ALTSTDDEV;") + std::to_string(p.altStdDev)
-        + std::string(";");
+    std::string message;
+    message.reserve(200);
+    message += ";PPP_LAT;";
+    appendNum(message, latPpp);
+    message += ";PPP_LON;";
+    appendNum(message, lonPpp);
+    message += ";PPP_GNSS_OFFSET;";
+    appendNum(message, gnssToPppDistance);
+    /// over ellipsoid (WGS-84)
+    message += ";PPP_ALT;";
+    appendNum(message, p.alt);
+    /// altitude over geoid, but which one???
+    // message += ";ALTHAE;";
+    // appendNum(message, p.altitude_hae);
+    /// geoid undulation (separation), use 'Gravity' tool from 'geographiclib' library
+    /// $ /usr/local/bin/Gravity -n egm96 --input-string "27.988 86.925" -H
+    /// and result sould be ~ "-28.7422" in meters
+    // message += ";UNDUL;";
+    // appendNum(message, p.altitude_geoidal_separation);
+    message += ";PPP_SATS;";
+    appendNum(message, p.satellites);
+    message += ";PPP_STATION_ID;";
+    appendNum(message, p.stationId);
+    message += ";PPP_LATSTDDEV;";
+    appendNum(message, p.latStdDev);
+    message += ";PPP_LONSTDDEV;";
+    appendNum(message, p.lonStdDev);
+    message += ";PPP_ALTSTDDEV;";
+    appendNum(message, p.altStdDev);
+    message += ";";
 
     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP GEO info - end");
     return message;

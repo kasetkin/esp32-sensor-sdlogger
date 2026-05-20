@@ -103,7 +103,7 @@ public:
     int sendData(std::string_view data);
     int sendStringAndWait(std::string_view data, std::string &reply);
 
-    static std::string dopToMeters(const uint32_t dop);
+    static void dopToMeters(std::string& out, const uint32_t dop) noexcept;
     static std::string printGpsTimeInfo(const GpsInfo &p);
     static std::string printGpsGeoInfo(const GpsInfo &p);
     static QStarZPackets emulateQstarzBinary(const GpsInfo &p);

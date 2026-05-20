@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 #include <mutex>
 #include <cmath>
@@ -785,7 +786,7 @@ void BleSppServerTask::transmitBatteryLevel(uint16_t conn_handle)
 
     /* Update access buffer value — Battery Level (0x2A19) is uint8, range 0-100% */
     const uint8_t batteryLevelPrepared = static_cast<uint8_t>(
-        std::min(100.0f, std::max(0.0f, std::round(m_batteryLevel.value()))));
+        std::clamp(std::round(m_batteryLevel.value()), 0.0f, 100.0f));
     const int rc1 = os_mbuf_append(txom, &batteryLevelPrepared, sizeof(batteryLevelPrepared));
 
     if (rc1 != 0) {
