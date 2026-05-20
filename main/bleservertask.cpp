@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <ranges>
 #include <string>
 #include <mutex>
 #include <cmath>
@@ -73,15 +74,12 @@ ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
     /// maybe 'ble_uuid_from_str' is working correctly, but I want full UUID
     // const int err = ble_uuid_from_str(&result, str);
 
-    std::string onlyCharsStr;
-    const size_t inputLenght = strlen(str);
-    for (size_t i = 0; i < inputLenght; ++i) {
-        char x = str[i];
-        uint8_t charAsValue = 0;
-        const int convertResult = hex2val(x, &charAsValue);
-        if (convertResult == 0)
-            onlyCharsStr += x;
-    }
+    auto isHexChar = [](char c) static {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    };
+    std::string onlyCharsStr = std::string_view(str)
+        | std::views::filter(isHexChar)
+        | std::ranges::to<std::string>();
 
     constexpr size_t CORRECT_SIZE = 16 * 2;
     if (onlyCharsStr.size() != 32) {

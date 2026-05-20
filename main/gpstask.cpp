@@ -5,6 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <chrono>
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <esp_log.h>
@@ -305,42 +306,19 @@ void GpsTask::executeTask()
 
 bool GpsTask::hasLock(const GpsInfo &info)
 {
-    if (info.quality == TinyGPSLocation::Quality::GPS
-        || info.quality == TinyGPSLocation::Quality::DGPS
-        || info.quality == TinyGPSLocation::Quality::PPS
-        || info.quality == TinyGPSLocation::Quality::RTK
-        || info.quality == TinyGPSLocation::Quality::FloatRTK) {
-        // Use GPGSA fix type 2D/3D (better) if available
-        // 0 -- no data,
-        // 1 -- Fix not available
-        // 2 -- 2D fix, good or not enough ???
-        // 3 -- 3D fix
-        if (info.fixType == 3 
-            || info.fixType == 2
-            || info.fixType == 0) /// \todo check "== 0" condition
-            return true;
-    }
-
-    return false;
+    using Q = TinyGPSLocation::Quality;
+    constexpr std::array validQuality{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
+    // fixType: 0=no data, 2=2D fix, 3=3D fix (1=no fix excluded)
+    constexpr std::array<uint8_t, 3> validFixType{0, 2, 3};
+    return std::ranges::contains(validQuality, info.quality)
+        && std::ranges::contains(validFixType, info.fixType);
 }
 
 bool GpsTask::has3DLock(const GpsInfo &info)
 {
-    if (info.quality == TinyGPSLocation::Quality::GPS
-        || info.quality == TinyGPSLocation::Quality::DGPS
-        || info.quality == TinyGPSLocation::Quality::PPS
-        || info.quality == TinyGPSLocation::Quality::RTK
-        || info.quality == TinyGPSLocation::Quality::FloatRTK) {
-        // Use GPGSA fix type 2D/3D (better) if available
-        // 0 -- no data,
-        // 1 -- Fix not available
-        // 2 -- 2D fix, good or not enough ???
-        // 3 -- 3D fix
-        if (info.fixType == 3)
-            return true;
-    }
-
-    return false;
+    using Q = TinyGPSLocation::Quality;
+    constexpr std::array validQuality{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
+    return std::ranges::contains(validQuality, info.quality) && info.fixType == 3;
 }
 
 bool GpsTask::processNewLocation()

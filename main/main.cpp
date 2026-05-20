@@ -1,4 +1,5 @@
 #include <memory>
+#include <ranges>
 #include <string>
 #include "esp_err.h"
 #include "esp_log.h"
@@ -160,9 +161,14 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "configure BLE command handler");
     bleTask->configureCommandReceivedEvent([](std::string_view cmd)
     {
-        std::string trimmed(cmd);
-        while (!trimmed.empty() && (trimmed.back() == '\r' || trimmed.back() == '\n'))
-            trimmed.pop_back();
+        auto isCRLF = [](char c) static {
+            return c == '\r' || c == '\n';
+        };
+        std::string trimmed = cmd
+            | std::views::reverse
+            | std::views::drop_while(isCRLF)
+            | std::views::reverse
+            | std::ranges::to<std::string>();
 
         ESP_LOGI(TAG, "BLE command received: [%s]", trimmed.c_str());
 
