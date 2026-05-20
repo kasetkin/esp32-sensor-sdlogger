@@ -265,7 +265,7 @@ void GpsTask::executeTask()
                 for (const auto &gsaX: gsaSat)
                     gsaUpdated = gsaUpdated && gsaX.isUpdated();
 
-                if (gsaUpdated) {
+                if (gsaUpdated) [[unlikely]] {
                     ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
                     for (int i = 0; i < GSA_SAT_FIELDS; ++i) {
                         uint8_t prn = 0;
@@ -284,7 +284,7 @@ void GpsTask::executeTask()
                     && m_gps.altitude.isUpdated()
                     && pppnavSolStatus.isUpdated()
                     && ggaEpoch.isUpdated();
-                if (allNew) {
+                if (allNew) [[unlikely]] {
                     const bool newLocation = processNewLocation();
                     if (newLocation)
                         ESP_LOGI(GPS_TASK_TAG, "new location reported");
