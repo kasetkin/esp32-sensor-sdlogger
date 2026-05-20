@@ -27,11 +27,6 @@ uint16_t BleSppServerTask::ble_humidity_read_val_handle = 2;
 uint16_t BleSppServerTask::ble_nmea_read_val_handle = 3;
 uint16_t BleSppServerTask::ble_qstarz_read_val_handle = 4;
 uint16_t BleSppServerTask::ble_full_log_read_val_handle = 5;
-
-ble_uuid16_t BleSppServerTask::BLE_SVC_BATTERY_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
-ble_uuid16_t BleSppServerTask::BLE_SVC_ENV_SENSING_UUID16 = BleSppServerTask::buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
-ble_uuid128_t BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
-
 uint16_t BleSppServerTask::ble_tx_write_val_handle = 0;
 BleSppServerTask *BleSppServerTask::s_instance = nullptr;
 
@@ -40,70 +35,6 @@ void BleSppServerTask::printBleAddress(const uint8_t value[])
     if (value != nullptr)
         MODLOG_DFLT(INFO, "addr = %u%u%u%u%u%u", value[0], value[1], value[2], value[3], value[4], value[5]);
 
-}
-
-ble_uuid16_t BleSppServerTask::buildBleUuid16(const uint16_t value)
-{
-    return {
-        .u = {                          
-            .type = BLE_UUID_TYPE_16,   
-        },                              
-        .value = value
-    };
-}
-
-int hex2val(char c, uint8_t *value)
-{
-    if (c >= '0' && c <= '9') {
-        *value = c - '0';
-    } else if (c >= 'a' && c <= 'f') {
-        *value = c - 'a' + 10;
-    } else if (c >= 'A' && c <= 'F') {
-        *value = c - 'A' + 10;
-    } else {
-        return BLE_HS_EINVAL;
-    }
-    return 0;
-}
-
-ble_uuid128_t BleSppServerTask::buildBleUuid128(const char * str)
-{
-    MODLOG_DFLT(INFO, "build UUID128 from %s", str);
-
-    /// doesn't work as expected with UUID128 with "0000" in the begining
-    /// maybe 'ble_uuid_from_str' is working correctly, but I want full UUID
-    // const int err = ble_uuid_from_str(&result, str);
-
-    auto isHexChar = [](char c) static {
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-    };
-    std::string onlyCharsStr = std::string_view(str)
-        | std::views::filter(isHexChar)
-        | std::ranges::to<std::string>();
-
-    constexpr size_t CORRECT_SIZE = 16 * 2;
-    if (onlyCharsStr.size() != 32) {
-        MODLOG_DFLT(ERROR, "cannot build UUID from %s", str);
-        MODLOG_DFLT(ERROR, "wrong string size after '-' removal, should be %zu, but it is %zu", CORRECT_SIZE, onlyCharsStr.size());
-        return {};
-    }
-
-    ble_uuid128_t answer {
-        .u = {                          
-            .type = BLE_UUID_TYPE_128,   
-        },
-        .value = {},
-    };
-    for (size_t i = 0; i < 16; i++) {
-        uint8_t a = 0;
-        uint8_t b = 0;
-        const size_t reverseIndex = CORRECT_SIZE - 2 - 2 * i;
-        hex2val(onlyCharsStr[reverseIndex], &a);
-        hex2val(onlyCharsStr[reverseIndex + 1], &b);
-        answer.value[i] = a * 16 + b;
-    }
-
-    return answer;
 }
 
 /**
@@ -515,15 +446,11 @@ void BleSppServerTask::configureCommandReceivedEvent(CommandReceivedEvent event)
 
 int BleSppServerTask::gatt_svr_init()
 {
-    BLE_SVC_BATTERY_UUID16 = buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
-    BLE_SVC_ENV_SENSING_UUID16 = buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
-    BLE_SVC_SPP_UUID128 = buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
-
     printUuid(BLE_SVC_BATTERY_UUID16);
     printUuid(BLE_SVC_ENV_SENSING_UUID16);
     printUuid(BLE_SVC_SPP_UUID128);
 
-    static const ble_uuid16_t BLE_CHR_BATTERY_LEVEL_UUID16 = buildBleUuid16(BLE_CHR_BATTERY_LEVEL_UUID16_VALUE);
+    static constexpr ble_uuid16_t BLE_CHR_BATTERY_LEVEL_UUID16 = UuidTools::buildBleUuid16(BLE_CHR_BATTERY_LEVEL_UUID16_VALUE);
     static const ble_gatt_chr_def battery_characteristics[] = {
         {
             .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_BATTERY_LEVEL_UUID16),
@@ -539,8 +466,8 @@ int BleSppServerTask::gatt_svr_init()
         { }
     };
 
-    static const ble_uuid16_t BLE_CHR_TEMPERATURE_UUID16 = buildBleUuid16(BLE_CHR_TEMPERATURE_UUID16_VALUE);
-    static const ble_uuid16_t BLE_CHR_HUMIDITY_UUID16 = buildBleUuid16(BLE_CHR_HUMIDITY_UUID16_VALUE);
+    static constexpr ble_uuid16_t BLE_CHR_TEMPERATURE_UUID16 = UuidTools::buildBleUuid16(BLE_CHR_TEMPERATURE_UUID16_VALUE);
+    static constexpr ble_uuid16_t BLE_CHR_HUMIDITY_UUID16 = UuidTools::buildBleUuid16(BLE_CHR_HUMIDITY_UUID16_VALUE);
     static const ble_gatt_chr_def env_sensing_characteristics[] = {
         {
             .uuid = reinterpret_cast<const ble_uuid_t *>(&BLE_CHR_TEMPERATURE_UUID16),
@@ -568,10 +495,10 @@ int BleSppServerTask::gatt_svr_init()
     };
 
 
-    static const ble_uuid128_t BLE_CHR_NMEA_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
-    static const ble_uuid128_t BLE_CHR_QSTARZ_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
-    static const ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
-    static const ble_uuid128_t BLE_CHR_TX_UUID128 = BleSppServerTask::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_NMEA_UUID128 = UuidTools::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_QSTARZ_UUID128 = UuidTools::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = UuidTools::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_TX_UUID128 = UuidTools::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
 
     printUuid(BLE_CHR_NMEA_UUID128);
     printUuid(BLE_CHR_QSTARZ_UUID128);
@@ -934,7 +861,6 @@ void BleSppServerTask::terminate()
 
 void BleSppServerTask::startServer()
 {
-    BleSppServerTask::BLE_SVC_SPP_UUID128 = BleSppServerTask::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
     printUuid(BleSppServerTask::BLE_SVC_SPP_UUID128);
 
     /// already done in main.cpp

@@ -12,11 +12,56 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <algorithm>
+#include <iterator>
 #include <host/ble_hs.h>
 #include <nimble/ble.h>
 #include <nimble/nimble_port_freertos.h>
 #include "sensorstask.h"
 
+class UuidTools
+{
+public:
+    static consteval ble_uuid16_t buildBleUuid16(const uint16_t value)
+    {
+        return {
+            .u = { .type = BLE_UUID_TYPE_16 },
+            .value = value,
+        };
+    }
+
+    static consteval ble_uuid128_t buildBleUuid128(std::string_view str)
+    {
+        constexpr size_t HEX_COUNT = 32;
+        char hex[HEX_COUNT] = {};
+        auto isHexChar = [](char c) static {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        };
+        std::ranges::copy_if(str, std::counted_iterator(std::begin(hex), HEX_COUNT), isHexChar);
+
+        ble_uuid128_t answer = {
+            .u = { .type = BLE_UUID_TYPE_128 },
+            .value = {},
+        };
+
+        auto hexToInt = [](char c) static -> uint8_t {
+            if (c >= '0' && c <= '9')
+                return static_cast<uint8_t>(c - '0');
+            if (c >= 'a' && c <= 'f')
+                return static_cast<uint8_t>(c - 'a' + 10);
+            if (c >= 'A' && c <= 'F')
+                return static_cast<uint8_t>(c - 'A' + 10);
+
+            return 0;
+        };
+
+        for (size_t i = 0; i < 16; ++i) {
+            const size_t ri = HEX_COUNT - 2 - 2 * i;
+            answer.value[i] = static_cast<uint8_t>(hexToInt(hex[ri]) * 16u + hexToInt(hex[ri + 1]));
+        }
+        return answer;
+    }
+};
 
 class BleSppServerTask
 {
@@ -68,24 +113,6 @@ private:
     static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";          // NUS RX: central writes to peripheral — UART input (send to UM980) and custom cmds
     static constexpr char BLE_CHR_QSTARZ_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";      // from "qstarz" racing gps, binary format, 4 packets (20 + 20 + 20 + 4) bytes
     static constexpr char BLE_CHR_FULL_LOG_UUID128_VALUE[] = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E";    // full log, same as SD card "xxx.log" file
-    
-    /// CC254X  --  this pair of UUIDs works with 'Serial Bluetooth Terminal' app 
-    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "0000ffe0-0000-1000-8000-00805F9B34FB";
-    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "0000ffe1-0000-1000-8000-00805F9B34FB";
-
-    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "00001101-0000-1000-8000-00805F9B34FB";
-    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "00002902-0000-1000-8000-00805f9b34fb";
-
-    static ble_uuid16_t BLE_SVC_BATTERY_UUID16;
-    static ble_uuid16_t BLE_SVC_ENV_SENSING_UUID16;
-    static ble_uuid128_t BLE_SVC_SPP_UUID128;
-
-    // static ble_uuid128_t BLE_SVC_SPP_CHR_UUID128;
-    // static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "F000C0E0-0451-4000-B000-000000000000";
-    // static constexpr char BLE_SVC_SPP_CHR_UUID128_VALUE[] = "F000C0E1-0451-4000-B000-000000000000";
-    // static const ble_uuid128_t BLE_SVC_SPP_CHR_UUID128;
-    // static const ble_gatt_chr_def spp_characteristics[];
-    // static const ble_gatt_svc_def new_ble_svc_gatt_defs[];
 
     std::optional<float> m_batteryLevel;
     std::optional<float> m_envTemperature;
@@ -105,8 +132,11 @@ private:
     static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
     static void ble_spp_server_host_task(void *param); /// should be static or lambda
 
-    static ble_uuid16_t buildBleUuid16(const uint16_t value);
-    static ble_uuid128_t buildBleUuid128(const char * str);
+    static constexpr ble_uuid16_t BLE_SVC_BATTERY_UUID16 = UuidTools::buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
+    static constexpr ble_uuid16_t BLE_SVC_ENV_SENSING_UUID16 = UuidTools::buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
+    static constexpr ble_uuid128_t BLE_SVC_SPP_UUID128 = UuidTools::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+
+
     static void printUuid(const ble_uuid16_t &uuid);
     static void printUuid(const ble_uuid128_t &uuid);
     static void printBleAddress(const uint8_t value[]);

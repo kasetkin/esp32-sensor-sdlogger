@@ -16,7 +16,7 @@
 #include "loggertask.h"
 
 static const char *TAG = "main-body";
-const uint32_t DEFAULT_TASK_STACK_SIZE = 16384;
+constexpr uint32_t DEFAULT_TASK_STACK_SIZE = 16384;
 #define EXAMPLE_MAX_CHAR_SIZE    64
 
 static std::shared_ptr<GpsTask> gpsTask;
