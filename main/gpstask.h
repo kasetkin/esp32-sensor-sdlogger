@@ -6,6 +6,7 @@
 #include <chrono>
 #include <vector>
 #include <cstddef>
+#include <compare>
 #include <set>
 #include <atomic>
 #include <functional>
@@ -22,19 +23,7 @@ struct SatelliteInfo {
     int16_t azimuth   = -1;   // degrees
     int16_t cn0       = -1;   // dB-Hz; -1 = no signal
 
-    bool operator==(const SatelliteInfo &o) const {
-        return prn == o.prn && elevation == o.elevation
-            && azimuth == o.azimuth && cn0 == o.cn0;
-    }
-    bool operator<(const SatelliteInfo &o) const {
-        if (prn != o.prn)
-            return prn < o.prn;
-        if (elevation != o.elevation)
-            return elevation < o.elevation;
-        if (azimuth != o.azimuth)
-            return azimuth < o.azimuth;
-        return cn0 < o.cn0;
-    }
+    auto operator<=>(const SatelliteInfo&) const = default;
 };
 
 struct GpsInfo
