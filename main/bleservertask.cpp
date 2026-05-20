@@ -684,16 +684,16 @@ void BleSppServerTask::setSensorsValues(const SensorsValues &values)
     m_envHumidity = values.envHumidity;
 }
 
-void BleSppServerTask::appendNmea(const std::string &newNmea)
+void BleSppServerTask::appendNmea(std::string_view newNmea)
 {
     std::unique_lock writeLock(m_dataMutex);
-    m_nmeaStream.push_back(newNmea);
+    m_nmeaStream.push_back(std::string(newNmea));
 }
 
-void BleSppServerTask::appendLog(const std::string &newLog)
+void BleSppServerTask::appendLog(std::string_view newLog)
 {
     std::unique_lock writeLock(m_dataMutex);
-    m_logStream.push_back(newLog);
+    m_logStream.push_back(std::string(newLog));
 }
 
 void BleSppServerTask::transmitQstarzPackets(const std::array<std::vector<std::byte>, 4> &packets)

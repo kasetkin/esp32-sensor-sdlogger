@@ -222,22 +222,22 @@ void GpsTask::readFromUart(std::string &newData)
 
 void GpsTask::configureNmeaEvent(NmeaStringReadyEvent event)
 {
-    m_nmeaEvent = event;
+    m_nmeaEvent = std::move(event);
 }
 
 void GpsTask::configureGnssEvent(GnssLogReadyEvent event)
 {
-    m_gnssEvent = event;
+    m_gnssEvent = std::move(event);
 }
 
 void GpsTask::configurePppEvent(PppLogReadyEvent event)
 {
-    m_pppEvent = event;
+    m_pppEvent = std::move(event);
 }
 
 void GpsTask::configureQStarZEvent(QStarZPacketsReadyEvent event)
 {
-    m_qstarzEvent = event;
+    m_qstarzEvent = std::move(event);
 }
 
 void GpsTask::terminate()

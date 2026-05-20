@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <host/ble_hs.h>
 #include <nimble/ble.h>
 #include <nimble/nimble_port_freertos.h>
@@ -25,11 +26,11 @@ public:
 
     void setSensorsValues(const SensorsValues &values);
 
-    void appendNmea(const std::string &newNmea);
-    void appendLog(const std::string &newNmea);
+    void appendNmea(std::string_view newNmea);
+    void appendLog(std::string_view newLog);
     void transmitQstarzPackets(const std::array<std::vector<std::byte>, 4> &packets);
 
-    using CommandReceivedEvent = std::function<void(const std::string &command)>;
+    using CommandReceivedEvent = std::function<void(std::string_view command)>;
     void configureCommandReceivedEvent(CommandReceivedEvent event);
 
 private:

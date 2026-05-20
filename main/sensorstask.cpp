@@ -19,38 +19,56 @@ std::string SensorsValues::toTelemetryRoundedString(const float value)
 std::string SensorsValues::toTelemetryString() const
 {
     std::string message;
-    if (batteryVoltageMilliV)
-        message += std::string("BATVOLT;") + std::to_string(batteryVoltageMilliV.value()) + std::string(";");
-
-    if (batteryPercent)
-        message += std::string("BATPERC;") + std::to_string(batteryPercent.value()) + std::string(";");
-
-    if (envTemperature)
-        message += std::string("TEMP;") + toTelemetryRoundedString(envTemperature.value()) + std::string(";");
-
-    if (envHumidity)
-        message += std::string("HUMID;") + toTelemetryRoundedString(envHumidity.value()) + std::string(";");
-
-    if (barometricPressure)
-        message += std::string("PRESS;") + toTelemetryRoundedString(barometricPressure.value()) + std::string(";");
-
+    if (batteryVoltageMilliV) {
+        message += std::string_view("BATVOLT;");
+        message += std::to_string(batteryVoltageMilliV.value());
+        message += std::string_view(";");
+    }
+    if (batteryPercent) {
+        message += std::string_view("BATPERC;");
+        message += std::to_string(batteryPercent.value());
+        message += std::string_view(";");
+    }
+    if (envTemperature) {
+        message += std::string_view("TEMP;");
+        message += toTelemetryRoundedString(envTemperature.value());
+        message += std::string_view(";");
+    }
+    if (envHumidity) {
+        message += std::string_view("HUMID;");
+        message += toTelemetryRoundedString(envHumidity.value());
+        message += std::string_view(";");
+    }
+    if (barometricPressure) {
+        message += std::string_view("PRESS;");
+        message += toTelemetryRoundedString(barometricPressure.value());
+        message += std::string_view(";");
+    }
     return message;
 }
 
 std::string SensorsValues::toLogString() const
 {
-    auto intStr   = [](const std::optional<int>   &v) { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
-    auto floatStr = [](const std::optional<float> &v) { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
-    return std::string("batteryVoltageMilliV: ") + intStr(batteryVoltageMilliV)
-         + ", batteryPercent: "     + intStr(batteryPercent)
-         + ", envTemperature: "     + floatStr(envTemperature)
-         + ", envHumidity: "        + floatStr(envHumidity)
-         + ", barometricPressure: " + floatStr(barometricPressure);
+    auto intStr   = [](const std::optional<int>   &v) -> std::string { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
+    auto floatStr = [](const std::optional<float> &v) -> std::string { return v.has_value() ? std::to_string(v.value()) : "NO_VALUE"; };
+    std::string result;
+    result.reserve(128);
+    result += std::string_view("batteryVoltageMilliV: ");
+    result += intStr(batteryVoltageMilliV);
+    result += std::string_view(", batteryPercent: ");
+    result += intStr(batteryPercent);
+    result += std::string_view(", envTemperature: ");
+    result += floatStr(envTemperature);
+    result += std::string_view(", envHumidity: ");
+    result += floatStr(envHumidity);
+    result += std::string_view(", barometricPressure: ");
+    result += floatStr(barometricPressure);
+    return result;
 }
 
 void SensorsTask::configureReadyEvent(SensorsReadyEvent readyEvent)
 {
-    m_readyEvent = readyEvent;
+    m_readyEvent = std::move(readyEvent);
 }
 
 bool SensorsTask::adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)

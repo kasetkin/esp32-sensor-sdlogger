@@ -84,9 +84,9 @@ public:
     esp_err_t configureTinyGps();
 
     using QStarZPackets = std::array<std::vector<std::byte>, 4>;
-    using NmeaStringReadyEvent = std::function<void(const std::string &nmea)>;
-    using GnssLogReadyEvent = std::function<void(const std::string &gnssLog)>;
-    using PppLogReadyEvent = std::function<void(const std::string &pppLog)>;
+    using NmeaStringReadyEvent = std::function<void(std::string_view nmea)>;
+    using GnssLogReadyEvent = std::function<void(std::string_view gnssLog)>;
+    using PppLogReadyEvent = std::function<void(std::string_view pppLog)>;
     using QStarZPacketsReadyEvent = std::function<void(const QStarZPackets &packets)>;
 
     void configureNmeaEvent(NmeaStringReadyEvent event);

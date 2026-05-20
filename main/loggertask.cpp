@@ -10,29 +10,29 @@
 #include "common_utils.h"
 #include "unicore.h"
 
-static const std::string ownerId = "54321"; // &ownerId = devicestate.owner.id;
-static const std::string ownerShortName = "sdlogger"; // &ownerShortName = devicestate.owner.short_name;
-static const std::string ownerFullName = "sdlogger_UM980"; // &ownerFullName = devicestate.owner.long_name;
+static constexpr std::string_view ownerId = "54321"; // &ownerId = devicestate.owner.id;
+static constexpr std::string_view ownerShortName = "sdlogger"; // &ownerShortName = devicestate.owner.short_name;
+static constexpr std::string_view ownerFullName = "sdlogger_UM980"; // &ownerFullName = devicestate.owner.long_name;
 
-void LoggerTask::setGpsLog(const std::string &gpsMessage)
+void LoggerTask::setGpsLog(std::string_view gpsMessage)
 {
     std::unique_lock oneModuleLock(m_mutex);
     m_gpsLog = gpsMessage;
 }
 
-void LoggerTask::setPppLog(const std::string &pppMessage)
+void LoggerTask::setPppLog(std::string_view pppMessage)
 {
     std::unique_lock oneModuleLock(m_mutex);
     m_pppLog = pppMessage;
 }
 
-void LoggerTask::setSensorsLog(const std::string &sensorsMessage)
+void LoggerTask::setSensorsLog(std::string_view sensorsMessage)
 {
     std::unique_lock oneModuleLock(m_mutex);
     m_sensorsLog = sensorsMessage;
 }
 
-void LoggerTask::addNmeaLog(const std::string &nmeaMessage)
+void LoggerTask::addNmeaLog(std::string_view nmeaMessage)
 {
     std::unique_lock oneModuleLock(m_mutex);
     /// add, not override!
@@ -46,7 +46,7 @@ void LoggerTask::configureSdCard(const std::shared_ptr<SdCard> &card)
 
 void LoggerTask::configureLogReadyEvent(LogReadyEvent readyEvent)
 {
-    m_readyEvent = readyEvent;
+    m_readyEvent = std::move(readyEvent);
 }
 
 void LoggerTask::executeTask()
@@ -146,12 +146,17 @@ std::string LoggerTask::generateDeviceInfoLog() const
     // const bool requestLocalTime = false;
     // uint32_t rtc_sec = getValidTime(RTCQuality::RTCQualityDevice, requestLocalTime);
     const uint64_t rtc_sec = getValidTime();
-    const std::string message =
-            std::string("ID;") + std::string(ownerId)
-        + std::string(";NAME;") + std::string(ownerShortName)
-        + std::string(";FULLNAME;") + std::string(ownerFullName)
-        + std::string(";RTCSEC;") + std::to_string(rtc_sec)
-        + std::string(";");
+    std::string message;
+    message.reserve(80);
+    message += std::string_view("ID;");
+    message += ownerId;
+    message += std::string_view(";NAME;");
+    message += ownerShortName;
+    message += std::string_view(";FULLNAME;");
+    message += ownerFullName;
+    message += std::string_view(";RTCSEC;");
+    message += std::to_string(rtc_sec);
+    message += std::string_view(";");
 
     // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device info - end | result: %s", message.c_str());
     return message;

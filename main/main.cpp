@@ -108,7 +108,7 @@ extern "C" void app_main(void)
     loggerTask->configureSdCard(my_sdcard);
 
     ESP_LOGI(TAG, "configure Logger::ReadyEvent (pass log string to BLE task)");
-    loggerTask->configureLogReadyEvent([](const std::string &log)
+    loggerTask->configureLogReadyEvent([](std::string_view log)
     {
         if (!bleTask)
             return;
@@ -118,7 +118,7 @@ extern "C" void app_main(void)
     });
     
     ESP_LOGI(TAG, "configure GpsTask events - begin");
-    gpsTask->configureNmeaEvent([](const std::string &nmea)
+    gpsTask->configureNmeaEvent([](std::string_view nmea)
     {
         if (bleTask)
             bleTask->appendNmea(nmea);
@@ -126,12 +126,12 @@ extern "C" void app_main(void)
         if (loggerTask)
             loggerTask->addNmeaLog(nmea);
     });
-    gpsTask->configureGnssEvent([](const std::string &gnss)
+    gpsTask->configureGnssEvent([](std::string_view gnss)
     {
         if (loggerTask)
             loggerTask->setGpsLog(gnss);
     });
-    gpsTask->configurePppEvent([](const std::string &ppp)
+    gpsTask->configurePppEvent([](std::string_view ppp)
     {
         if (loggerTask)
             loggerTask->setGpsLog(ppp);
@@ -158,9 +158,9 @@ extern "C" void app_main(void)
     });
 
     ESP_LOGI(TAG, "configure BLE command handler");
-    bleTask->configureCommandReceivedEvent([](const std::string &cmd)
+    bleTask->configureCommandReceivedEvent([](std::string_view cmd)
     {
-        std::string trimmed = cmd;
+        std::string trimmed(cmd);
         while (!trimmed.empty() && (trimmed.back() == '\r' || trimmed.back() == '\n'))
             trimmed.pop_back();
 

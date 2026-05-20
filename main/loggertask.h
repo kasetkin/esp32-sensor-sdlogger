@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <functional>
 #include <shared_mutex>
@@ -18,16 +19,16 @@ class LoggerTask
     static std::string generateFilename();
 
 
-    using LogReadyEvent = std::function<void(const std::string &log)>;
+    using LogReadyEvent = std::function<void(std::string_view log)>;
     void configureLogReadyEvent(LogReadyEvent readyEvent);
 
     void configureSdCard(const std::shared_ptr<SdCard> &card);
     void executeTask();
     void doLogging();
-    void addNmeaLog(const std::string &nmeaMessage);
-    void setGpsLog(const std::string &gpsMessage);
-    void setPppLog(const std::string &pppMessage);
-    void setSensorsLog(const std::string &sensorsMessage);
+    void addNmeaLog(std::string_view nmeaMessage);
+    void setGpsLog(std::string_view gpsMessage);
+    void setPppLog(std::string_view pppMessage);
+    void setSensorsLog(std::string_view sensorsMessage);
 
   private:
     static const unsigned long LOG_PERIOD_MS = 1 * 1000;
