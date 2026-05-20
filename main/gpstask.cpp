@@ -381,14 +381,17 @@ bool GpsTask::processNewLocation()
     // We know the solution is fresh and valid, so just read the data
     {
         // positional timestamp
-        struct tm t;
-        t.tm_sec = m_gps.time.second();
-        t.tm_min = m_gps.time.minute();
-        t.tm_hour = m_gps.time.hour();
-        t.tm_mday = m_gps.date.day();
-        t.tm_mon = m_gps.date.month() - 1;
-        t.tm_year = m_gps.date.year() - 1900;
-        t.tm_isdst = false;
+        struct tm t = {
+            .tm_sec  = static_cast<int>(m_gps.time.second()),
+            .tm_min  = static_cast<int>(m_gps.time.minute()),
+            .tm_hour = static_cast<int>(m_gps.time.hour()),
+            .tm_mday = static_cast<int>(m_gps.date.day()),
+            .tm_mon  = static_cast<int>(m_gps.date.month()) - 1,
+            .tm_year = static_cast<int>(m_gps.date.year()) - 1900,
+            .tm_wday = 0,
+            .tm_yday = 0,
+            .tm_isdst = 0,
+        };
         const auto timestamp = std::mktime(&t);
         gpsInfo.worldTime = std::chrono::system_clock::from_time_t(timestamp);
 
