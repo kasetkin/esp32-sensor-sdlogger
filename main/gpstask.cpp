@@ -3,6 +3,7 @@
 #include <charconv>
 #include <format>
 #include <cmath>
+#include <numbers>
 #include <ctime>
 #include <chrono>
 #include <algorithm>
@@ -485,7 +486,7 @@ void GpsTask::dopToMeters(std::string& out, const uint32_t dop) noexcept
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
 {
     constexpr double R          = 6371000.0;
-    constexpr double DEG_TO_RAD = M_PI / 180.0;
+    constexpr double DEG_TO_RAD = std::numbers::pi / 180.0;
 
     const double dLat    = (lat2 - lat1) * DEG_TO_RAD;
     const double dLon    = (lon2 - lon1) * DEG_TO_RAD;

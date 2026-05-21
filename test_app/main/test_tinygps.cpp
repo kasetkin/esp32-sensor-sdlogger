@@ -1,6 +1,7 @@
 #include "unity.h"
 #include "TinyGPSPlus.h"
 #include <cmath>
+#include <numbers>
 
 // ── radians() ────────────────────────────────────────────────────────────────
 
@@ -11,22 +12,22 @@ static void test_tinygps_radians_zero(void)
 
 static void test_tinygps_radians_180(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, M_PI, TinyGPSPlus::radians(180.0));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, std::numbers::pi, TinyGPSPlus::radians(180.0));
 }
 
 static void test_tinygps_radians_90(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, M_PI / 2.0, TinyGPSPlus::radians(90.0));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, std::numbers::pi / 2.0, TinyGPSPlus::radians(90.0));
 }
 
 static void test_tinygps_radians_360(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 2.0 * M_PI, TinyGPSPlus::radians(360.0));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 2.0 * std::numbers::pi, TinyGPSPlus::radians(360.0));
 }
 
 static void test_tinygps_radians_negative(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, -M_PI / 2.0, TinyGPSPlus::radians(-90.0));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, -std::numbers::pi / 2.0, TinyGPSPlus::radians(-90.0));
 }
 
 // ── degrees() ────────────────────────────────────────────────────────────────
@@ -38,22 +39,22 @@ static void test_tinygps_degrees_zero(void)
 
 static void test_tinygps_degrees_pi(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 180.0, TinyGPSPlus::degrees(M_PI));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 180.0, TinyGPSPlus::degrees(std::numbers::pi));
 }
 
 static void test_tinygps_degrees_half_pi(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 90.0, TinyGPSPlus::degrees(M_PI / 2.0));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 90.0, TinyGPSPlus::degrees(std::numbers::pi / 2.0));
 }
 
 static void test_tinygps_degrees_two_pi(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 360.0, TinyGPSPlus::degrees(2.0 * M_PI));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, 360.0, TinyGPSPlus::degrees(2.0 * std::numbers::pi));
 }
 
 static void test_tinygps_degrees_negative(void)
 {
-    TEST_ASSERT_DOUBLE_WITHIN(1e-10, -180.0, TinyGPSPlus::degrees(-M_PI));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-10, -180.0, TinyGPSPlus::degrees(-std::numbers::pi));
 }
 
 // ── round-trip ────────────────────────────────────────────────────────────────
