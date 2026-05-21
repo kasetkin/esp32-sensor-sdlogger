@@ -675,23 +675,14 @@ void BleSppServerTask::transmitBuffer(std::span<const std::byte> buffer, uint16_
                 continue;
             }
 
-            const size_t fullPacketsCount = buffer.size() / maximumPayloadSize;
-
-            for (size_t fullPacketIndex = 0; fullPacketIndex < fullPacketsCount; ++fullPacketIndex) {
-                const int rc = bleTx(buffer.subspan(fullPacketIndex * maximumPayloadSize, maximumPayloadSize), i, value_handle);
+            [[assume(maximumPayloadSize > 0)]];
+            for (auto chunk : buffer | std::views::chunk(static_cast<std::ptrdiff_t>(maximumPayloadSize))) {
+                const std::span<const std::byte> chunkSpan{chunk.data(), chunk.size()};
+                const int rc = bleTx(chunkSpan, i, value_handle);
                 if (rc == 0) {
-                    MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, maximumPayloadSize);
+                    MODLOG_DFLT(DEBUG, "Notification sent successfully, size %zu", chunkSpan.size());
                 } else {
-                    MODLOG_DFLT(ERROR, "Error in sending full notification (%zu of %zu, size %zu) rc = %d", fullPacketIndex, fullPacketsCount, maximumPayloadSize, rc);
-                }
-            }
-
-            if (buffer.size() % maximumPayloadSize != 0) {
-                const int rc = bleTx(buffer.subspan(fullPacketsCount * maximumPayloadSize), i, value_handle);
-                if (rc == 0) {
-                    MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", buffer.size() % maximumPayloadSize);
-                } else {
-                    MODLOG_DFLT(ERROR, "Error in sending the last notification (size %zu) rc = %d", buffer.size() % maximumPayloadSize, rc);
+                    MODLOG_DFLT(ERROR, "Error sending notification (size %zu) rc = %d", chunkSpan.size(), rc);
                 }
             }
         }
