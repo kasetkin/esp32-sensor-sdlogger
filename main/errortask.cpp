@@ -44,6 +44,7 @@ void ErrorTask::execute()
 
 void ErrorTask::sendOK()
 {
+/// #warning directive is too strong to replace this \todo
     //! \todo 
 }
 
