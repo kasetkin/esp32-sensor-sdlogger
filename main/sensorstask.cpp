@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <ranges>
 #include <cmath>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -15,7 +16,19 @@ std::string SensorsValues::toTelemetryRoundedString(const float value)
     // buf[24]: fixed,3 for sensor ranges (±150 °C, 0–1200 hPa) never exceeds 10 chars.
     char buf[24];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value, std::chars_format::fixed, 3);
-    return ec == std::errc{} ? std::string(buf, ptr) : "ERR";
+    if (ec != std::errc{})
+        return "ERR";
+    std::string_view sv(buf, ptr);
+    if (!sv.contains('.'))
+        return std::string(sv);
+    const auto isTrailingZero = [](char c) {
+        return c == '0';
+    };
+    const auto trailing = sv | std::views::reverse | std::views::take_while(isTrailingZero);
+    sv.remove_suffix(std::ranges::distance(trailing));
+    if (sv.back() == '.')
+        sv.remove_suffix(1);
+    return std::string(sv);
 }
 
 std::string SensorsValues::toTelemetryString() const

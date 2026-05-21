@@ -25,7 +25,7 @@ public:
 
     std::string toTelemetryString() const;
     std::string toLogString() const;
-    /// always 3 digits after '.'
+    /// up to 3 decimal digits; trailing zeros and dot stripped
     static std::string toTelemetryRoundedString(const float value);
 };
 
