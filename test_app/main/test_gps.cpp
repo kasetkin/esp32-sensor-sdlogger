@@ -349,6 +349,63 @@ static void test_emulate_qstarz_equator_prime_meridian(void)
     TEST_ASSERT_EQUAL(4,  packets[3].size());
 }
 
+// ── GpsInfo::satellites (std::flat_set<SatelliteInfo>) ───────────────────────
+
+static void test_satellite_set_deduplicates_same_prn(void)
+{
+    GpsInfo info;
+    info.satellites.insert(SatelliteInfo{.prn = 5});
+    info.satellites.insert(SatelliteInfo{.prn = 5}); // duplicate
+    TEST_ASSERT_EQUAL(1, info.satellites.size());
+}
+
+static void test_satellite_set_is_sorted(void)
+{
+    GpsInfo info;
+    info.satellites.insert(SatelliteInfo{.prn = 20});
+    info.satellites.insert(SatelliteInfo{.prn = 3});
+    info.satellites.insert(SatelliteInfo{.prn = 10});
+    auto it = info.satellites.begin();
+    TEST_ASSERT_EQUAL_UINT8(3,  it->prn); ++it;
+    TEST_ASSERT_EQUAL_UINT8(10, it->prn); ++it;
+    TEST_ASSERT_EQUAL_UINT8(20, it->prn);
+}
+
+static void test_satellite_set_counts_correctly(void)
+{
+    GpsInfo info;
+    for (uint8_t prn = 1; prn <= 12; ++prn)
+        info.satellites.insert(SatelliteInfo{.prn = prn});
+    TEST_ASSERT_EQUAL(12, info.satellites.size());
+}
+
+static void test_satellite_set_move_clears_source(void)
+{
+    GpsInfo src;
+    src.satellites.insert(SatelliteInfo{.prn = 7});
+    GpsInfo dst;
+    dst.satellites = std::move(src.satellites);
+    TEST_ASSERT_EQUAL(0, src.satellites.size());
+    TEST_ASSERT_EQUAL(1, dst.satellites.size());
+}
+
+static void test_print_gps_geo_info_satellite_count(void)
+{
+    GpsInfo info;
+    info.lat      = 0.0;
+    info.lon      = 0.0;
+    info.altitude = 0.0;
+    info.geoidAlt = 0.0;
+    info.gsaPDOP  = 100;
+    info.gsaHDOP  = 100;
+    info.gsaVDOP  = 100;
+    info.satellites.insert(SatelliteInfo{.prn = 1});
+    info.satellites.insert(SatelliteInfo{.prn = 2});
+    info.satellites.insert(SatelliteInfo{.prn = 3});
+    const std::string result = GpsTask::printGpsGeoInfo(info);
+    TEST_ASSERT_TRUE(result.find("SATS;3") != std::string::npos);
+}
+
 // ── GpsTask::hasLock / has3DLock — untested Quality values ───────────────────
 
 static void test_has_lock_true_dgps_3d(void)
@@ -466,4 +523,9 @@ void run_gps_tests(void)
     RUN_TEST(test_has_3d_lock_true_pps);
     RUN_TEST(test_has_3d_lock_false_pps_2d);
     RUN_TEST(test_dop_bad_value);
+    RUN_TEST(test_satellite_set_deduplicates_same_prn);
+    RUN_TEST(test_satellite_set_is_sorted);
+    RUN_TEST(test_satellite_set_counts_correctly);
+    RUN_TEST(test_satellite_set_move_clears_source);
+    RUN_TEST(test_print_gps_geo_info_satellite_count);
 }

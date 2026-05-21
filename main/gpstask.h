@@ -7,7 +7,7 @@
 #include <vector>
 #include <cstddef>
 #include <compare>
-#include <set>
+#include <flat_set>
 #include <atomic>
 #include <functional>
 #include <expected>
@@ -33,7 +33,7 @@ struct GpsInfo
     static constexpr double BAD_ALTITUDE = -12000000.0;
     static constexpr uint32_t BAD_DOP = 666000000;
 
-    std::set<SatelliteInfo> satellites;   // satellites used in fix, from all GNGSA
+    std::flat_set<SatelliteInfo> satellites;   // satellites used in fix, from all GNGSA
     // TinyGPSLocation location;
     std::chrono::system_clock::time_point worldTime;
     double lat = BAD_LATLON;
@@ -121,7 +121,7 @@ private:
     TinyGPSCustom gsaSat[GSA_SAT_FIELDS];            // GNGSA fields 3–14 (satellite PRNs)
 
     TinyGPSCustom ggaEpoch;                          // detects each new GGA (epoch boundary)
-    std::set<SatelliteInfo> m_pendingSatellites;     // accumulates across multiple GNGSA per epoch
+    std::flat_set<SatelliteInfo> m_pendingSatellites; // accumulates across multiple GNGSA per epoch
     TinyGPSCustom pppnavWeek;
     TinyGPSCustom pppnavSecsOFWeek;
     TinyGPSCustom pppnavLeapSecs;
