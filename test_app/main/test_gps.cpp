@@ -98,43 +98,59 @@ static void test_has_3d_lock_false_invalid(void)
 
 static void test_dop_100_gives_1_0(void)
 {
-    TEST_ASSERT_EQUAL_STRING("1.0", GpsTask::dopToMeters(100).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 100);
+    TEST_ASSERT_EQUAL_STRING("1.0", r.c_str());
 }
 
 static void test_dop_150_gives_1_50(void)
 {
-    TEST_ASSERT_EQUAL_STRING("1.50", GpsTask::dopToMeters(150).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 150);
+    TEST_ASSERT_EQUAL_STRING("1.50", r.c_str());
 }
 
 static void test_dop_200_gives_2_0(void)
 {
-    TEST_ASSERT_EQUAL_STRING("2.0", GpsTask::dopToMeters(200).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 200);
+    TEST_ASSERT_EQUAL_STRING("2.0", r.c_str());
 }
 
 static void test_dop_250_gives_2_50(void)
 {
-    TEST_ASSERT_EQUAL_STRING("2.50", GpsTask::dopToMeters(250).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 250);
+    TEST_ASSERT_EQUAL_STRING("2.50", r.c_str());
 }
 
 static void test_dop_0_gives_0_0(void)
 {
-    TEST_ASSERT_EQUAL_STRING("0.0", GpsTask::dopToMeters(0).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 0);
+    TEST_ASSERT_EQUAL_STRING("0.0", r.c_str());
 }
 
 static void test_dop_101_single_digit_rem_gives_1_1(void)
 {
     // rem=1 < 10 → std::to_string(1) = "1", not "01" → "1.1" not "1.01"
-    TEST_ASSERT_EQUAL_STRING("1.1", GpsTask::dopToMeters(101).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 101);
+    TEST_ASSERT_EQUAL_STRING("1.1", r.c_str());
 }
 
 static void test_dop_1000_gives_10_0(void)
 {
-    TEST_ASSERT_EQUAL_STRING("10.0", GpsTask::dopToMeters(1000).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 1000);
+    TEST_ASSERT_EQUAL_STRING("10.0", r.c_str());
 }
 
 static void test_dop_5000_gives_50_0(void)
 {
-    TEST_ASSERT_EQUAL_STRING("50.0", GpsTask::dopToMeters(5000).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, 5000);
+    TEST_ASSERT_EQUAL_STRING("50.0", r.c_str());
 }
 
 // ── GpsTask::printGpsGeoInfo ──────────────────────────────────────────────────
@@ -381,7 +397,9 @@ static void test_has_3d_lock_false_pps_2d(void)
 static void test_dop_bad_value(void)
 {
     // BAD_DOP=666000000: div(666000000,100) → quot=6660000, rem=0
-    TEST_ASSERT_EQUAL_STRING("6660000.0", GpsTask::dopToMeters(GpsInfo::BAD_DOP).c_str());
+    std::string r;
+    GpsTask::dopToMeters(r, GpsInfo::BAD_DOP);
+    TEST_ASSERT_EQUAL_STRING("6660000.0", r.c_str());
 }
 
 static void test_emulate_qstarz_south_pole_dateline(void)
