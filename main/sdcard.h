@@ -2,6 +2,8 @@
 
 #include <optional>
 #include <memory>
+#include <span>
+#include <string_view>
 #include <esp_err.h>
 #include <driver/gpio.h>
 #include <sd_protocol_types.h>
@@ -29,10 +31,14 @@ public:
     /// this functions (write/read) can be outside, but it's easy to read code if they are here
     /// filename should start with "/", for example "/myfile.txt"
     [[nodiscard("write failure silently drops data")]]
-    esp_err_t writeFile(const std::string &path, const char *data);
+    esp_err_t writeFile(const std::string &path, std::span<const std::byte> data);
+    [[nodiscard("write failure silently drops data")]]
+    esp_err_t writeFile(const std::string &path, std::string_view data);
 
     [[nodiscard("append failure silently drops data")]]
-    esp_err_t appendFile(const std::string &path, const char *data);
+    esp_err_t appendFile(const std::string &path, std::span<const std::byte> data);
+    [[nodiscard("append failure silently drops data")]]
+    esp_err_t appendFile(const std::string &path, std::string_view data);
 
     /// filename should start with "/", for example "/myfile.txt"
     // esp_err_t readFileExample(const std::string &path);

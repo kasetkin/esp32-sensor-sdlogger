@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <ranges>
+#include <span>
 #include <string>
 #include <mutex>
 #include <cmath>
@@ -628,17 +629,17 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::vector<std::b
     std::unique_lock readLock(m_dataMutex);
 
     for (const auto &packet: packets) {
-        transmitBuffer(packet.data(), packet.size(), ble_qstarz_read_val_handle);
+        transmitBuffer(packet, ble_qstarz_read_val_handle);
         vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MS));
     }
 }
 
-inline int BleSppServerTask::bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle)
+inline int BleSppServerTask::bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle)
 {
     struct os_mbuf *txom;
-    txom = ble_hs_mbuf_from_flat(from, length);
+    txom = ble_hs_mbuf_from_flat(data.data(), static_cast<uint16_t>(data.size_bytes()));
     if (txom == nullptr) {
-        MODLOG_DFLT(ERROR, "can not allocate buffer, length %zu", length);
+        MODLOG_DFLT(ERROR, "can not allocate buffer, length %zu", data.size_bytes());
         return ESP_FAIL;
     }
 
@@ -649,9 +650,9 @@ inline int BleSppServerTask::bleTx(const void *from, size_t length, uint16_t con
     return rc;
 }
 
-void BleSppServerTask::transmitBuffer(const std::byte *bufferStart, size_t bufferSize, uint16_t value_handle) 
+void BleSppServerTask::transmitBuffer(std::span<const std::byte> buffer, uint16_t value_handle)
 {
-    if (bufferSize == 0)
+    if (buffer.empty())
         return;
 
     MODLOG_DFLT(DEBUG, "transmitLineNow: valueHandle = %d", value_handle);
@@ -661,24 +662,23 @@ void BleSppServerTask::transmitBuffer(const std::byte *bufferStart, size_t buffe
         if (conn_handle_subs[i]) {
 
             // const size_t attMtu = ble_att_mtu(i);
-            const size_t attMtu = 247; /// HARDCODED VALUE, from Interner: The ESP32-C6's controller supports up to 251 bytes PDU, but the GATT layer limits to 247 due to L2CAP overhead. 
+            const size_t attMtu = 247; /// HARDCODED VALUE, from Interner: The ESP32-C6's controller supports up to 251 bytes PDU, but the GATT layer limits to 247 due to L2CAP overhead.
             constexpr size_t attHeaderSize = 3; // ATT notification header: 1 opcode + 2 handle
             if (attMtu <= attHeaderSize) {
                 MODLOG_DFLT(ERROR, "BLE connection %d with strangely small MTU: %zu. Can not transmitt data", i, attMtu);
                 continue;
             }
-                
+
             const size_t maximumPayloadSize = attMtu - attHeaderSize;
             if (maximumPayloadSize == 0) {
                 MODLOG_DFLT(ERROR, "code logic error, should be impossible, payloadSize == 0 at connection %d", i);
                 continue;
             }
 
-            const size_t fullPacketsCount = bufferSize / maximumPayloadSize;
+            const size_t fullPacketsCount = buffer.size() / maximumPayloadSize;
 
             for (size_t fullPacketIndex = 0; fullPacketIndex < fullPacketsCount; ++fullPacketIndex) {
-                const void *packetStart = bufferStart + fullPacketIndex * maximumPayloadSize;
-                const int rc = bleTx(packetStart, maximumPayloadSize, i, value_handle);
+                const int rc = bleTx(buffer.subspan(fullPacketIndex * maximumPayloadSize, maximumPayloadSize), i, value_handle);
                 if (rc == 0) {
                     MODLOG_DFLT(DEBUG, "Full Notification (%zu of %zu) sent successfully, size %zu", fullPacketIndex, fullPacketsCount, maximumPayloadSize);
                 } else {
@@ -686,15 +686,12 @@ void BleSppServerTask::transmitBuffer(const std::byte *bufferStart, size_t buffe
                 }
             }
 
-            const bool needSmallPacket = bufferSize % maximumPayloadSize != 0;
-            if (needSmallPacket) {
-                const void *packetStart = bufferStart + fullPacketsCount * maximumPayloadSize;
-                const size_t packetSize = bufferSize % maximumPayloadSize;
-                const int rc = bleTx(packetStart, packetSize, i, value_handle);
+            if (buffer.size() % maximumPayloadSize != 0) {
+                const int rc = bleTx(buffer.subspan(fullPacketsCount * maximumPayloadSize), i, value_handle);
                 if (rc == 0) {
-                    MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", packetSize);
+                    MODLOG_DFLT(DEBUG, "The last notification sent successfully, size %zu", buffer.size() % maximumPayloadSize);
                 } else {
-                    MODLOG_DFLT(ERROR, "Error in sending the last notification (size %zu) rc = %d", packetSize, rc);
+                    MODLOG_DFLT(ERROR, "Error in sending the last notification (size %zu) rc = %d", buffer.size() % maximumPayloadSize, rc);
                 }
             }
         }
@@ -820,14 +817,14 @@ void BleSppServerTask::sendAllData()
     
     {
         for (const auto &line : m_logStream)
-            transmitBuffer(reinterpret_cast<const std::byte *>(line.c_str()), line.size(), ble_full_log_read_val_handle);
+            transmitBuffer(std::as_bytes(std::span{line}), ble_full_log_read_val_handle);
 
         m_logStream.clear();
     }
 
     {
         for (const auto &line : m_nmeaStream)
-            transmitBuffer(reinterpret_cast<const std::byte *>(line.c_str()), line.size(), ble_nmea_read_val_handle);
+            transmitBuffer(std::as_bytes(std::span{line}), ble_nmea_read_val_handle);
 
         m_nmeaStream.clear();
     }

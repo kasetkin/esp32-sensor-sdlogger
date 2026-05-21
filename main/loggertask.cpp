@@ -120,7 +120,7 @@ void LoggerTask::logCurrentState()
     if (m_readyEvent)
         m_readyEvent(fullLogMessage);
         
-    if (const esp_err_t err = m_sdCard->appendFile(fullpath, fullLogMessage.c_str()); err != ESP_OK)
+    if (const esp_err_t err = m_sdCard->appendFile(fullpath, fullLogMessage); err != ESP_OK)
         ESP_LOGE(LOGSTATETAG, "appendFile failed: %d", err);
 }
 
@@ -136,7 +136,7 @@ void LoggerTask::logNmeaStream()
         return;
 
     m_nmeaLog += std::string("\r\n");
-    if (const esp_err_t err = m_sdCard->appendFile(fullpath, m_nmeaLog.c_str()); err != ESP_OK)
+    if (const esp_err_t err = m_sdCard->appendFile(fullpath, m_nmeaLog); err != ESP_OK)
         ESP_LOGE(LOGNMEATAG, "appendFile failed: %d", err);
 }
 

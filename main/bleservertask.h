@@ -14,6 +14,7 @@
 #include <string_view>
 #include <algorithm>
 #include <iterator>
+#include <span>
 #include <host/ble_hs.h>
 #include <nimble/ble.h>
 #include <nimble/nimble_port_freertos.h>
@@ -155,10 +156,8 @@ private:
     void dataSenderTaskInit();
     void bleSenderTask();
     void sendAllData();
-    inline int bleTx(const void *from, size_t length, uint16_t connHandle, uint16_t valueHandle);
-    //! \todo replace std::string with std::vector<std::byte> or some range-based template/type 
-    //!         it should accept both std::vector<std::byte> and std::string
-    void transmitBuffer(const std::byte *bufferStart, size_t bufferSize, uint16_t value_handle);
+    inline int bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle);
+    void transmitBuffer(std::span<const std::byte> buffer, uint16_t value_handle);
     void transmitEnvHumidity(uint16_t conn_handle);
     void transmitEnvTemperature(uint16_t conn_handle);
     void transmitBatteryLevel(uint16_t conn_handle);

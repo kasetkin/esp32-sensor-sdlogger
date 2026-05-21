@@ -7,6 +7,7 @@
 #include <chrono>
 #include <algorithm>
 #include <array>
+#include <span>
 #include <iostream>
 #include <esp_log.h>
 #include <driver/uart.h>
@@ -693,8 +694,8 @@ template<typename T>
     requires std::is_trivially_copyable_v<T>
 void appendRaw(std::vector<std::byte> &buf, const T &data)
 {
-    const auto *p = reinterpret_cast<const std::byte *>(&data);
-    buf.insert(buf.end(), p, p + sizeof(T));
+    const auto bytes = std::as_bytes(std::span{&data, 1});
+    buf.insert(buf.end(), bytes.begin(), bytes.end());
 }
 
 // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
@@ -777,10 +778,11 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     /// emulate QSTARZ connections specific: send data by packets of 20 bytes
     QStarZPackets packets;
 
-    packets[0].assign(buf.cbegin(), buf.cbegin() + 20);
-    packets[1].assign(buf.cbegin() + 20, buf.cbegin() + 40);
-    packets[2].assign(buf.cbegin() + 40, buf.cbegin() + 60);
-    packets[3].assign(buf.cbegin() + 60, buf.cbegin() + 64);
+    const std::span<const std::byte> view{buf};
+    packets[0].assign_range(view.subspan( 0, 20));
+    packets[1].assign_range(view.subspan(20, 20));
+    packets[2].assign_range(view.subspan(40, 20));
+    packets[3].assign_range(view.subspan(60,  4));
 
     ESP_LOGD(LOGTASKTAG, "first packet.length: %zu", packets[0].size());
     ESP_LOGD(LOGTASKTAG, "first packet[0]: %d, should be 1, 2, 3", std::to_integer<int>(packets[0][0]));

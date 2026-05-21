@@ -1,4 +1,5 @@
 #include <memory>
+#include <span>
 #include <esp_vfs_fat.h>
 #include <sdmmc_cmd.h>
 
@@ -6,13 +7,8 @@
 
 static const char *TAGSD = "sdcard-log";
 
-esp_err_t SdCard::writeFile(const std::string &path, const char *data)
+esp_err_t SdCard::writeFile(const std::string &path, std::span<const std::byte> data)
 {
-    if (data == nullptr) {
-        ESP_LOGE(TAGSD, "nullptr as data");
-        return ESP_FAIL;
-    }
-
     const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "w");
@@ -21,9 +17,9 @@ esp_err_t SdCard::writeFile(const std::string &path, const char *data)
         return ESP_FAIL;
     }
 
-    const int printResult = fprintf(f, "%s", data);
+    const size_t written = fwrite(data.data(), 1, data.size(), f);
     fclose(f);
-    if (printResult < 0) {
+    if (written != data.size()) {
         ESP_LOGE(TAGSD, "Can not write to the file %s", path.c_str());
         return ESP_FAIL;
     }
@@ -32,13 +28,13 @@ esp_err_t SdCard::writeFile(const std::string &path, const char *data)
     return ESP_OK;
 }
 
-esp_err_t SdCard::appendFile(const std::string &path, const char *data)
+esp_err_t SdCard::writeFile(const std::string &path, std::string_view data)
 {
-    if (data == nullptr) {
-        ESP_LOGE(TAGSD, "nullptr as data");
-        return ESP_FAIL;
-    }
+    return writeFile(path, std::as_bytes(std::span{data}));
+}
 
+esp_err_t SdCard::appendFile(const std::string &path, std::span<const std::byte> data)
+{
     const std::string pathWithMount = m_mountPoint + path;
     ESP_LOGI(TAGSD, "Opening file %s", path.c_str());
     FILE *f = fopen(pathWithMount.c_str(), "a");
@@ -46,14 +42,19 @@ esp_err_t SdCard::appendFile(const std::string &path, const char *data)
         ESP_LOGE(TAGSD, "Failed to open file for appending");
         return ESP_FAIL;
     }
-    const int printResult = fprintf(f, "%s", data);
+    const size_t written = fwrite(data.data(), 1, data.size(), f);
     fclose(f);
-    if (printResult < 0) {
+    if (written != data.size()) {
         ESP_LOGE(TAGSD, "Can not append to the file %s", path.c_str());
         return ESP_FAIL;
     }
     ESP_LOGI(TAGSD, "File appended");
     return ESP_OK;
+}
+
+esp_err_t SdCard::appendFile(const std::string &path, std::string_view data)
+{
+    return appendFile(path, std::as_bytes(std::span{data}));
 }
 
 // esp_err_t SdCard::readFileExample(const std::string &path)
