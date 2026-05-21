@@ -137,7 +137,7 @@ private:
     TinyGPSCustom pppnavDatumId;
     TinyGPSCustom pppnavStationId; /// can be converted to System (B2b, E6-HAS, etc)
     
-    static void logNmeaMessageToSd(const std::string &msg);
+    static void logNmeaMessageToSd(std::string_view msg);
 
     /// default delay between send and receive
     void gpsUartDelay();

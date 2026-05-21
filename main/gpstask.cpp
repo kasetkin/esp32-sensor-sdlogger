@@ -467,7 +467,7 @@ bool GpsTask::processNewLocation()
     return true;
 }
 
-void GpsTask::logNmeaMessageToSd(const std::string &msg)
+void GpsTask::logNmeaMessageToSd(std::string_view msg)
 {
 //     static const char * logsPath = "/logs";
 //     const std::string filename = sdLoggerModule->generateFilename() + "_nmea.csv";
