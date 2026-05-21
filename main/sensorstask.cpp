@@ -256,7 +256,7 @@ void SensorsTask::deinitI2C()
     m_i2cInitialized = false;
 }
 
-int SensorsTask::readBatteryVoltageMilliV()
+std::expected<int, esp_err_t> SensorsTask::readBatteryVoltageMilliV()
 {
 // #ifdef HAS_PMU
 //     if (pmu_found && PMU) {
@@ -277,14 +277,14 @@ int SensorsTask::readBatteryVoltageMilliV()
         if (const esp_err_t adcReadError = adc_oneshot_read(adc1_handle, ADC_CHANNEL_2, &adc_raw);
             adcReadError != ESP_OK) {
             ESP_LOGE(TAG, "ADC reading error %d", adcReadError);
-            return -1;
+            return std::unexpected(adcReadError);
         }
 
         if (const esp_err_t calibrationErr = adc_cali_raw_to_voltage(adc1_cali_chan0_handle, adc_raw, &voltage);
             calibrationErr != ESP_OK) {
             ESP_LOGE(TAG, "ADC calibration error %d, raw value is %d", calibrationErr, adc_raw);
-            return -1;
-        }        
+            return std::unexpected(calibrationErr);
+        }
         // ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1, ADC_CHANNEL_2, adc_raw);
         // ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1, ADC_CHANNEL_2, voltage);
         voltage_mean += voltage;
@@ -314,8 +314,8 @@ void SensorsTask::executeTask()
     static const char * TAG = "sensors-task";
     while (true) {
         SensorsValues v;
-        const int rawVoltage = readBatteryVoltageMilliV();
-        if (rawVoltage > 0) {
+        if (const auto voltageResult = readBatteryVoltageMilliV(); voltageResult.has_value()) {
+            const int rawVoltage = voltageResult.value();
             v.batteryVoltageMilliV = rawVoltage;
             v.batteryPercent = convertVoltageToPercent(rawVoltage);
             if (rawVoltage < LOW_DISCHARGE_VOLTAGE) {
@@ -327,7 +327,7 @@ void SensorsTask::executeTask()
                 continue;
             }
         } else {
-            ESP_LOGE(TAG, "battery ADC read error");
+            ESP_LOGE(TAG, "battery ADC read error: %d", voltageResult.error());
         }
 
         float tempVal, humidVal;

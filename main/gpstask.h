@@ -10,6 +10,7 @@
 #include <set>
 #include <atomic>
 #include <functional>
+#include <expected>
 #include <driver/gpio.h>
 #include <driver/uart.h>
 #include "TinyGPSPlus.h"    /// TinyGPSLocation
@@ -90,7 +91,7 @@ public:
     static bool has3DLock(const GpsInfo &info);
     bool processNewLocation();
     int sendData(std::string_view data);
-    int sendStringAndWait(std::string_view data, std::string &reply);
+    std::expected<std::string, esp_err_t> sendStringAndWait(std::string_view data);
 
     static void dopToMeters(std::string& out, const uint32_t dop) noexcept;
     static std::string printGpsTimeInfo(const GpsInfo &p);

@@ -55,87 +55,86 @@ void GpsTask::gpsUartDelay()
 
 esp_err_t GpsTask::configureUM980()
 {
-    std::string reply;
     ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
 
-    sendStringAndWait("UNLOG\r\n", reply);
-
+    sendStringAndWait("UNLOG\r\n");
 
     /// check for receiver
     bool hasCorrectAnswer = false;
     while (!hasCorrectAnswer) {
         gpsUartDelay();
 
-        sendStringAndWait("VERSION\r\n", reply);
-        if (reply.find("UM980") != std::string::npos) {
-            ESP_LOGI(LOGTASKTAG, "UM980 detected, VERSION reply: %s", reply.c_str());
+        const auto versionResult = sendStringAndWait("VERSION\r\n");
+        if (versionResult && versionResult->contains("UM980")) {
+            ESP_LOGI(LOGTASKTAG, "UM980 detected, VERSION reply: %s", versionResult->c_str());
             hasCorrectAnswer = true;
             break;
         }
 
         //! \todo try different UART speed (9600 ... 460800)
-        ESP_LOGI(LOGTASKTAG, "UM980 not detected, VERSION reply: %s", reply.c_str());
+        ESP_LOGI(LOGTASKTAG, "UM980 not detected, VERSION reply: %s",
+                 versionResult ? versionResult->c_str() : "(UART error)");
         gpsUartDelay();
     }
 
     /// request config, only for debug
-    sendStringAndWait("CONFIG\r\n", reply);
+    sendStringAndWait("CONFIG\r\n");
 
     // /// setup baudrate (needed if it is different and we want to switch it)
-    // sendStringAndWait("CONFIG COM1 115200\r\n", reply);
-    // sendStringAndWait("CONFIG COM2 115200\r\n", reply);
-    // sendStringAndWait("CONFIG COM3 115200\r\n", reply);
-    // sendStringAndWait("SAVECONFIG\r\n", reply);
+    // sendStringAndWait("CONFIG COM1 115200\r\n");
+    // sendStringAndWait("CONFIG COM2 115200\r\n");
+    // sendStringAndWait("CONFIG COM3 115200\r\n");
+    // sendStringAndWait("SAVECONFIG\r\n");
 
-    sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n", reply);
-    sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n", reply);
+    sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n");
+    sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n");
     /// 'AUTO' or 'E6-HAS' or 'B2b-PPP' or 'SSR-RX' or 'L6MDCPPP' ?
-    sendStringAndWait("CONFIG PPP ENABLE E6-HAS\r\n", reply);
+    sendStringAndWait("CONFIG PPP ENABLE E6-HAS\r\n");
     /// we don't need default 15cm precision, 70cm in horizontal and 100cm in vertical should be enough
-    sendStringAndWait("CONFIG PPP CONVERGE 75 200\r\n", reply);
-    sendStringAndWait("CONFIG PPP DATUM WGS84\r\n", reply);
-    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n", reply); 
-    sendStringAndWait("CONFIG MMP ENABLE\r\n", reply);
-    sendStringAndWait("CONFIG PVTALG MULTI\r\n", reply);
-    sendStringAndWait("CONFIG IONMODE GPSK8\r\n", reply);
-    sendStringAndWait("CONFIG ANTIJAM FORCE\r\n", reply);
-    sendStringAndWait("CONFIG PSRVELDRPOS DISABLE\r\n", reply);
-    sendStringAndWait("CONFIG UNDULATION AUTO\r\n", reply);
-    sendStringAndWait("CONFIG NMEA0183 V411\r\n", reply);
-    sendStringAndWait("CONFIG SBAS ENABLE AUTO\r\n", reply); /// why not, if there is any in your region
-    sendStringAndWait("CONFIG SBAS TIMEOUT 1800\r\n", reply);
-    sendStringAndWait("CONFIG STANDALONE ENABLE\r\n", reply); /// not sure if it's a good idea
+    sendStringAndWait("CONFIG PPP CONVERGE 75 200\r\n");
+    sendStringAndWait("CONFIG PPP DATUM WGS84\r\n");
+    sendStringAndWait("CONFIG DGPS TIMEOUT 0\r\n");
+    sendStringAndWait("CONFIG MMP ENABLE\r\n");
+    sendStringAndWait("CONFIG PVTALG MULTI\r\n");
+    sendStringAndWait("CONFIG IONMODE GPSK8\r\n");
+    sendStringAndWait("CONFIG ANTIJAM FORCE\r\n");
+    sendStringAndWait("CONFIG PSRVELDRPOS DISABLE\r\n");
+    sendStringAndWait("CONFIG UNDULATION AUTO\r\n");
+    sendStringAndWait("CONFIG NMEA0183 V411\r\n");
+    sendStringAndWait("CONFIG SBAS ENABLE AUTO\r\n"); /// why not, if there is any in your region
+    sendStringAndWait("CONFIG SBAS TIMEOUT 1800\r\n");
+    sendStringAndWait("CONFIG STANDALONE ENABLE\r\n"); /// not sure if it's a good idea
 
-    sendStringAndWait("UNMASK ALL\r\n", reply); /// enable all GNSS systems (GPS, Galileo, Beidou, Glonass, QZSS, IRNSS)
-    sendStringAndWait("UNMASK GPS\r\n", reply); /// USA
-    sendStringAndWait("UNMASK BDS\r\n", reply); /// Beidou, China
-    sendStringAndWait("UNMASK GLO\r\n", reply); /// GLONASS, Russia
-    sendStringAndWait("UNMASK GAL\r\n", reply); /// Galileo, Europe
-    sendStringAndWait("UNMASK QZSS\r\n", reply); /// Quasi-Zenith Satellite System, Japanese
-    sendStringAndWait("UNMASK IRNSS\r\n", reply); /// NavIC, Indian
-    sendStringAndWait("MASK 10.0\r\n", reply); /// mask elevation angle
+    sendStringAndWait("UNMASK ALL\r\n"); /// enable all GNSS systems (GPS, Galileo, Beidou, Glonass, QZSS, IRNSS)
+    sendStringAndWait("UNMASK GPS\r\n"); /// USA
+    sendStringAndWait("UNMASK BDS\r\n"); /// Beidou, China
+    sendStringAndWait("UNMASK GLO\r\n"); /// GLONASS, Russia
+    sendStringAndWait("UNMASK GAL\r\n"); /// Galileo, Europe
+    sendStringAndWait("UNMASK QZSS\r\n"); /// Quasi-Zenith Satellite System, Japanese
+    sendStringAndWait("UNMASK IRNSS\r\n"); /// NavIC, Indian
+    sendStringAndWait("MASK 10.0\r\n"); /// mask elevation angle
 
     /// disable currently enabled messages
-    sendStringAndWait("UNLOG\r\n", reply);
+    sendStringAndWait("UNLOG\r\n");
 
     /// enable necessary NMEA messages
-    sendStringAndWait("GNGGA 1\r\n", reply);
-    sendStringAndWait("GNGSA 1\r\n", reply);
-    sendStringAndWait("GNRMC 1\r\n", reply);
-    sendStringAndWait("GNGSV 1\r\n", reply);
+    sendStringAndWait("GNGGA 1\r\n");
+    sendStringAndWait("GNGSA 1\r\n");
+    sendStringAndWait("GNRMC 1\r\n");
+    sendStringAndWait("GNGSV 1\r\n");
     /// Enable Unicore specific PPP messages
-    sendStringAndWait("PPPNAVA 1\r\n", reply);
+    sendStringAndWait("PPPNAVA 1\r\n");
 
     /// print ALL observations from antenna!!!
     /// TOO MANY symbols even at speed 115200,
     /// \todo test with higher speed
     //sendStringAndWait("OBSVMA 1\r\n");
 
-    sendStringAndWait("SAVECONFIG\r\n", reply);
+    sendStringAndWait("SAVECONFIG\r\n");
 
     /// nice to have, but it will reboot UM980 module =( and it's not
-    sendStringAndWait("CONFIG SIGNALGROUP 2\r\n", reply);
-    if (reply.find("system is rebooting") != std::string::npos) {
+    const auto signalResult = sendStringAndWait("CONFIG SIGNALGROUP 2\r\n");
+    if (signalResult && signalResult->contains("system is rebooting")) {
         ESP_LOGI(LOGTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %u ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_REBOOT_DELAY_MICROSEC));
     }
@@ -187,21 +186,23 @@ int GpsTask::sendData(std::string_view data)
     return txBytes;
 }
 
-int GpsTask::sendStringAndWait(std::string_view data, std::string &reply)
+std::expected<std::string, esp_err_t> GpsTask::sendStringAndWait(std::string_view data)
 {
     static constexpr const char TX_TASK_TAG[] = "TX_TASK2";
-    const int len = data.size();
-    const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), len);
-    if (txBytes != len)
+    const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), data.size());
+    if (txBytes != static_cast<int>(data.size())) {
         ESP_LOGE(TX_TASK_TAG, "wrong string size");
+        return std::unexpected(ESP_FAIL);
+    }
 
     gpsUartDelay();
 
+    std::string reply;
     readFromUart(reply);
-    if (reply.size() > 0)
+    if (!reply.empty())
         ESP_LOGI(TX_TASK_TAG, "reply: %s", reply.c_str());
 
-    return txBytes;
+    return reply;
 }
 
 // void GpsTask::tx_task(void *arg)

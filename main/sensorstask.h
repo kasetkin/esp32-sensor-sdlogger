@@ -3,6 +3,7 @@
 #include <cmath>
 #include <numeric>
 #include <optional>
+#include <expected>
 #include <memory>
 #include <string>
 #include <functional>
@@ -80,5 +81,5 @@ private:
     esp_err_t initI2C();
     void deinitAdc();
     void deinitI2C();
-    int readBatteryVoltageMilliV();
+    std::expected<int, esp_err_t> readBatteryVoltageMilliV();
 };
