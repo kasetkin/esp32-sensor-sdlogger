@@ -416,7 +416,7 @@ bool GpsTask::processNewLocation()
     {
         pppInfo.lat = parseDegreesLatLon(pppnavLat.value());
         pppInfo.lon = parseDegreesLatLon(pppnavLon.value());
-        auto fromField = [](const char* s, auto& val) {
+        auto fromField = [](const char* s, auto& val) static {
             if (s && *s) std::from_chars(s, s + strlen(s), val);
         };
         fromField(pppnavAlt.value(),        pppInfo.alt);
@@ -712,7 +712,7 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const uint16_t time_ms = static_cast<uint16_t>(ms.count());
 
     // Convert decimal degrees to DDDMM.MMMM
-    auto toQstarzDeg = [](double decimal) -> double {
+    auto toQstarzDeg = [](double decimal) static -> double {
         const double absVal = std::abs(decimal);
         const double deg = std::trunc(absVal);
         const double min = (absVal - deg) * 60.0;

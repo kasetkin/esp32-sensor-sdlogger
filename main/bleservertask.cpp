@@ -833,8 +833,8 @@ void BleSppServerTask::bleSenderTask()
 
 void BleSppServerTask::dataSenderTaskInit()
 {
-    xTaskCreate([](void *bleTask)
-    { 
+    xTaskCreate([](void *bleTask) static
+    {
         auto asObject = reinterpret_cast<BleSppServerTask *>(bleTask);
         asObject->bleSenderTask();
         vTaskDelete(nullptr);

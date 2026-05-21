@@ -21,7 +21,7 @@ std::string SensorsValues::toTelemetryRoundedString(const float value)
     std::string_view sv(buf, ptr);
     if (!sv.contains('.'))
         return std::string(sv);
-    const auto isTrailingZero = [](char c) {
+    const auto isTrailingZero = [](char c) static {
         return c == '0';
     };
     const auto trailing = sv | std::views::reverse | std::views::take_while(isTrailingZero);
@@ -64,7 +64,7 @@ std::string SensorsValues::toTelemetryString() const
 
 std::string SensorsValues::toLogString() const
 {
-    auto appendOpt = [](std::string& out, const auto& opt) {
+    auto appendOpt = [](std::string& out, const auto& opt) static {
         if (opt.has_value()) appendNum(out, opt.value());
         else out += "NO_VALUE";
     };

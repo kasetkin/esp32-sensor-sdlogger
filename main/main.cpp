@@ -28,8 +28,8 @@ static std::shared_ptr<BleSppServerTask> bleTask;
 void startErrorTask(ErrorTask::ErrorCode code)
 {
     errorTask = std::make_shared<ErrorTask>(code);
-    xTaskCreate([](void *)
-    { 
+    xTaskCreate([](void *) static
+    {
         errorTask->execute();
         vTaskDelete(nullptr);
     }, "error_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
@@ -109,7 +109,7 @@ extern "C" void app_main(void)
     loggerTask->configureSdCard(my_sdcard);
 
     ESP_LOGI(TAG, "configure Logger::ReadyEvent (pass log string to BLE task)");
-    loggerTask->configureLogReadyEvent([](std::string_view log)
+    loggerTask->configureLogReadyEvent([](std::string_view log) static
     {
         if (!bleTask)
             return;
@@ -119,7 +119,7 @@ extern "C" void app_main(void)
     });
     
     ESP_LOGI(TAG, "configure GpsTask events - begin");
-    gpsTask->configureNmeaEvent([](std::string_view nmea)
+    gpsTask->configureNmeaEvent([](std::string_view nmea) static
     {
         if (bleTask)
             bleTask->appendNmea(nmea);
@@ -127,17 +127,17 @@ extern "C" void app_main(void)
         if (loggerTask)
             loggerTask->addNmeaLog(nmea);
     });
-    gpsTask->configureGnssEvent([](std::string_view gnss)
+    gpsTask->configureGnssEvent([](std::string_view gnss) static
     {
         if (loggerTask)
             loggerTask->setGpsLog(gnss);
     });
-    gpsTask->configurePppEvent([](std::string_view ppp)
+    gpsTask->configurePppEvent([](std::string_view ppp) static
     {
         if (loggerTask)
             loggerTask->setGpsLog(ppp);
     });
-    gpsTask->configureQStarZEvent([](const GpsTask::QStarZPackets &packets)
+    gpsTask->configureQStarZEvent([](const GpsTask::QStarZPackets &packets) static
     {
         if (bleTask)
             bleTask->transmitQstarzPackets(packets);
@@ -145,7 +145,7 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "configure GpsTask events - end");
 
     ESP_LOGI(TAG, "configure Sensors::ReadyEvent (pass battery, temp, humidity to BLE task)");
-    sensorTask->configureReadyEvent([](const SensorsValues &values)
+    sensorTask->configureReadyEvent([](const SensorsValues &values) static
     {
         ESP_LOGI(TAG, "Logger: ReadyEnevt");
         const std::string message = values.toTelemetryString();
@@ -159,7 +159,7 @@ extern "C" void app_main(void)
     });
 
     ESP_LOGI(TAG, "configure BLE command handler");
-    bleTask->configureCommandReceivedEvent([](std::string_view cmd)
+    bleTask->configureCommandReceivedEvent([](std::string_view cmd) static
     {
         auto isCRLF = [](char c) static {
             return c == '\r' || c == '\n';
@@ -188,22 +188,22 @@ extern "C" void app_main(void)
 
 
     ESP_LOGI(TAG, "start Logger task");
-    xTaskCreate([](void *)
-    { 
+    xTaskCreate([](void *) static
+    {
         loggerTask->executeTask();
         vTaskDelete(nullptr);
     }, "logger_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "listen from GPS module, start task");
-    xTaskCreate([](void *)
-    { 
+    xTaskCreate([](void *) static
+    {
         gpsTask->executeTask();
         vTaskDelete(nullptr);
     }, "gps_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
 
     ESP_LOGI(TAG, "read sensors, start task");
-    xTaskCreate([](void *)
-    { 
+    xTaskCreate([](void *) static
+    {
         sensorTask->executeTask();
         vTaskDelete(nullptr);
     }, "sensors_task", DEFAULT_TASK_STACK_SIZE, nullptr, 6, nullptr);
