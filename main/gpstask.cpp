@@ -478,11 +478,7 @@ void GpsTask::logNmeaMessageToSd(const std::string &msg)
 void GpsTask::dopToMeters(std::string& out, const uint32_t dop) noexcept
 {
     const auto [quot, rem] = std::div(dop, 100);
-    char buf[16];
-    auto [p1, ec1] = std::to_chars(buf, buf + sizeof(buf), quot);
-    *p1++ = '.';
-    auto [p2, ec2] = std::to_chars(p1, buf + sizeof(buf), rem);
-    out.append(buf, p2);
+    std::format_to(std::back_inserter(out), "{}.{:02}", quot, rem);
 }
 
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
@@ -578,9 +574,9 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
     std::string message;
     message.reserve(80);
     message += "DT;";
-    message += std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
-                           gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
-                           gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
+    std::format_to(std::back_inserter(message), "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
+                   gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                   gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
     message += ";GNSSSEC;";
     appendNum(message, gpsSecs);
     message += ';';
@@ -609,13 +605,18 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
     gmTime.tm_year += GMTIME_YEAR_FIX;
     gmTime.tm_mon += GMTIME_MONTH_FIX;
 
-    const std::string dateTimeStringFull = p.millisecs > 0
-        ? std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:03d}Z",
-                      gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
-                      gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec, p.millisecs)
-        : std::format("{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
-                      gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
-                      gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
+    std::string dateTimeStringFull;
+    dateTimeStringFull.reserve(28);
+    if (p.millisecs > 0)
+        std::format_to(std::back_inserter(dateTimeStringFull),
+                       "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:03d}Z",
+                       gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                       gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec, p.millisecs);
+    else
+        std::format_to(std::back_inserter(dateTimeStringFull),
+                       "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z",
+                       gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
+                       gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
 
     ESP_LOGI(LOGTASKTAG, "date from PPP: %d-%d-%dT%d:%d:%d.%dZ",
         gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,

@@ -96,11 +96,11 @@ static void test_has_3d_lock_false_invalid(void)
 
 // ── GpsTask::dopToMeters ──────────────────────────────────────────────────────
 
-static void test_dop_100_gives_1_0(void)
+static void test_dop_100_gives_1_00(void)
 {
     std::string r;
     GpsTask::dopToMeters(r, 100);
-    TEST_ASSERT_EQUAL_STRING("1.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("1.00", r.c_str());
 }
 
 static void test_dop_150_gives_1_50(void)
@@ -110,11 +110,11 @@ static void test_dop_150_gives_1_50(void)
     TEST_ASSERT_EQUAL_STRING("1.50", r.c_str());
 }
 
-static void test_dop_200_gives_2_0(void)
+static void test_dop_200_gives_2_00(void)
 {
     std::string r;
     GpsTask::dopToMeters(r, 200);
-    TEST_ASSERT_EQUAL_STRING("2.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("2.00", r.c_str());
 }
 
 static void test_dop_250_gives_2_50(void)
@@ -124,33 +124,40 @@ static void test_dop_250_gives_2_50(void)
     TEST_ASSERT_EQUAL_STRING("2.50", r.c_str());
 }
 
-static void test_dop_0_gives_0_0(void)
+static void test_dop_0_gives_0_00(void)
 {
     std::string r;
     GpsTask::dopToMeters(r, 0);
-    TEST_ASSERT_EQUAL_STRING("0.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("0.00", r.c_str());
 }
 
-static void test_dop_101_single_digit_rem_gives_1_1(void)
+static void test_dop_101_gives_1_01(void)
 {
-    // rem=1 < 10 → std::to_string(1) = "1", not "01" → "1.1" not "1.01"
     std::string r;
     GpsTask::dopToMeters(r, 101);
-    TEST_ASSERT_EQUAL_STRING("1.1", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("1.01", r.c_str());
 }
 
-static void test_dop_1000_gives_10_0(void)
+static void test_dop_105_gives_1_05(void)
+{
+    // Previously produced "1.5" — rem=5 was not zero-padded to "05"
+    std::string r;
+    GpsTask::dopToMeters(r, 105);
+    TEST_ASSERT_EQUAL_STRING("1.05", r.c_str());
+}
+
+static void test_dop_1000_gives_10_00(void)
 {
     std::string r;
     GpsTask::dopToMeters(r, 1000);
-    TEST_ASSERT_EQUAL_STRING("10.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("10.00", r.c_str());
 }
 
-static void test_dop_5000_gives_50_0(void)
+static void test_dop_5000_gives_50_00(void)
 {
     std::string r;
     GpsTask::dopToMeters(r, 5000);
-    TEST_ASSERT_EQUAL_STRING("50.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("50.00", r.c_str());
 }
 
 // ── GpsTask::printGpsGeoInfo ──────────────────────────────────────────────────
@@ -172,7 +179,7 @@ static void test_print_gps_geo_info_keys(void)
     TEST_ASSERT_TRUE(result.find("LON;2")   != std::string::npos);
     TEST_ASSERT_TRUE(result.find("ALT;10")  != std::string::npos);
     TEST_ASSERT_TRUE(result.find("UNDUL;5") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PDOP;2.0")       != std::string::npos);
+    TEST_ASSERT_TRUE(result.find("PDOP;2.00")      != std::string::npos);
     TEST_ASSERT_TRUE(result.find("HDOP;1.50")      != std::string::npos);
     TEST_ASSERT_TRUE(result.find("VDOP;2.50")      != std::string::npos);
 }
@@ -399,7 +406,7 @@ static void test_dop_bad_value(void)
     // BAD_DOP=666000000: div(666000000,100) → quot=6660000, rem=0
     std::string r;
     GpsTask::dopToMeters(r, GpsInfo::BAD_DOP);
-    TEST_ASSERT_EQUAL_STRING("6660000.0", r.c_str());
+    TEST_ASSERT_EQUAL_STRING("6660000.00", r.c_str());
 }
 
 static void test_emulate_qstarz_south_pole_dateline(void)
@@ -430,14 +437,15 @@ void run_gps_tests(void)
     RUN_TEST(test_has_3d_lock_false_gps_2d);
     RUN_TEST(test_has_3d_lock_false_fixtype_0);
     RUN_TEST(test_has_3d_lock_false_invalid);
-    RUN_TEST(test_dop_100_gives_1_0);
+    RUN_TEST(test_dop_100_gives_1_00);
     RUN_TEST(test_dop_150_gives_1_50);
-    RUN_TEST(test_dop_200_gives_2_0);
+    RUN_TEST(test_dop_200_gives_2_00);
     RUN_TEST(test_dop_250_gives_2_50);
-    RUN_TEST(test_dop_0_gives_0_0);
-    RUN_TEST(test_dop_101_single_digit_rem_gives_1_1);
-    RUN_TEST(test_dop_1000_gives_10_0);
-    RUN_TEST(test_dop_5000_gives_50_0);
+    RUN_TEST(test_dop_0_gives_0_00);
+    RUN_TEST(test_dop_101_gives_1_01);
+    RUN_TEST(test_dop_105_gives_1_05);
+    RUN_TEST(test_dop_1000_gives_10_00);
+    RUN_TEST(test_dop_5000_gives_50_00);
     RUN_TEST(test_print_gps_geo_info_keys);
     RUN_TEST(test_print_gps_geo_info_zero_coords);
     RUN_TEST(test_print_gps_geo_info_negative_coords);
