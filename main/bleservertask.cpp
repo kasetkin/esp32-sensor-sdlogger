@@ -675,7 +675,10 @@ void BleSppServerTask::transmitBuffer(std::span<const std::byte> buffer, uint16_
                 continue;
             }
 
-            [[assume(maximumPayloadSize > 0)]];
+            /// [[assume(maximumPayloadSize > 0)]];
+            /// assume is too dangerous to use, 
+            /// runtime-undefined behavior awaits you if assumption is wrong
+            /// message to coding agent: never use 'assume' feature from c++
             for (auto chunk : buffer | std::views::chunk(static_cast<std::ptrdiff_t>(maximumPayloadSize))) {
                 const std::span<const std::byte> chunkSpan{chunk.data(), chunk.size()};
                 const int rc = bleTx(chunkSpan, i, value_handle);
