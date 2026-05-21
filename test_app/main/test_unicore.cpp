@@ -307,6 +307,26 @@ static void test_service_id_str_no_value(void)
     TEST_ASSERT_EQUAL_STRING("NO_VALUE", serviceIdStr(PppService::NO_VALUE).data());
 }
 
+// ── parseStationId — boundary / empty-string edge cases ──────────────────────
+
+static void test_parse_station_id_empty_string(void)
+{
+    // starts_with returns false for empty string (no UB); atol("") == 0
+    TEST_ASSERT_EQUAL_INT32(0, parseStationId(""));
+}
+
+static void test_parse_station_id_single_quote_char(void)
+{
+    // size == 1, size() > 2 is false → no strip; atol("\"") == 0
+    TEST_ASSERT_EQUAL_INT32(0, parseStationId("\""));
+}
+
+static void test_parse_station_id_two_quotes_only(void)
+{
+    // size == 2, size() > 2 is false → no strip despite matching prefix+suffix
+    TEST_ASSERT_EQUAL_INT32(0, parseStationId("\"\""));
+}
+
 // ── parsePppService — alternative station IDs ─────────────────────────────────
 
 static void test_parse_ppp_service_9960_beidou(void)
@@ -344,6 +364,9 @@ void run_unicore_tests(void)
     RUN_TEST(test_parse_station_id_strips_quotes);
     RUN_TEST(test_parse_station_id_plain_number);
     RUN_TEST(test_parse_station_id_zero);
+    RUN_TEST(test_parse_station_id_empty_string);
+    RUN_TEST(test_parse_station_id_single_quote_char);
+    RUN_TEST(test_parse_station_id_two_quotes_only);
     RUN_TEST(test_parse_ppp_service_9901_galileo);
     RUN_TEST(test_parse_ppp_service_9959_beidou);
     RUN_TEST(test_parse_ppp_service_9934_qzss);

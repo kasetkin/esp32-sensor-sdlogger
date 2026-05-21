@@ -26,7 +26,7 @@ std::string SensorsValues::toTelemetryRoundedString(const float value)
     };
     const auto trailing = sv | std::views::reverse | std::views::take_while(isTrailingZero);
     sv.remove_suffix(std::ranges::distance(trailing));
-    if (sv.back() == '.')
+    if (sv.ends_with('.'))
         sv.remove_suffix(1);
     return std::string(sv);
 }
