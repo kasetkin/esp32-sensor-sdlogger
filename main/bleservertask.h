@@ -109,11 +109,11 @@ private:
 
     /// Nordic semiconductors == UART SPP
     /// some info can be found here: https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/bluetooth/services/nus.html
-    static constexpr char BLE_SVC_SPP_UUID128_VALUE[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";         // NordicSemiCond value for UART (SPP mode in classic bluetooth)
-    static constexpr char BLE_CHR_NMEA_UUID128_VALUE[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";        // NUS TX: peripheral notifies central — NMEA/GNSS output
-    static constexpr char BLE_CHR_TX_UUID128_VALUE[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";          // NUS RX: central writes to peripheral — UART input (send to UM980) and custom cmds
-    static constexpr char BLE_CHR_QSTARZ_UUID128_VALUE[] = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";      // from "qstarz" racing gps, binary format, 4 packets (20 + 20 + 20 + 4) bytes
-    static constexpr char BLE_CHR_FULL_LOG_UUID128_VALUE[] = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E";    // full log, same as SD card "xxx.log" file
+    static constexpr std::string_view BLE_SVC_SPP_UUID128_VALUE = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";      // NordicSemiCond value for UART (SPP mode in classic bluetooth)
+    static constexpr std::string_view BLE_CHR_NMEA_UUID128_VALUE = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";     // NUS TX: peripheral notifies central — NMEA/GNSS output
+    static constexpr std::string_view BLE_CHR_TX_UUID128_VALUE = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";       // NUS RX: central writes to peripheral — UART input (send to UM980) and custom cmds
+    static constexpr std::string_view BLE_CHR_QSTARZ_UUID128_VALUE = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";   // from "qstarz" racing gps, binary format, 4 packets (20 + 20 + 20 + 4) bytes
+    static constexpr std::string_view BLE_CHR_FULL_LOG_UUID128_VALUE = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E"; // full log, same as SD card "xxx.log" file
 
     std::optional<float> m_batteryLevel;
     std::optional<float> m_envTemperature;
