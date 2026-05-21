@@ -15,7 +15,7 @@
 #include "unicore.h"
 // #include "fake_nmea.h"
 
-static const char * LOGTASKTAG = "gps logger";
+static constexpr const char LOGTASKTAG[] = "gps logger";
 
 esp_err_t GpsTask::configureUart()
 {
@@ -144,39 +144,39 @@ esp_err_t GpsTask::configureUM980()
 
 esp_err_t GpsTask::configureTinyGps()
 {
-    ggaEpoch.begin(m_gps, NMEA_MSG_GXGGA, 6);
+    ggaEpoch.begin(m_gps, NMEA_MSG_GXGGA.data(), 6);
 
-    gsafixtype.begin(m_gps, NMEA_MSG_GXGSA, 2);
-    gsapdop.begin(m_gps, NMEA_MSG_GXGSA, 15);
-    gsahdop.begin(m_gps, NMEA_MSG_GXGSA, 16);
-    gsavdop.begin(m_gps, NMEA_MSG_GXGSA, 17);
+    gsafixtype.begin(m_gps, NMEA_MSG_GXGSA.data(), 2);
+    gsapdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 15);
+    gsahdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 16);
+    gsavdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 17);
 
     for (int i = 0; i < GSA_SAT_FIELDS; ++i)
-        gsaSat[i].begin(m_gps, NMEA_MSG_GXGSA, 3 + i);
+        gsaSat[i].begin(m_gps, NMEA_MSG_GXGSA.data(), 3 + i);
 
-    pppnavWeek.begin(m_gps, UNICORE_MSG_PPPNAV, 4);
-    pppnavSecsOFWeek.begin(m_gps, UNICORE_MSG_PPPNAV, 5);
-    pppnavLeapSecs.begin(m_gps, UNICORE_MSG_PPPNAV, 8);
+    pppnavWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 4);
+    pppnavSecsOFWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 5);
+    pppnavLeapSecs.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 8);
 
-    pppnavSolStatus.begin(m_gps, UNICORE_MSG_PPPNAV, 9);
-    pppnavPosType.begin(m_gps, UNICORE_MSG_PPPNAV, 10);
-    pppnavLat.begin(m_gps, UNICORE_MSG_PPPNAV, 11);
-    pppnavLon.begin(m_gps, UNICORE_MSG_PPPNAV, 12);
-    pppnavAlt.begin(m_gps, UNICORE_MSG_PPPNAV, 13);
-    pppnavDatumId.begin(m_gps, UNICORE_MSG_PPPNAV, 15);
-    pppnavLatStdDev.begin(m_gps, UNICORE_MSG_PPPNAV, 16);
-    pppnavLonStdDev.begin(m_gps, UNICORE_MSG_PPPNAV, 17);
-    pppnavAltStdDev.begin(m_gps, UNICORE_MSG_PPPNAV, 18);
-    pppnavStationId.begin(m_gps, UNICORE_MSG_PPPNAV, 19);
-    pppnavSolAge.begin(m_gps, UNICORE_MSG_PPPNAV, 21);
-    pppnavSatellites.begin(m_gps, UNICORE_MSG_PPPNAV, 23);
+    pppnavSolStatus.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 9);
+    pppnavPosType.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 10);
+    pppnavLat.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 11);
+    pppnavLon.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 12);
+    pppnavAlt.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 13);
+    pppnavDatumId.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 15);
+    pppnavLatStdDev.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 16);
+    pppnavLonStdDev.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 17);
+    pppnavAltStdDev.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 18);
+    pppnavStationId.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 19);
+    pppnavSolAge.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 21);
+    pppnavSatellites.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 23);
 
     return ESP_OK;
 }
 
 int GpsTask::sendData(std::string_view data)
 {
-    static const char *TX_TASK_TAG = "TX_TASK1";
+    static constexpr const char TX_TASK_TAG[] = "TX_TASK1";
     const int len = data.size();
     const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), len);
     if (txBytes != len)
@@ -187,7 +187,7 @@ int GpsTask::sendData(std::string_view data)
 
 int GpsTask::sendStringAndWait(std::string_view data, std::string &reply)
 {
-    static const char *TX_TASK_TAG = "TX_TASK2";
+    static constexpr const char TX_TASK_TAG[] = "TX_TASK2";
     const int len = data.size();
     const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), len);
     if (txBytes != len)
@@ -250,7 +250,7 @@ void GpsTask::terminate()
 
 void GpsTask::executeTask()
 {
-    static const char *GPS_TASK_TAG = "GPS_TASK";
+    static constexpr const char GPS_TASK_TAG[] = "GPS_TASK";
     std::string dataAsString;
     while (!m_terminateASAP) {
         readFromUart(dataAsString);
@@ -323,7 +323,7 @@ bool GpsTask::has3DLock(const GpsInfo &info)
 
 bool GpsTask::processNewLocation()
 {
-    static const char * NEW_LOCATION_TAG = "read-gps-location";
+    static constexpr const char NEW_LOCATION_TAG[] = "read-gps-location";
     ESP_LOGD(NEW_LOCATION_TAG, "start reading GPS location");
 
     ///first check if everything is updated

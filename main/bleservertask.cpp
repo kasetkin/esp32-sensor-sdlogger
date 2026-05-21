@@ -18,6 +18,7 @@
 
 #include "bleservertask.h"
 
+// constinit omitted: C++ already guarantees static init for integer/pointer literals (no SIOF risk)
 uint8_t BleSppServerTask::own_addr_type = 0;
 std::array<std::atomic<bool>, CONFIG_BT_NIMBLE_MAX_CONNECTIONS + 1> BleSppServerTask::conn_handle_subs;
 std::mutex BleSppServerTask::m_dataMutex;

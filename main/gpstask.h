@@ -101,9 +101,9 @@ public:
     static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
 
 private:
-    const char * NMEA_MSG_GXGSA = "GNGSA"; // GSA message (GPGSA, GNGSA etc)
-    const char * NMEA_MSG_GXGGA = "GNGGA"; // GGA message (GPGGA, GNGGA etc)
-    const char * UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
+    static constexpr std::string_view NMEA_MSG_GXGSA = "GNGSA";       // GSA message (GPGSA, GNGSA etc)
+    static constexpr std::string_view NMEA_MSG_GXGGA = "GNGGA";       // GGA message (GPGGA, GNGGA etc)
+    static constexpr std::string_view UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
 
     std::atomic<bool> m_terminateASAP{false};
     NmeaStringReadyEvent m_nmeaEvent;

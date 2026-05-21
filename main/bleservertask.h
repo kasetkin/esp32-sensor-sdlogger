@@ -134,7 +134,11 @@ private:
 
     static constexpr ble_uuid16_t BLE_SVC_BATTERY_UUID16 = UuidTools::buildBleUuid16(BLE_SVC_BATTERY_UUID16_VALUE);
     static constexpr ble_uuid16_t BLE_SVC_ENV_SENSING_UUID16 = UuidTools::buildBleUuid16(BLE_SVC_ENV_SENSING_UUID16_VALUE);
-    static constexpr ble_uuid128_t BLE_SVC_SPP_UUID128 = UuidTools::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_SVC_SPP_UUID128      = UuidTools::buildBleUuid128(BLE_SVC_SPP_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_NMEA_UUID128     = UuidTools::buildBleUuid128(BLE_CHR_NMEA_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_TX_UUID128       = UuidTools::buildBleUuid128(BLE_CHR_TX_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_QSTARZ_UUID128   = UuidTools::buildBleUuid128(BLE_CHR_QSTARZ_UUID128_VALUE);
+    static constexpr ble_uuid128_t BLE_CHR_FULL_LOG_UUID128 = UuidTools::buildBleUuid128(BLE_CHR_FULL_LOG_UUID128_VALUE);
 
 
     static void printUuid(const ble_uuid16_t &uuid);

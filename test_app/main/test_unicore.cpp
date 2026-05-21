@@ -202,31 +202,31 @@ static void test_compute_utx_time_leap_seconds(void)
 static void test_solution_status_str_sol_computed(void)
 {
     TEST_ASSERT_EQUAL_STRING("SOL_COMPUTED",
-        solutionStatusStr(PppSolutionStatus::SOL_COMPUTED).c_str());
+        solutionStatusStr(PppSolutionStatus::SOL_COMPUTED).data());
 }
 
 static void test_position_type_str_ppp(void)
 {
     TEST_ASSERT_EQUAL_STRING("PPP",
-        positionTypeStr(PositionVelocityType::PPP).c_str());
+        positionTypeStr(PositionVelocityType::PPP).data());
 }
 
 static void test_service_id_str_galileo(void)
 {
     TEST_ASSERT_EQUAL_STRING("GALILEO",
-        serviceIdStr(PppService::GALILEO).c_str());
+        serviceIdStr(PppService::GALILEO).data());
 }
 
 static void test_datum_id_str_wgs84(void)
 {
     TEST_ASSERT_EQUAL_STRING("WGS84",
-        datumIdStr(PppDatumId::WGS84).c_str());
+        datumIdStr(PppDatumId::WGS84).data());
 }
 
 static void test_datum_id_str_b2b(void)
 {
     TEST_ASSERT_EQUAL_STRING("B2b",
-        datumIdStr(PppDatumId::B2b).c_str());
+        datumIdStr(PppDatumId::B2b).data());
 }
 
 // ── parseDegreesLatLon — negative values and precision edge cases ─────────────
@@ -286,25 +286,25 @@ static void test_parse_solution_status_insufficient_obs(void)
 static void test_solution_status_str_insufficient_obs(void)
 {
     TEST_ASSERT_EQUAL_STRING("INSUFFICIENT_OBS",
-        solutionStatusStr(PppSolutionStatus::INSUFFICIENT_OBS).c_str());
+        solutionStatusStr(PppSolutionStatus::INSUFFICIENT_OBS).data());
 }
 
 static void test_solution_status_str_no_value(void)
 {
     TEST_ASSERT_EQUAL_STRING("NO_VALUE",
-        solutionStatusStr(PppSolutionStatus::NO_VALUE).c_str());
+        solutionStatusStr(PppSolutionStatus::NO_VALUE).data());
 }
 
 // ── serviceIdStr — completeness ───────────────────────────────────────────────
 
 static void test_service_id_str_rxn(void)
 {
-    TEST_ASSERT_EQUAL_STRING("RXN", serviceIdStr(PppService::RXN).c_str());
+    TEST_ASSERT_EQUAL_STRING("RXN", serviceIdStr(PppService::RXN).data());
 }
 
 static void test_service_id_str_no_value(void)
 {
-    TEST_ASSERT_EQUAL_STRING("NO_VALUE", serviceIdStr(PppService::NO_VALUE).c_str());
+    TEST_ASSERT_EQUAL_STRING("NO_VALUE", serviceIdStr(PppService::NO_VALUE).data());
 }
 
 // ── parsePppService — alternative station IDs ─────────────────────────────────
