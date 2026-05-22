@@ -49,7 +49,7 @@ static void test_to_string_includes_batvolt(void)
 {
     SensorsValues v;
     v.batteryVoltageMilliV = 3700;
-    TEST_ASSERT_TRUE(v.toTelemetryString().find("BATVOLT;3700;") != std::string::npos);
+    TEST_ASSERT_TRUE(v.toTelemetryString().contains("BATVOLT;3700;"));
 }
 
 static void test_to_string_skips_batperc_zero(void)
@@ -57,7 +57,7 @@ static void test_to_string_skips_batperc_zero(void)
     SensorsValues v;
     v.batteryVoltageMilliV = 3700;
     // batteryPercent left as nullopt — no value assigned
-    TEST_ASSERT_TRUE(v.toTelemetryString().find("BATPERC") == std::string::npos);
+    TEST_ASSERT_FALSE(v.toTelemetryString().contains("BATPERC"));
 }
 
 static void test_to_string_includes_both_batvolt_batperc(void)
@@ -88,9 +88,9 @@ static void test_to_string_omits_nan_fields(void)
     v.batteryPercent = 75;
     v.batteryVoltageMilliV = 4000;
     const std::string result = v.toTelemetryString();
-    TEST_ASSERT_TRUE(result.find("TEMP")  == std::string::npos);
-    TEST_ASSERT_TRUE(result.find("HUMID") == std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PRESS") == std::string::npos);
+    TEST_ASSERT_FALSE(result.contains("TEMP"));
+    TEST_ASSERT_FALSE(result.contains("HUMID"));
+    TEST_ASSERT_FALSE(result.contains("PRESS"));
 }
 
 static void test_to_string_min_temperature(void)

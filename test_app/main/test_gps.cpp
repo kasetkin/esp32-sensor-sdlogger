@@ -175,13 +175,13 @@ static void test_print_gps_geo_info_keys(void)
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
-    TEST_ASSERT_TRUE(result.find("LAT;1")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("LON;2")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("ALT;10")  != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("UNDUL;5") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PDOP;2.00")      != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("HDOP;1.50")      != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("VDOP;2.50")      != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("LAT;1"));
+    TEST_ASSERT_TRUE(result.contains("LON;2"));
+    TEST_ASSERT_TRUE(result.contains("ALT;10"));
+    TEST_ASSERT_TRUE(result.contains("UNDUL;5"));
+    TEST_ASSERT_TRUE(result.contains("PDOP;2.00"));
+    TEST_ASSERT_TRUE(result.contains("HDOP;1.50"));
+    TEST_ASSERT_TRUE(result.contains("VDOP;2.50"));
 }
 
 static void test_print_gps_geo_info_zero_coords(void)
@@ -197,10 +197,10 @@ static void test_print_gps_geo_info_zero_coords(void)
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
-    TEST_ASSERT_TRUE(result.find("LAT;0")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("LON;0")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("ALT;0")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("UNDUL;0") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("LAT;0"));
+    TEST_ASSERT_TRUE(result.contains("LON;0"));
+    TEST_ASSERT_TRUE(result.contains("ALT;0"));
+    TEST_ASSERT_TRUE(result.contains("UNDUL;0"));
 }
 
 static void test_print_gps_geo_info_negative_coords(void)
@@ -216,10 +216,10 @@ static void test_print_gps_geo_info_negative_coords(void)
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
-    TEST_ASSERT_TRUE(result.find("LAT;-")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("LON;-")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("ALT;-")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("UNDUL;-") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("LAT;-"));
+    TEST_ASSERT_TRUE(result.contains("LON;-"));
+    TEST_ASSERT_TRUE(result.contains("ALT;-"));
+    TEST_ASSERT_TRUE(result.contains("UNDUL;-"));
 }
 
 static void test_print_gps_geo_info_max_altitude(void)
@@ -235,8 +235,8 @@ static void test_print_gps_geo_info_max_altitude(void)
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
-    TEST_ASSERT_TRUE(result.find("ALT;8850") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("UNDUL;-")  != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("ALT;8850"));
+    TEST_ASSERT_TRUE(result.contains("UNDUL;-"));
 }
 
 // ── GpsTask::printGpsTimeInfo ─────────────────────────────────────────────────
@@ -258,8 +258,8 @@ static void test_print_gps_time_formats_unix_epoch(void)
     info.worldTime = std::chrono::system_clock::from_time_t(0);
 
     const std::string result = GpsTask::printGpsTimeInfo(info);
-    TEST_ASSERT_TRUE(result.find("DT;1970-01-01T00:00:00Z") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("GNSSSEC;0")               != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("DT;1970-01-01T00:00:00Z"));
+    TEST_ASSERT_TRUE(result.contains("GNSSSEC;0"));
 }
 
 static void test_print_gps_time_gps_epoch(void)
@@ -270,8 +270,8 @@ static void test_print_gps_time_gps_epoch(void)
     info.worldTime = std::chrono::system_clock::from_time_t(315964800); // 1980-01-06
 
     const std::string result = GpsTask::printGpsTimeInfo(info);
-    TEST_ASSERT_TRUE(result.find("DT;1980-01-06T00:00:00Z") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("GNSSSEC;315964800")       != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("DT;1980-01-06T00:00:00Z"));
+    TEST_ASSERT_TRUE(result.contains("GNSSSEC;315964800"));
 }
 
 // ── GpsTask::emulateQstarzBinary ─────────────────────────────────────────────
@@ -403,7 +403,7 @@ static void test_print_gps_geo_info_satellite_count(void)
     info.satellites.insert(SatelliteInfo{.prn = 2});
     info.satellites.insert(SatelliteInfo{.prn = 3});
     const std::string result = GpsTask::printGpsGeoInfo(info);
-    TEST_ASSERT_TRUE(result.find("SATS;3") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("SATS;3"));
 }
 
 // ── GpsTask::hasLock / has3DLock — untested Quality values ───────────────────

@@ -33,13 +33,13 @@ static void test_ppp_time_all_keys_present(void)
     const PppInfo p = makePppInfo();
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find("PPP_SOLUTION_STATUS;") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_POSITION;")       != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_SERVICE;")        != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_DATUM;")          != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_DT;")             != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_TIME;")           != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_AGE;")            != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_SOLUTION_STATUS;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_POSITION;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_SERVICE;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_DATUM;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_DT;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_TIME;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_AGE;"));
 }
 
 static void test_ppp_time_enum_strings(void)
@@ -47,10 +47,10 @@ static void test_ppp_time_enum_strings(void)
     const PppInfo p = makePppInfo();
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find("PPP_SOLUTION_STATUS;SOL_COMPUTED") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_POSITION;PPP;")               != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_SERVICE;GALILEO")             != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_DATUM;WGS84")                 != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_SOLUTION_STATUS;SOL_COMPUTED"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_POSITION;PPP;"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_SERVICE;GALILEO"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_DATUM;WGS84"));
 }
 
 static void test_ppp_time_unix_epoch(void)
@@ -59,8 +59,8 @@ static void test_ppp_time_unix_epoch(void)
     p.utxSeconds = 0;
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find(";PPP_DT;1970-01-01T00:00:00Z") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_TIME;0")                  != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains(";PPP_DT;1970-01-01T00:00:00Z"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_TIME;0"));
 }
 
 static void test_ppp_time_gps_epoch(void)
@@ -69,8 +69,8 @@ static void test_ppp_time_gps_epoch(void)
     p.utxSeconds = 315964800;  // 1980-01-06T00:00:00Z
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find(";PPP_DT;1980-01-06T00:00:00Z") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find(";PPP_TIME;315964800")          != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains(";PPP_DT;1980-01-06T00:00:00Z"));
+    TEST_ASSERT_TRUE(result.contains(";PPP_TIME;315964800"));
 }
 
 static void test_ppp_time_no_millisecs_when_zero(void)
@@ -81,7 +81,7 @@ static void test_ppp_time_no_millisecs_when_zero(void)
     const std::string result = GpsTask::printPppTimeInfo(p);
 
     // no dot inserted when millisecs == 0
-    TEST_ASSERT_TRUE(result.find("T00:00:00Z") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("T00:00:00Z"));
 }
 
 static void test_ppp_time_millisecs_500(void)
@@ -91,7 +91,7 @@ static void test_ppp_time_millisecs_500(void)
     p.millisecs  = 500;
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find("T00:00:00.500Z") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("T00:00:00.500Z"));
 }
 
 static void test_ppp_time_millisecs_zero_padded(void)
@@ -101,7 +101,7 @@ static void test_ppp_time_millisecs_zero_padded(void)
     p.millisecs  = 50;   // toStringWithZeros(50, 3) → "050", not "50"
     const std::string result = GpsTask::printPppTimeInfo(p);
 
-    TEST_ASSERT_TRUE(result.find("T00:00:00.050Z") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("T00:00:00.050Z"));
 }
 
 // ── GpsTask::printPppGeoInfo ──────────────────────────────────────────────────
@@ -111,15 +111,15 @@ static void test_ppp_geo_all_keys_present(void)
     const PppInfo p = makePppInfo();
     const std::string result = GpsTask::printPppGeoInfo(p, 0.0);
 
-    TEST_ASSERT_TRUE(result.find("PPP_LAT;")         != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_LON;")         != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_GNSS_OFFSET;") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_ALT;")         != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_SATS;")        != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_STATION_ID;")  != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_LATSTDDEV;")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_LONSTDDEV;")   != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_ALTSTDDEV;")   != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_LAT;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_LON;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_GNSS_OFFSET;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_ALT;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_SATS;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_STATION_ID;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_LATSTDDEV;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_LONSTDDEV;"));
+    TEST_ASSERT_TRUE(result.contains("PPP_ALTSTDDEV;"));
 }
 
 static void test_ppp_geo_starts_ends_semicolon(void)
@@ -139,8 +139,8 @@ static void test_ppp_geo_lat_lon_conversion(void)
     p.lon = 200000000;   // 20.0 degrees
     const std::string result = GpsTask::printPppGeoInfo(p, 0.0);
 
-    TEST_ASSERT_TRUE(result.find("PPP_LAT;10") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_LON;20") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_LAT;10"));
+    TEST_ASSERT_TRUE(result.contains("PPP_LON;20"));
 }
 
 static void test_ppp_geo_negative_coords(void)
@@ -150,8 +150,8 @@ static void test_ppp_geo_negative_coords(void)
     p.lon = -1800000000;  // -180.0 deg (Date Line west)
     const std::string result = GpsTask::printPppGeoInfo(p, 0.0);
 
-    TEST_ASSERT_TRUE(result.find("PPP_LAT;-") != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_LON;-") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_LAT;-"));
+    TEST_ASSERT_TRUE(result.contains("PPP_LON;-"));
 }
 
 static void test_ppp_geo_zero_gnss_offset(void)
@@ -159,7 +159,7 @@ static void test_ppp_geo_zero_gnss_offset(void)
     const PppInfo p = makePppInfo();
     const std::string result = GpsTask::printPppGeoInfo(p, 0.0);
 
-    TEST_ASSERT_TRUE(result.find("PPP_GNSS_OFFSET;0") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_GNSS_OFFSET;0"));
 }
 
 static void test_ppp_geo_nonzero_gnss_offset(void)
@@ -167,7 +167,7 @@ static void test_ppp_geo_nonzero_gnss_offset(void)
     const PppInfo p = makePppInfo();
     const std::string result = GpsTask::printPppGeoInfo(p, 25.5);
 
-    TEST_ASSERT_TRUE(result.find("PPP_GNSS_OFFSET;25") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_GNSS_OFFSET;25"));
 }
 
 static void test_ppp_geo_integer_fields(void)
@@ -178,9 +178,9 @@ static void test_ppp_geo_integer_fields(void)
     p.stationId  = 42;
     const std::string result = GpsTask::printPppGeoInfo(p, 0.0);
 
-    TEST_ASSERT_TRUE(result.find("PPP_ALT;12345")     != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_SATS;9")        != std::string::npos);
-    TEST_ASSERT_TRUE(result.find("PPP_STATION_ID;42") != std::string::npos);
+    TEST_ASSERT_TRUE(result.contains("PPP_ALT;12345"));
+    TEST_ASSERT_TRUE(result.contains("PPP_SATS;9"));
+    TEST_ASSERT_TRUE(result.contains("PPP_STATION_ID;42"));
 }
 
 void run_ppp_tests(void)
