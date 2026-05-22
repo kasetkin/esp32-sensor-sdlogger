@@ -79,6 +79,10 @@ public:
     using CommandReceivedEvent = std::function<void(std::string_view command)>;
     void configureCommandReceivedEvent(CommandReceivedEvent event);
 
+    BleSppServerTask() = default;
+    BleSppServerTask(const BleSppServerTask &) = delete("BleSppServerTask manages a NimBLE GATT server with static callbacks — copying aliases BLE state");
+    BleSppServerTask &operator=(const BleSppServerTask &) = delete("BleSppServerTask manages a NimBLE GATT server with static callbacks — copying aliases BLE state");
+
 private:
     static constexpr uint32_t BLE_CONNECTION_KEY = 654321;
     static uint8_t own_addr_type;

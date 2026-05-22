@@ -42,6 +42,11 @@ public:
 
     /// filename should start with "/", for example "/myfile.txt"
     // esp_err_t readFileExample(const std::string &path);
+
+    SdCard() = default;
+    SdCard(const SdCard &) = delete("SdCard owns an SPI bus handle and sdmmc_card_t* — copying aliases hardware resources");
+    SdCard &operator=(const SdCard &) = delete("SdCard owns an SPI bus handle and sdmmc_card_t* — copying aliases hardware resources");
+
 private:
     sdmmc_card_t *m_card = nullptr;
     spi_host_device_t m_spiDevice = SPI_HOST_MAX;

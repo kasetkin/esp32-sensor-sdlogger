@@ -30,6 +30,10 @@ class LoggerTask
     void setPppLog(std::string_view pppMessage);
     void setSensorsLog(std::string_view sensorsMessage);
 
+    LoggerTask() = default;
+    LoggerTask(const LoggerTask &) = delete("LoggerTask holds an SdCard reference and shared state — copying is not meaningful");
+    LoggerTask &operator=(const LoggerTask &) = delete("LoggerTask holds an SdCard reference and shared state — copying is not meaningful");
+
   private:
     static const unsigned long LOG_PERIOD_MS = 1 * 1000;
 

@@ -45,6 +45,10 @@ public:
 
     static int convertVoltageToPercent(int batteryVoltageMilliV);
 
+    SensorsTask() = default;
+    SensorsTask(const SensorsTask &) = delete("SensorsTask owns I2C device handles — copying aliases hardware resources");
+    SensorsTask &operator=(const SensorsTask &) = delete("SensorsTask owns I2C device handles — copying aliases hardware resources");
+
     static constexpr double MAX_VOLTAGE = 4090.0; // mV — fully charged Li-ion (measured)
     static constexpr double MIN_VOLTAGE = 3200.0; // mV — empty (0 %)
     static constexpr int LOW_DISCHARGE_VOLTAGE = 3150; // mV — deep-discharge sleep threshold

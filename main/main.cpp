@@ -45,7 +45,7 @@ extern "C" void app_main(void)
 
     enableRf(true);
     enableExtAntenna(false);
-    if (const esp_err_t timerErr = registerWakeupTimer(100 * 1000); timerErr != ESP_OK)
+    if (const esp_err_t timerErr = registerWakeupTimer(static_cast<uint32_t>(100'000)); timerErr != ESP_OK)
         ESP_LOGE(TAG, "registerWakeupTimer failed: %d", timerErr);
 
     ESP_LOGI(TAG, "create GPS task object");

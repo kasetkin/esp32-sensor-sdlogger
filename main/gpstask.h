@@ -101,6 +101,10 @@ public:
     static std::string printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance);
     static double geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2);
 
+    GpsTask() = default;
+    GpsTask(const GpsTask &) = delete("GpsTask owns a UART port handle — copying aliases hardware resources");
+    GpsTask &operator=(const GpsTask &) = delete("GpsTask owns a UART port handle — copying aliases hardware resources");
+
 private:
     static constexpr std::string_view NMEA_MSG_GXGSA = "GNGSA";       // GSA message (GPGSA, GNGSA etc)
     static constexpr std::string_view NMEA_MSG_GXGGA = "GNGGA";       // GGA message (GPGGA, GNGGA etc)
