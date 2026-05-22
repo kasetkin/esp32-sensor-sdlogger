@@ -8,6 +8,7 @@
 #include <chrono>
 #include <algorithm>
 #include <array>
+#include <ranges>
 #include <span>
 #include <iostream>
 #include <esp_log.h>
@@ -152,8 +153,8 @@ esp_err_t GpsTask::configureTinyGps()
     gsahdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 16);
     gsavdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 17);
 
-    for (int i = 0; i < GSA_SAT_FIELDS; ++i)
-        gsaSat[i].begin(m_gps, NMEA_MSG_GXGSA.data(), 3 + i);
+    for (auto [i, sat] : std::views::enumerate(gsaSat))
+        sat.begin(m_gps, NMEA_MSG_GXGSA.data(), static_cast<int>(3 + i));
 
     pppnavWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 4);
     pppnavSecsOFWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 5);
@@ -270,9 +271,9 @@ void GpsTask::executeTask()
 
                 if (gsaUpdated) [[unlikely]] {
                     ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
-                    for (int i = 0; i < GSA_SAT_FIELDS; ++i) {
+                    for (auto &gsaSatField : gsaSat) {
                         uint8_t prn = 0;
-                        const char* sv = gsaSat[i].value();
+                        const char* sv = gsaSatField.value();
                         std::from_chars(sv, sv + strlen(sv), prn);
                         if (prn != 0) {
                             SatelliteInfo sat{};
