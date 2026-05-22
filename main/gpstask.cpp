@@ -274,7 +274,7 @@ void GpsTask::executeTask()
                     ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
                     for (auto &gsaSatField : gsaSat) {
                         uint8_t prn = 0;
-                        const std::string_view sv{gsaSatField.value()};
+                        const auto sv = gsaSatField.value();
                         std::from_chars(sv.data(), sv.data() + sv.size(), prn);
                         if (prn != 0) {
                             SatelliteInfo sat{};
@@ -366,7 +366,7 @@ bool GpsTask::processNewLocation()
 
     ESP_LOGI(NEW_LOCATION_TAG, "location, GSA-fix, time, date are fresh and valid");
 
-    const std::string_view fv{gsafixtype.value()};
+    const auto fv = gsafixtype.value();
     std::from_chars(fv.data(), fv.data() + fv.size(), gpsInfo.fixType); // leaves fixType == 0 if no data
     gpsInfo.quality = m_gps.location.FixQuality();
     gpsInfo.lat = m_gps.location.lat();

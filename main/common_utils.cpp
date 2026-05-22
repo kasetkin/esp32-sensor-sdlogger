@@ -1,6 +1,7 @@
 #include "common_utils.h"
 
 #include <chrono>
+#include <string_view>
 #include <esp_log.h>
 #include <esp_sleep.h>
 #include <esp_check.h>
@@ -36,7 +37,7 @@ void correctLightSleep()
     const int64_t t_before_us = esp_timer_get_time();
     esp_light_sleep_start();
     const int64_t t_after_us = esp_timer_get_time();
-    const char* wakeup_reason;
+    std::string_view wakeup_reason;
 
     if (const uint32_t wakeupCauses = esp_sleep_get_wakeup_causes();
         wakeupCauses & BIT(ESP_SLEEP_WAKEUP_TIMER))
@@ -50,7 +51,7 @@ void correctLightSleep()
         wakeup_reason = "other";
 
     ESP_LOGI(LSLEEPTAG, "Returned from light sleep, reason: %s, t=%lld ms, slept for %lld ms",
-            wakeup_reason, t_after_us / 1000, (t_after_us - t_before_us) / 1000);
+            wakeup_reason.data(), t_after_us / 1000, (t_after_us - t_before_us) / 1000);
 
     ESP_LOGI(LSLEEPTAG, "cycle right after wakeup, sleep for %d msec", AFTER_WAKEUP_SLEEP);
     vTaskDelay(pdMS_TO_TICKS(AFTER_WAKEUP_SLEEP));

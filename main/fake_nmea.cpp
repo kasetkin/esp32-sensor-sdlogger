@@ -1,11 +1,11 @@
 #include "fake_nmea.h"
 
 #include <sstream>
-#include <cstring>
+#include <string_view>
 #include <esp_log.h>
 
 /// generated using nmeasim project from https://gitlab.com/nmeasim/nmeasim
-static const char * fakeNmeaLog = R"(
+static constexpr std::string_view fakeNmeaLog = R"(
 $GPGGA,152943.873,4800.000,N,00200.000,E,1,12,1.0,0.0,M,,M,,*4A
 $GPGLL,4800.000,N,00200.000,E,152943.873,A,A*53
 $GPGSA,A,3,3,4,7,8,15,17,19,22,24,29,31,32,,1.0,*3F
@@ -1001,11 +1001,11 @@ static size_t stringPosition = 0;
 
 std::string fakeNmeaLine()
 {
-    ESP_LOGI("fakenmea", "request for next line from position %zu, full NMEA log size %zu", stringPosition, strlen(fakeNmeaLog));
+    ESP_LOGI("fakenmea", "request for next line from position %zu, full NMEA log size %zu", stringPosition, fakeNmeaLog.size());
     std::string line;
     constexpr size_t MAX_LINE_SIZE = 10000;
     const size_t startPos = stringPosition;
-    const size_t maxPos = std::min(startPos + MAX_LINE_SIZE, strlen(fakeNmeaLog));
+    const size_t maxPos = std::min(startPos + MAX_LINE_SIZE, fakeNmeaLog.size());
     size_t endPos = std::string::npos;
     for (size_t i = startPos + 1; i < maxPos; ++i) {
         if (fakeNmeaLog[i] == '\n') {
@@ -1017,7 +1017,7 @@ std::string fakeNmeaLine()
     ESP_LOGI("fakenmea", "new line positions: %zu to %zu", startPos, endPos);
 
     if (endPos == std::string::npos)
-        endPos = strlen(fakeNmeaLog) - 1;
+        endPos = fakeNmeaLog.size() - 1;
 
     if (endPos < startPos) {
         ESP_LOGE("fakenmea", "error in logic, start = %zu, end = %zu", startPos, endPos);
@@ -1029,7 +1029,7 @@ std::string fakeNmeaLine()
     line.reserve(newSize);
     line.append(fakeNmeaLog[startPos], newSize);
     stringPosition = endPos + 1;
-    if (stringPosition >= strlen(fakeNmeaLog))
+    if (stringPosition >= fakeNmeaLog.size())
         stringPosition = 0;
 
     ESP_LOGI("fakenmea", "new stringPosition: %zu", stringPosition);
