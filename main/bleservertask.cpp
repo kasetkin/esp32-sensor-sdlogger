@@ -72,8 +72,8 @@ void BleSppServerTask::ble_spp_server_print_conn_desc(struct ble_gap_conn_desc *
  */
 void BleSppServerTask::ble_spp_server_advertise()
 {
-    struct ble_gap_adv_params adv_params;
-    struct ble_hs_adv_fields fields;
+    ble_gap_adv_params adv_params{};
+    ble_hs_adv_fields fields{};
     int rc;
 
     /**
@@ -84,7 +84,6 @@ void BleSppServerTask::ble_spp_server_advertise()
      *     o 16-bit service UUIDs (alert notifications).
      */
 
-    memset(&fields, 0, sizeof(fields));
 
     /* Advertise two flags:
      *     o Discoverability in forthcoming advertisement (general)
@@ -110,7 +109,7 @@ void BleSppServerTask::ble_spp_server_advertise()
     if (name_length < MAX_NAME_LENGTH) {
         MODLOG_DFLT(INFO, "name is short, so no magic");
         fields.name = (uint8_t *)name;
-        fields.name_len = strlen(name);
+        fields.name_len = name_length;
         fields.name_is_complete = 1;
     } else {
         MODLOG_DFLT(INFO, "name is big, so tell full name only as response");
@@ -118,8 +117,7 @@ void BleSppServerTask::ble_spp_server_advertise()
         fields.name_len = MAX_NAME_LENGTH;
         fields.name_is_complete = 0;
 
-        struct ble_hs_adv_fields scan_response_fields;
-        memset(&scan_response_fields, 0, sizeof scan_response_fields);
+        ble_hs_adv_fields scan_response_fields{};
         scan_response_fields.name = (uint8_t *)name;
         scan_response_fields.name_len = name_length;
         scan_response_fields.name_is_complete = 1;
@@ -147,7 +145,6 @@ void BleSppServerTask::ble_spp_server_advertise()
     }
 
     /* Begin advertising. */
-    memset(&adv_params, 0, sizeof adv_params);
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
     rc = ble_gap_adv_start(own_addr_type, nullptr, BLE_HS_FOREVER,

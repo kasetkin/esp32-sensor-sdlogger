@@ -178,7 +178,7 @@ esp_err_t SensorsTask::initI2C()
         return ESP_FAIL;
     }
 
-    memset(&m_sht3dev, 0, sizeof(sht3x_t));
+    m_sht3dev = sht3x_t{};
     if (const esp_err_t descriptorInitErr = sht3x_init_desc(
             &m_sht3dev, SHT3X_ADDR, SHT3X_I2C_PORT, I2C_MASTER_SDA, I2C_MASTER_SCL);
         descriptorInitErr != ESP_OK) {

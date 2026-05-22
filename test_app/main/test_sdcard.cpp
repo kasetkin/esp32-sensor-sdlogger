@@ -1,6 +1,7 @@
 #include "unity.h"
+#include <array>
 #include <cstdio>
-#include <cstring>
+#include <string_view>
 #include "sdcard.h"
 
 static SdCard g_sdCard;
@@ -36,19 +37,18 @@ static void test_hw_sdcard_write_read_back_matches(void)
 {
     ensureMounted();
 
-    const char *content = "hello from unity\n";
+    constexpr std::string_view content = "hello from unity\n";
     TEST_ASSERT_EQUAL(ESP_OK, g_sdCard.writeFile(TEST_FILE, content));
 
     FILE *f = fopen((MOUNT_POINT + TEST_FILE).c_str(), "r");
     TEST_ASSERT_NOT_NULL_MESSAGE(f, "fopen failed after writeFile");
 
-    char buf[64];
-    memset(buf, 0, sizeof(buf));
-    const size_t bytesRead = fread(buf, 1, sizeof(buf) - 1, f);
+    std::array<char, 64> buf{};
+    const size_t bytesRead = fread(buf.data(), 1, buf.size() - 1, f);
     fclose(f);
 
     TEST_ASSERT_GREATER_THAN(0, bytesRead);
-    TEST_ASSERT_EQUAL_STRING(content, buf);
+    TEST_ASSERT_EQUAL_STRING(content.data(), buf.data());
 }
 
 static void test_hw_sdcard_append_adds_content(void)
@@ -61,13 +61,12 @@ static void test_hw_sdcard_append_adds_content(void)
     FILE *f = fopen((MOUNT_POINT + TEST_FILE).c_str(), "r");
     TEST_ASSERT_NOT_NULL(f);
 
-    char buf[64];
-    memset(buf, 0, sizeof(buf));
-    fread(buf, 1, sizeof(buf) - 1, f);
+    std::array<char, 64> buf{};
+    fread(buf.data(), 1, buf.size() - 1, f);
     fclose(f);
 
-    TEST_ASSERT_TRUE(strstr(buf, "line1\n") != nullptr);
-    TEST_ASSERT_TRUE(strstr(buf, "line2\n") != nullptr);
+    TEST_ASSERT_TRUE(std::string_view{buf.data()}.contains("line1\n"));
+    TEST_ASSERT_TRUE(std::string_view{buf.data()}.contains("line2\n"));
 }
 
 static void test_hw_sdcard_cleanup(void)

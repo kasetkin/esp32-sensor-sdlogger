@@ -273,8 +273,8 @@ void GpsTask::executeTask()
                     ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
                     for (auto &gsaSatField : gsaSat) {
                         uint8_t prn = 0;
-                        const char* sv = gsaSatField.value();
-                        std::from_chars(sv, sv + strlen(sv), prn);
+                        const std::string_view sv{gsaSatField.value()};
+                        std::from_chars(sv.data(), sv.data() + sv.size(), prn);
                         if (prn != 0) {
                             SatelliteInfo sat{};
                             sat.prn = prn;
@@ -365,8 +365,8 @@ bool GpsTask::processNewLocation()
 
     ESP_LOGI(NEW_LOCATION_TAG, "location, GSA-fix, time, date are fresh and valid");
 
-    const char* fv = gsafixtype.value();
-    std::from_chars(fv, fv + strlen(fv), gpsInfo.fixType); // leaves fixType == 0 if no data
+    const std::string_view fv{gsafixtype.value()};
+    std::from_chars(fv.data(), fv.data() + fv.size(), gpsInfo.fixType); // leaves fixType == 0 if no data
     gpsInfo.quality = m_gps.location.FixQuality();
     gpsInfo.lat = m_gps.location.lat();
     gpsInfo.lon = m_gps.location.lng();
@@ -417,8 +417,8 @@ bool GpsTask::processNewLocation()
     {
         pppInfo.lat = parseDegreesLatLon(pppnavLat.value());
         pppInfo.lon = parseDegreesLatLon(pppnavLon.value());
-        auto fromField = [](const char* s, auto& val) static {
-            if (s && *s) std::from_chars(s, s + strlen(s), val);
+        auto fromField = [](std::string_view s, auto& val) static {
+            if (!s.empty()) std::from_chars(s.data(), s.data() + s.size(), val);
         };
         fromField(pppnavAlt.value(),        pppInfo.alt);
         fromField(pppnavLatStdDev.value(),  pppInfo.latStdDev);
