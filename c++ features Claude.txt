@@ -428,4 +428,17 @@ C++26 applicable: 1 / 23
 
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+features -> code
+
+\todo -- add promt about c++ code style
+
+This is project written in c++ for ESP32-C6 microcontroller with ESP-IDF framework 6.0.1 and GCC 15.2.0, read other necessary information from MD files.
+In the file "c++ applicable features.md" there is list of c++ features that can be applied to the sources of this project.
+Read feature #36. Use the Internet to get more information about this c++ feature and how to use it. Main resource is https://cppreference.com/ but you can search more.
+Read all sources of this project and local sources from ESP-IDF 6.0.1.
+This project contains unit-tests inside, do not forget to read them too.
+Create plan how to use feature #36 in benefitial way to the project.
+If feature is already used then verify it and check other places where it can be applied.
+Add point to check that after modifications tests are still correct. If not -- try to find an error.
 
