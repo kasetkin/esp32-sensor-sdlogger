@@ -29,4 +29,5 @@ idf_component_register(SRCS ${srcs}
                        WHOLE_ARCHIVE)
 
 target_link_libraries(${COMPONENT_LIB} PRIVATE tinygpsplus)
-set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 23)
+set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 26)
+set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD_REQUIRED ON)
