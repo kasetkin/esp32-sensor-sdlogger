@@ -308,21 +308,20 @@ void GpsTask::executeTask()
     }
 }
 
+using Q = TinyGPSLocation::Quality;
+static constexpr std::array VALID_GPS_QUALITY{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
+// fixType: 0=no data, 2=2D fix, 3=3D fix (1=no fix excluded)
+static constexpr std::array<uint8_t, 3> VALID_FIX_TYPES{0, 2, 3};
+
 bool GpsTask::hasLock(const GpsInfo &info)
 {
-    using Q = TinyGPSLocation::Quality;
-    constexpr std::array validQuality{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
-    // fixType: 0=no data, 2=2D fix, 3=3D fix (1=no fix excluded)
-    constexpr std::array<uint8_t, 3> validFixType{0, 2, 3};
-    return std::ranges::contains(validQuality, info.quality)
-        && std::ranges::contains(validFixType, info.fixType);
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality)
+        && std::ranges::contains(VALID_FIX_TYPES, info.fixType);
 }
 
 bool GpsTask::has3DLock(const GpsInfo &info)
 {
-    using Q = TinyGPSLocation::Quality;
-    constexpr std::array validQuality{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
-    return std::ranges::contains(validQuality, info.quality) && info.fixType == 3;
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) && info.fixType == 3;
 }
 
 bool GpsTask::processNewLocation()
