@@ -7,6 +7,7 @@
 #include <ctime>
 #include <chrono>
 #include <algorithm>
+#include <utility>
 #include <array>
 #include <ranges>
 #include <span>
@@ -736,7 +737,7 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const uint8_t numSatUse = static_cast<uint8_t>(
         std::min(p.satellites.size(), static_cast<size_t>(255)));
     const uint8_t numSatView = numSatUse;   // GSA = used sats; view requires GSV (future)
-    const uint8_t fixQual = static_cast<uint8_t>(p.quality);
+    const uint8_t fixQual = static_cast<uint8_t>(std::to_underlying(p.quality));
     const uint8_t batPerc = 0;
     const uint16_t dummy = 0;
     const uint8_t series_number = 0; /// Bluetooth GNSS expects '0'

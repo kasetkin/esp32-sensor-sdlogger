@@ -1,5 +1,6 @@
 #include "unity.h"
 #include "unicore.h"
+#include <utility>
 
 // ── parseDegreesLatLon ────────────────────────────────────────────────────────
 
@@ -28,96 +29,96 @@ static void test_parse_latlon_invalid_returns_bad(void)
 static void test_parse_solution_status_sol_computed_no_prefix(void)
 {
     uint16_t delay = 999;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::SOL_COMPUTED),
-                          static_cast<int>(parseSolutionStatus("SOL_COMPUTED", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::SOL_COMPUTED),
+                             std::to_underlying(parseSolutionStatus("SOL_COMPUTED", delay)));
     TEST_ASSERT_EQUAL_UINT16(0, delay);
 }
 
 static void test_parse_solution_status_sol_computed_with_prefix(void)
 {
     uint16_t delay = 0;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::SOL_COMPUTED),
-                          static_cast<int>(parseSolutionStatus("17;SOL_COMPUTED", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::SOL_COMPUTED),
+                             std::to_underlying(parseSolutionStatus("17;SOL_COMPUTED", delay)));
     TEST_ASSERT_EQUAL_UINT16(17, delay);
 }
 
 static void test_parse_solution_status_no_convergence(void)
 {
     uint16_t delay = 0;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::NO_CONVERGENCE),
-                          static_cast<int>(parseSolutionStatus("0;NO_CONVERGENCE", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::NO_CONVERGENCE),
+                             std::to_underlying(parseSolutionStatus("0;NO_CONVERGENCE", delay)));
 }
 
 static void test_parse_solution_status_cov_trace(void)
 {
     uint16_t delay = 0;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::COV_TRACE),
-                          static_cast<int>(parseSolutionStatus("5;COV_TRACE", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::COV_TRACE),
+                             std::to_underlying(parseSolutionStatus("5;COV_TRACE", delay)));
 }
 
 static void test_parse_solution_status_unknown_returns_no_value(void)
 {
     uint16_t delay = 0;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::NO_VALUE),
-                          static_cast<int>(parseSolutionStatus("0;UNKNOWN_STATUS", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::NO_VALUE),
+                             std::to_underlying(parseSolutionStatus("0;UNKNOWN_STATUS", delay)));
 }
 
 // ── parsePositionType ─────────────────────────────────────────────────────────
 
 static void test_parse_position_type_ppp(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PositionVelocityType::PPP),
-                          static_cast<int>(parsePositionType("PPP")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PositionVelocityType::PPP),
+                             std::to_underlying(parsePositionType("PPP")));
 }
 
 static void test_parse_position_type_ppp_lowercase(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PositionVelocityType::PPP),
-                          static_cast<int>(parsePositionType("ppp")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PositionVelocityType::PPP),
+                             std::to_underlying(parsePositionType("ppp")));
 }
 
 static void test_parse_position_type_single(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PositionVelocityType::SINGLE),
-                          static_cast<int>(parsePositionType("SINGLE")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PositionVelocityType::SINGLE),
+                             std::to_underlying(parsePositionType("SINGLE")));
 }
 
 static void test_parse_position_type_ppp_converging(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PositionVelocityType::PPP_CONVERGING),
-                          static_cast<int>(parsePositionType("PPP_CONVERGING")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PositionVelocityType::PPP_CONVERGING),
+                             std::to_underlying(parsePositionType("PPP_CONVERGING")));
 }
 
 static void test_parse_position_type_unknown_returns_no_value(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PositionVelocityType::NO_VALUE),
-                          static_cast<int>(parsePositionType("UNKNOWN_TYPE")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PositionVelocityType::NO_VALUE),
+                             std::to_underlying(parsePositionType("UNKNOWN_TYPE")));
 }
 
 // ── parseDatumId ──────────────────────────────────────────────────────────────
 
 static void test_parse_datum_id_wgs84(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppDatumId::WGS84),
-                          static_cast<int>(parseDatumId("WGS84")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppDatumId::WGS84),
+                             std::to_underlying(parseDatumId("WGS84")));
 }
 
 static void test_parse_datum_id_wgs84_lowercase(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppDatumId::WGS84),
-                          static_cast<int>(parseDatumId("wgs84")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppDatumId::WGS84),
+                             std::to_underlying(parseDatumId("wgs84")));
 }
 
 static void test_parse_datum_id_b2b(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppDatumId::B2b),
-                          static_cast<int>(parseDatumId("B2B")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppDatumId::B2b),
+                             std::to_underlying(parseDatumId("B2B")));
 }
 
 static void test_parse_datum_id_unknown_returns_no_value(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppDatumId::NO_VALUE),
-                          static_cast<int>(parseDatumId("UNKNOWN")));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppDatumId::NO_VALUE),
+                             std::to_underlying(parseDatumId("UNKNOWN")));
 }
 
 // ── parseStationId ────────────────────────────────────────────────────────────
@@ -141,26 +142,26 @@ static void test_parse_station_id_zero(void)
 
 static void test_parse_ppp_service_9901_galileo(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::GALILEO),
-                          static_cast<int>(parsePppService(9901)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::GALILEO),
+                             std::to_underlying(parsePppService(9901)));
 }
 
 static void test_parse_ppp_service_9959_beidou(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::BEIDOU),
-                          static_cast<int>(parsePppService(9959)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::BEIDOU),
+                             std::to_underlying(parsePppService(9959)));
 }
 
 static void test_parse_ppp_service_9934_qzss(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::QZSS),
-                          static_cast<int>(parsePppService(9934)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::QZSS),
+                             std::to_underlying(parsePppService(9934)));
 }
 
 static void test_parse_ppp_service_unknown_returns_no_value(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::NO_VALUE),
-                          static_cast<int>(parsePppService(12345)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::NO_VALUE),
+                             std::to_underlying(parsePppService(12345)));
 }
 
 // ── computeUtxTime ────────────────────────────────────────────────────────────
@@ -277,8 +278,8 @@ static void test_parse_latlon_short_fraction(void)
 static void test_parse_solution_status_insufficient_obs(void)
 {
     uint16_t delay = 0;
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppSolutionStatus::INSUFFICIENT_OBS),
-                          static_cast<int>(parseSolutionStatus("INSUFFICIENT_OBS", delay)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppSolutionStatus::INSUFFICIENT_OBS),
+                             std::to_underlying(parseSolutionStatus("INSUFFICIENT_OBS", delay)));
 }
 
 // ── solutionStatusStr — completeness ─────────────────────────────────────────
@@ -331,14 +332,14 @@ static void test_parse_station_id_two_quotes_only(void)
 
 static void test_parse_ppp_service_9960_beidou(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::BEIDOU),
-                          static_cast<int>(parsePppService(9960)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::BEIDOU),
+                             std::to_underlying(parsePppService(9960)));
 }
 
 static void test_parse_ppp_service_9936_qzss(void)
 {
-    TEST_ASSERT_EQUAL_INT(static_cast<int>(PppService::QZSS),
-                          static_cast<int>(parsePppService(9936)));
+    TEST_ASSERT_EQUAL_UINT16(std::to_underlying(PppService::QZSS),
+                             std::to_underlying(parsePppService(9936)));
 }
 
 void run_unicore_tests(void)
