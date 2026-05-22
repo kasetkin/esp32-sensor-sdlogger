@@ -26,8 +26,7 @@ idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "." ${MAIN_SRC}
                        REQUIRES sht3x fatfs sdmmc nvs_flash esp_timer esp_driver_gpio
                                 esp_driver_uart esp_adc bt unity
+                       PRIV_REQUIRES TinyGPSPlus
                        WHOLE_ARCHIVE)
-
-target_link_libraries(${COMPONENT_LIB} PRIVATE tinygpsplus)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 26)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD_REQUIRED ON)
