@@ -53,7 +53,7 @@ PPPNAV 0.1
 | Unicore UM980 GNSS module | UART1 (GPIO16/17), 115200 baud |
 | SHT3x temperature/humidity sensor | I2C (GPIO22/23, addr 0x44) |
 | SD card | SPI (GPIO18–21, FAT32) |
-| 2:1 voltage divider (2×200 kΩ) | ADC on GPIO2 (3.3–4.2 V Li-ion battery) |
+| 2:1 voltage divider (2×5.1 kΩ) | ADC on GPIO2 (3.3–4.2 V Li-ion battery) |
 
 ## Development environment
 

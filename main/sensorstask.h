@@ -56,8 +56,8 @@ public:
 private:
     /// BATTERY voltage sensor via ADC pin
     static constexpr gpio_num_t VOLTAGE_PIN = GPIO_NUM_2;
-    static constexpr double RESISTOR_GND_2_SENSOR = 4974; //5028;       //162500; //200000; // ~ 200 kOhm
-    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967; //5020;      //162700; //200000;// ~ 200 kOhm
+    static constexpr double RESISTOR_GND_2_SENSOR = 4974;   // ~5.1 kΩ
+    static constexpr double RESISTOR_SENSOR_2_VBAT = 4967;  // ~5.1 kΩ
     static constexpr double voltageDividerCoefficient = (RESISTOR_GND_2_SENSOR + RESISTOR_SENSOR_2_VBAT) / RESISTOR_GND_2_SENSOR;
     static constexpr uint32_t SENSORS_PERIOD_MS = 1 * 1000;
     static constexpr uint32_t LOW_POWER_SLEEP_TIMER_DURATION_US = 5 * 1000 * 1000; 
