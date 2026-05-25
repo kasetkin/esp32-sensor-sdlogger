@@ -16,6 +16,8 @@ source ~/.espressif/v6.0.1/esp-idf/export.sh
 
 The ESP32-C6 board is connected at `/dev/ttyACM0`.
 
+> If `/dev/ttyACM0` does not exist on the host (no board connected or a different port), comment out the `--device=/dev/ttyACM0` line in `.devcontainer/devcontainer.json` before building or starting the container — Docker will refuse to start if the device is listed but absent.
+
 ## Compiling the test app
 
 ```bash

@@ -49,30 +49,55 @@ PPPNAV 0.1
 
 | Component | Interface |
 |---|---|
-| ESP32 | — |
+| ESP32-C6 | — |
 | Unicore UM980 GNSS module | UART1 (GPIO16/17), 115200 baud |
-| SHT3x temperature/humidity sensor | I2C (addr 0x44) |
-| SD card | SPI (FAT32) |
+| SHT3x temperature/humidity sensor | I2C (GPIO22/23, addr 0x44) |
+| SD card | SPI (GPIO18–21, FAT32) |
 | 2:1 voltage divider (2×200 kΩ) | ADC on GPIO2 (3.3–4.2 V Li-ion battery) |
+
+## Development environment
+
+The project ships with a **Dev Container** configuration (`espressif/idf:v6.0.1`). With VS Code and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension installed, open the repo and choose **Reopen in Container** — the ESP-IDF toolchain is configured automatically.
+
+> **No board connected?** If `/dev/ttyACM0` does not exist on your host (board unplugged or on a different port), comment out the `--device=/dev/ttyACM0` line in `.devcontainer/devcontainer.json` before building or starting the container, otherwise Docker will refuse to start.
+
+Without the devcontainer (local ESP-IDF install):
+```sh
+source ~/.espressif/v6.0.1/esp-idf/export.sh
+```
 
 ## Build
 
-Requires **ESP-IDF**. Clone with submodules, then:
+```sh
+# main firmware
+idf.py build
+
+# test app
+cd test_app && idf.py build
+```
+
+## Flashing and testing
+
+`idf.py flash monitor` does not work without an interactive TTY. Use `flash_and_test.py` instead — it flashes via esptool and reads serial output:
 
 ```sh
-idf.py build
-idf.py -p PORT flash monitor
+# flash and capture Unity test output
+python3 flash_and_test.py --end-marker "Failures"
 ```
+
+Useful flags: `--no-flash` (read serial only), `--port`, `--baud`, `--timeout`, `--idle-timeout`. Run `python3 flash_and_test.py --help` for full usage.
 
 ## Dependencies
 
-Unicore PPPNAV message parsing is handled by a [forked version of TinyGPSPlus](https://github.com/kasetkin/TinyGPSPlus) (included as a git submodule) that extends the original library with support for Unicore proprietary NMEA sentences used for PPP/RTK positioning.
+- **ESP-IDF v6.0.1** — do not use v5.x; the project requires v6.0.1 APIs
+- **TinyGPSPlus** (git submodule) — a [forked version](https://github.com/kasetkin/TinyGPSPlus) that extends the original library with support for Unicore proprietary NMEA sentences used for PPP/RTK positioning
 
 ## Architecture
 
-Four FreeRTOS tasks run concurrently:
+Five FreeRTOS tasks run concurrently on ESP-IDF v6.0.1, written in C++26:
 
 - **GPSTask** — reads and parses NMEA / Unicore PPP messages from the UM980
 - **SensorsTask** — samples battery ADC and SHT3x every second
 - **LoggerTask** — aggregates data and writes log entries to the SD card
 - **BleSppServerTask** — serves the GATT server and pushes updates to BLE clients
+- **ErrorTask** — signals startup errors via the user LED (SOS blink pattern)
