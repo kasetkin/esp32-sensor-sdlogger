@@ -1,0 +1,33 @@
+{
+  "name": "ESP32 Sensor SD Logger",
+  "image": "espressif/idf:v6.0.1",
+  "runArgs": [
+    "--group-add=dialout",
+    "--device=/dev/ttyACM0"
+  ],
+  "remoteEnv": {
+    "IDF_PATH": "/opt/esp/idf",
+    "IDF_TOOLS_PATH": "/opt/esp",
+    "BASH_ENV": "/usr/local/bin/idf-env.sh"
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.claude,target=/root/.claude,type=bind"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "espressif.esp-idf-extension",
+        "ms-vscode.cpptools",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "idf.espIdfPath": "/opt/esp/idf",
+        "idf.toolsPath": "/opt/esp"
+      }
+    }
+  }
+}

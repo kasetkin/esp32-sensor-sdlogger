@@ -21,8 +21,8 @@ import time
 try:
     import esptool  # noqa: F401
 except ImportError:
-    _idf_python = os.path.expanduser(
-        "~/.espressif/python_env/idf6.0_py3.14_env/bin/python"
+    _idf_python = os.path.join(
+        os.environ.get("IDF_PYTHON_ENV_PATH", ""), "bin", "python"
     )
     if os.path.exists(_idf_python) and sys.executable != _idf_python:
         os.execv(_idf_python, [_idf_python] + sys.argv)
