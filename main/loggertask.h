@@ -51,5 +51,4 @@ class LoggerTask
     void logNmeaStream();
     void resetState();
     std::string generateDeviceInfoLog() const;
-    std::string generateDevicePowerLog() const;
 };

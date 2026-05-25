@@ -25,8 +25,6 @@ unsigned long millisFromStart();
 /// emulate code from RTC.h
 uint64_t getValidTime();
 
-std::string intToStringWithZeros(const int value, const size_t numberOfDigits);
-
 #include <charconv>
 #include <type_traits>
 
@@ -45,8 +43,14 @@ inline void appendNum(std::string& out, T value) noexcept {
     out.append(buf, ptr);
 }
 
-// Append zero-padded integer directly into `out`, replacing intToStringWithZeros at call sites.
-void appendZeroPadded(std::string& out, int value, int width) noexcept;
+inline void appendZeroPadded(std::string& out, int value, int width) noexcept {
+    char buf[12];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
+    const int written = static_cast<int>(ptr - buf);
+    if (written < width)
+        out.append(static_cast<size_t>(width - written), '0');
+    out.append(buf, ptr);
+}
 
 // esp_err_t initI2C();
 /// ESP tasks

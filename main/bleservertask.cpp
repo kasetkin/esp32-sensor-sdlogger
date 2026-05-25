@@ -631,7 +631,7 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::vector<std::b
     }
 }
 
-inline int BleSppServerTask::bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle)
+int BleSppServerTask::bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle)
 {
     struct os_mbuf *txom;
     txom = ble_hs_mbuf_from_flat(data.data(), static_cast<uint16_t>(data.size_bytes()));

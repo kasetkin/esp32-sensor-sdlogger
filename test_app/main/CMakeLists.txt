@@ -2,7 +2,6 @@ set(MAIN_SRC "../../main")
 
 set(srcs
     test_runner.cpp
-    test_common_utils.cpp
     test_logger.cpp
     test_sensors.cpp
     test_gps.cpp

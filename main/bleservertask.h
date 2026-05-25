@@ -160,7 +160,7 @@ private:
     void dataSenderTaskInit();
     void bleSenderTask();
     void sendAllData();
-    inline int bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle);
+    int bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle);
     void transmitBuffer(std::span<const std::byte> buffer, uint16_t value_handle);
     void transmitEnvHumidity(uint16_t conn_handle);
     void transmitEnvTemperature(uint16_t conn_handle);
