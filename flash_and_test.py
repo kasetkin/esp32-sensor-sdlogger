@@ -10,6 +10,7 @@ This means output capture and result analysis can be done by the caller:
 Exit codes:
     0  — flash succeeded (or skipped) and serial read completed
     1  — flash failed or serial port error
+    2  — device panicked or rebooted unexpectedly during the run
 """
 
 import argparse
@@ -30,6 +31,15 @@ except ImportError:
     sys.exit(1)
 
 import serial
+
+
+PANIC_PATTERNS = (
+    "Guru Meditation Error",
+    "Stack canary watchpoint",
+    "assert failed",
+    "abort() was called",
+    "Rebooting...",
+)
 
 
 def flash(flash_dir: str, port: str) -> bool:
@@ -69,6 +79,7 @@ def read_serial(port: str, baud: int, timeout: float, idle_timeout: float, end_m
 
             deadline = time.time() + timeout
             last_data = time.time()
+            panic = False
 
             while time.time() < deadline:
                 raw = ser.readline()
@@ -76,6 +87,11 @@ def read_serial(port: str, baud: int, timeout: float, idle_timeout: float, end_m
                     last_data = time.time()
                     line = raw.decode("utf-8", errors="replace").rstrip()
                     print(line, flush=True)
+                    hit = next((p for p in PANIC_PATTERNS if p in line), None)
+                    if hit:
+                        print(f"[run_tests] panic detected ({hit!r}) — aborting", file=sys.stderr)
+                        panic = True
+                        break
                     if end_marker and end_marker in line:
                         break
                 elif time.time() - last_data > idle_timeout:
@@ -87,7 +103,7 @@ def read_serial(port: str, baud: int, timeout: float, idle_timeout: float, end_m
         return 1
 
     print("[run_tests] done", file=sys.stderr)
-    return 0
+    return 2 if panic else 0
 
 
 def main() -> int:
