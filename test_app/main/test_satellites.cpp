@@ -363,7 +363,7 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     TEST_ASSERT_DOUBLE_WITHIN(1e-6, 130.76460905, loc->lngDeg());
 
     // Fix quality from GGA term 6 = '5' (FloatRTK)
-    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::FloatRTK),
+    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::Quality::FloatRTK),
                       static_cast<int>(loc->fixQuality));
 
     // Altitude and geoid height — TinyGPSAltitude stores int32 × 100, so
