@@ -11,6 +11,7 @@ set(srcs
     test_sdcard.cpp
     test_geodistance.cpp
     test_tinygps.cpp
+    test_satellites.cpp
     ${MAIN_SRC}/sensorstask.cpp
     ${MAIN_SRC}/loggertask.cpp
     ${MAIN_SRC}/gpstask.cpp

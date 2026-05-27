@@ -149,14 +149,6 @@ esp_err_t GpsTask::configureTinyGps()
 {
     ggaEpoch.begin(m_gps, NMEA_MSG_GXGGA.data(), 6);
 
-    gsafixtype.begin(m_gps, NMEA_MSG_GXGSA.data(), 2);
-    gsapdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 15);
-    gsahdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 16);
-    gsavdop.begin(m_gps, NMEA_MSG_GXGSA.data(), 17);
-
-    for (auto [i, sat] : std::views::enumerate(gsaSat))
-        sat.begin(m_gps, NMEA_MSG_GXGSA.data(), static_cast<int>(3 + i));
-
     pppnavWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 4);
     pppnavSecsOFWeek.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 5);
     pppnavLeapSecs.begin(m_gps, UNICORE_MSG_PPPNAV.data(), 8);
@@ -266,27 +258,9 @@ void GpsTask::executeTask()
             for (const auto c : dataAsString) {
                 m_gps.encode(c);
 
-                bool gsaUpdated = true;
-                for (const auto &gsaX: gsaSat)
-                    gsaUpdated = gsaUpdated && gsaX.isUpdated();
-
-                if (gsaUpdated) [[unlikely]] {
-                    ESP_LOGV(GPS_TASK_TAG, "new GNGSA info parsed!");
-                    for (auto &gsaSatField : gsaSat) {
-                        uint8_t prn = 0;
-                        const auto sv = gsaSatField.value();
-                        std::from_chars(sv.data(), sv.data() + sv.size(), prn);
-                        if (prn != 0) {
-                            SatelliteInfo sat{};
-                            sat.prn = prn;
-                            m_pendingSatellites.insert(sat);
-                            ESP_LOGV(GPS_TASK_TAG, "satellite %u", prn);
-                        }
-                    }
-                }
-
-                const bool allNew = m_gps.location.isUpdated() 
+                const bool allNew = m_gps.location.isUpdated()
                     && m_gps.altitude.isUpdated()
+                    && m_gps.satellites.isUpdated()
                     && pppnavSolStatus.isUpdated()
                     && ggaEpoch.isUpdated();
                 if (allNew) [[unlikely]] {
@@ -301,7 +275,7 @@ void GpsTask::executeTask()
 
             dataAsString.clear();
             
-            if (m_gps.location.isValid())
+            if (m_gps.location.age() != ULONG_MAX)
                 ESP_LOGI(GPS_TASK_TAG, "Valid location from GPS");
         }
 
@@ -343,40 +317,60 @@ bool GpsTask::processNewLocation()
 
     ESP_LOGI(NEW_LOCATION_TAG, "location and altitude are updated");
 
-    GpsInfo gpsInfo{};
-    /// move now to clear m_pendingSatellites buffer even if location is bad and we 'return false;'
-    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %zu", m_pendingSatellites.size());
-    gpsInfo.satellites = std::move(m_pendingSatellites);
-
-    if (!m_gps.location.isValid()) {
-        ESP_LOGD(NEW_LOCATION_TAG, "GPS location is invalid, no new GPS logs");
-        return false;
-    }
-
-    ESP_LOGI(NEW_LOCATION_TAG, "location is valid");
-
     const uint32_t GPS_SOLUTION_MAX_AGE_MS = 10 * 1000;
     if ((m_gps.location.age() > GPS_SOLUTION_MAX_AGE_MS)
-          || (gsafixtype.age() > GPS_SOLUTION_MAX_AGE_MS)
-          || (m_gps.time.age() > GPS_SOLUTION_MAX_AGE_MS) 
+          || (m_gps.satellites.age() > GPS_SOLUTION_MAX_AGE_MS)
+          || (m_gps.time.age() > GPS_SOLUTION_MAX_AGE_MS)
           || (m_gps.date.age() > GPS_SOLUTION_MAX_AGE_MS)) {
         ESP_LOGD(NEW_LOCATION_TAG, "some GPS data is TOO OLD: location, GSA fix, time/date");
         return false;
     }
 
+    const auto locData = m_gps.location.consume();
+    const auto satsData = m_gps.satellites.consume();
+    const auto altData = m_gps.altitude.consume();
+    const auto geoData = m_gps.geoidHeight.consume();
+    const auto timeData = m_gps.time.consume();
+    const auto dateData = m_gps.date.consume();
+    const auto usedCount = m_gps.satellitesUsedCount.consume();
+
+    if (!locData || !satsData || !altData || !geoData || !timeData || !dateData) {
+        ESP_LOGD(NEW_LOCATION_TAG, "GPS location is invalid, no new GPS logs");
+        return false;
+    }
+
     ESP_LOGI(NEW_LOCATION_TAG, "location, GSA-fix, time, date are fresh and valid");
 
-    const auto fv = gsafixtype.value();
-    std::from_chars(fv.data(), fv.data() + fv.size(), gpsInfo.fixType); // leaves fixType == 0 if no data
-    gpsInfo.quality = m_gps.location.FixQuality();
-    gpsInfo.lat = m_gps.location.lat();
-    gpsInfo.lon = m_gps.location.lng();
-    gpsInfo.altitude = m_gps.altitude.meters();
-    gpsInfo.geoidAlt = m_gps.geoidHeight.meters();
+    // NMEA 0183 4.10: GGA term 7 should equal the GSA-union count under normal
+    // operation. Receivers vary (some cap at 12, some report the multi-GNSS
+    // sum) so the library does not enforce — log a warning so anomalies
+    // surface during integration.
+    if (usedCount && usedCount->raw != satsData->satellites().size())
+        ESP_LOGW(NEW_LOCATION_TAG,
+            "GGA reports %lu satellites in use but GSA union has %zu",
+            static_cast<unsigned long>(usedCount->raw),
+            satsData->satellites().size());
+
+    GpsInfo gpsInfo{};
+    gpsInfo.fixType  = static_cast<uint8_t>(satsData->fixType);
+    gpsInfo.quality  = locData->fixQuality;
+    gpsInfo.lat      = locData->latDeg();
+    gpsInfo.lon      = locData->lngDeg();
+    gpsInfo.altitude = altData->meters();
+    gpsInfo.geoidAlt = geoData->meters();
+    for (const auto& sat : satsData->satellites())
+        gpsInfo.satellites.insert({
+            .prn       = sat.prn,
+            .systemId  = sat.systemId,
+            .elevation = sat.elevationDeg.value_or(-1),
+            .azimuth   = sat.azimuthDeg.value_or(-1),
+            .cn0       = sat.cn0DbHz.value_or(-1),
+        });
+    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %zu", gpsInfo.satellites.size());
 
     if (!hasLock(gpsInfo))
         return false;
-    
+
     if (has3DLock(gpsInfo))
         ESP_LOGI(NEW_LOCATION_TAG, "GPS has 3D lock");
     else
@@ -386,12 +380,12 @@ bool GpsTask::processNewLocation()
     {
         // positional timestamp
         struct tm t = {
-            .tm_sec  = static_cast<int>(m_gps.time.second()),
-            .tm_min  = static_cast<int>(m_gps.time.minute()),
-            .tm_hour = static_cast<int>(m_gps.time.hour()),
-            .tm_mday = static_cast<int>(m_gps.date.day()),
-            .tm_mon  = static_cast<int>(m_gps.date.month()) - 1,
-            .tm_year = static_cast<int>(m_gps.date.year()) - 1900,
+            .tm_sec  = static_cast<int>(timeData->second()),
+            .tm_min  = static_cast<int>(timeData->minute()),
+            .tm_hour = static_cast<int>(timeData->hour()),
+            .tm_mday = static_cast<int>(dateData->day()),
+            .tm_mon  = static_cast<int>(dateData->month()) - 1,
+            .tm_year = static_cast<int>(dateData->year()) - 1900,
             .tm_wday = 0,
             .tm_yday = 0,
             .tm_isdst = 0,
@@ -399,7 +393,7 @@ bool GpsTask::processNewLocation()
         const auto timestamp = std::mktime(&t);
         gpsInfo.worldTime = std::chrono::system_clock::from_time_t(timestamp);
 
-        const int32_t microsec = static_cast<int32_t>(m_gps.time.centisecond()) * 10000;
+        const int32_t microsec = static_cast<int32_t>(timeData->centisecond()) * 10000;
         struct timeval gpsTimeNow = { .tv_sec = timestamp, .tv_usec = microsec };
         //! \todo read TimeZone from SDCard or internal memory
         struct timezone myZone = { .tz_minuteswest = -300, .tz_dsttime = DST_NONE };
@@ -407,9 +401,9 @@ bool GpsTask::processNewLocation()
 
         ESP_LOGI(NEW_LOCATION_TAG, "timestamp generated");
 
-        gpsInfo.gsaPDOP = TinyGPSPlus::parseDecimal(gsapdop.value());
-        gpsInfo.gsaHDOP = TinyGPSPlus::parseDecimal(gsahdop.value());
-        gpsInfo.gsaVDOP = TinyGPSPlus::parseDecimal(gsavdop.value());
+        gpsInfo.gsaPDOP = static_cast<uint32_t>(satsData->pdop);
+        gpsInfo.gsaHDOP = static_cast<uint32_t>(satsData->hdop);
+        gpsInfo.gsaVDOP = static_cast<uint32_t>(satsData->vdop);
 
         ESP_LOGI(NEW_LOCATION_TAG, "GSA h/v/p DOP ok");
     }

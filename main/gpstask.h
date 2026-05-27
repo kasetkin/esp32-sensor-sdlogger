@@ -19,10 +19,11 @@
 struct PppInfo;
 
 struct SatelliteInfo {
-    uint8_t prn       = 0;
-    int16_t elevation = -1;   // degrees; -1 = unknown
-    int16_t azimuth   = -1;   // degrees
-    int16_t cn0       = -1;   // dB-Hz; -1 = no signal
+    uint8_t      prn       = 0;
+    GnssSystemId systemId  = GnssSystemId::Unknown;
+    int16_t      elevation = -1;   // degrees; -1 = unknown
+    int16_t      azimuth   = -1;   // degrees
+    int16_t      cn0       = -1;   // dB-Hz; -1 = no signal
 
     auto operator<=>(const SatelliteInfo&) const = default;
 };
@@ -106,7 +107,6 @@ public:
     GpsTask &operator=(const GpsTask &) = delete("GpsTask owns a UART port handle — copying aliases hardware resources");
 
 private:
-    static constexpr std::string_view NMEA_MSG_GXGSA = "GNGSA";       // GSA message (GPGSA, GNGSA etc)
     static constexpr std::string_view NMEA_MSG_GXGGA = "GNGGA";       // GGA message (GPGGA, GNGGA etc)
     static constexpr std::string_view UNICORE_MSG_PPPNAV = "PPPNAVA"; // Unicore protocol, PPP navigation solution
 
@@ -117,15 +117,7 @@ private:
     QStarZPacketsReadyEvent m_qstarzEvent;
     TinyGPSPlus m_gps;
 
-    TinyGPSCustom gsafixtype; // custom extract fix type from GPGSA, , GSA element #2
-    TinyGPSCustom gsapdop;    // custom extract PDOP from GPGSA, GSA element #15
-    TinyGPSCustom gsahdop;    // custom extract HDOP from GPGSA, GSA element #16
-    TinyGPSCustom gsavdop;    // custom extract VDOP from GPGSA, GSA element #17
-    static constexpr int GSA_SAT_FIELDS = 12;
-    TinyGPSCustom gsaSat[GSA_SAT_FIELDS];            // GNGSA fields 3–14 (satellite PRNs)
-
     TinyGPSCustom ggaEpoch;                          // detects each new GGA (epoch boundary)
-    std::flat_set<SatelliteInfo> m_pendingSatellites; // accumulates across multiple GNGSA per epoch
     TinyGPSCustom pppnavWeek;
     TinyGPSCustom pppnavSecsOFWeek;
     TinyGPSCustom pppnavLeapSecs;
