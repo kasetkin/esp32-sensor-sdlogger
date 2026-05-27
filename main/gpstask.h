@@ -35,6 +35,7 @@ struct GpsInfo
     static constexpr uint32_t BAD_DOP = 666000000;
 
     std::flat_set<SatelliteInfo> satellites;   // satellites used in fix, from all GNGSA
+    std::size_t satellitesInView = 0;          // count of satellites in view, from all GNGSV
     // TinyGPSLocation location;
     std::chrono::system_clock::time_point worldTime;
     double lat = BAD_LATLON;

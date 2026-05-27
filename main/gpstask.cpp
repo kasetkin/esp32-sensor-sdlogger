@@ -366,7 +366,9 @@ bool GpsTask::processNewLocation()
             .azimuth   = sat.azimuthDeg.value_or(-1),
             .cn0       = sat.cn0DbHz.value_or(-1),
         });
-    ESP_LOGI(NEW_LOCATION_TAG, "number of accumulated satellites %zu", gpsInfo.satellites.size());
+    gpsInfo.satellitesInView = satsData->inView().size();
+    ESP_LOGI(NEW_LOCATION_TAG, "satellites: %zu in solution, %zu in view",
+             gpsInfo.satellites.size(), gpsInfo.satellitesInView);
 
     if (!hasLock(gpsInfo))
         return false;
@@ -730,7 +732,8 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const float vdop = static_cast<float>(p.gsaVDOP) / 100.0f;
     const uint8_t numSatUse = static_cast<uint8_t>(
         std::min(p.satellites.size(), static_cast<size_t>(255)));
-    const uint8_t numSatView = numSatUse;   // GSA = used sats; view requires GSV (future)
+    const uint8_t numSatView = static_cast<uint8_t>(
+        std::min(p.satellitesInView, static_cast<size_t>(255)));   // in-view count from GNGSV
     const uint8_t fixQual = static_cast<uint8_t>(std::to_underlying(p.quality));
     const uint8_t batPerc = 0;
     const uint16_t dummy = 0;

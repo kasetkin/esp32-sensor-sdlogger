@@ -47,11 +47,11 @@ static void test_satellites_single_gpgsa_full(void)
     TinyGPSPlus gps;
     feedSentence(gps, "GPGSA,A,3,3,4,7,8,15,17,19,22,24,29,31,32,1.0,1.2,1.5,1");
 
-    TEST_ASSERT_TRUE(gps.satellites.isUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    TEST_ASSERT_FALSE(gps.satellites.isUpdated()); // consume cleared it
+    TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated()); // consume cleared it
 
     TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Auto), static_cast<int>(data->mode));
     TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D), static_cast<int>(data->fixType));
@@ -77,7 +77,7 @@ static void test_satellites_gsa_partial_prns(void)
     // Only 3 PRNs filled; remaining 9 PRN slots empty
     feedSentence(gps, "GPGSA,A,2,3,4,7,,,,,,,,,,1.0,1.2,1.5,1");
 
-    TEST_ASSERT_TRUE(gps.satellites.isUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
@@ -98,7 +98,7 @@ static void test_satellites_gsa_legacy_no_system_id(void)
     // 17 fields total (mode, fix, 12 PRNs, PDOP, HDOP, VDOP) — no System ID
     feedSentence(gps, "GPGSA,A,3,3,4,7,8,15,17,19,22,24,29,31,32,1.0,1.2,1.5");
 
-    TEST_ASSERT_TRUE(gps.satellites.isUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
@@ -223,18 +223,18 @@ static void test_satellites_bad_checksum_no_commit(void)
 
     // Prime with a good sentence first so we have known committed state
     feedSentence(gps, "GPGSA,A,3,3,4,7,,,,,,,,,,2.0,2.0,2.0,1");
-    TEST_ASSERT_TRUE(gps.satellites.isUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
     {
         const auto primed = gps.satellites.consume(); // clears isUpdated
         TEST_ASSERT_TRUE(primed.has_value());
         TEST_ASSERT_EQUAL(3u, primed->inSolutionCount);
     }
-    TEST_ASSERT_FALSE(gps.satellites.isUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated());
 
     // Now feed a sentence with deliberately wrong checksum
     feedSentenceBadChecksum(gps, "GPGSA,A,3,9,10,11,12,13,,,,,,,,1.0,1.0,1.0,1");
 
-    TEST_ASSERT_FALSE(gps.satellites.isUpdated());   // commit never fired
+    TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated());   // commit never fired
     TEST_ASSERT_FALSE(gps.satellites.consume().has_value()); // nothing to consume
 }
 
@@ -395,6 +395,241 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     TEST_ASSERT_EQUAL_UINT8(1, time->second());
 }
 
+// ── GSV: single GPS group (three sentences, 12 satellites in view) ───────────
+
+static void test_satellites_gsv_single_gps_group(void)
+{
+    TinyGPSPlus gps;
+    // From main/fake_nmea.cpp (NMEA 4.10, no trailing signal ID).
+    feedSentence(gps, "GPGSV,3,1,12,03,57,094,40,04,33,056,36,07,27,116,33,08,53,249,40");
+    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());   // group not finished yet
+    feedSentence(gps, "GPGSV,3,2,12,15,68,328,32,17,46,115,34,19,05,327,39,22,11,053,39");
+    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
+    feedSentence(gps, "GPGSV,3,3,12,24,52,269,31,29,46,288,36,31,88,250,38,32,55,058,32");
+    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());    // last sentence completed it
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(12u, view.size());
+
+    // First quad of the first sentence.
+    TEST_ASSERT_EQUAL_UINT8(3, view.front().prn);
+    TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::GPS), static_cast<int>(view.front().systemId));
+    TEST_ASSERT_TRUE(view.front().elevationDeg.has_value());
+    TEST_ASSERT_EQUAL_INT16(57, *view.front().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(94, *view.front().azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(40, *view.front().cn0DbHz);
+
+    // Last quad of the last sentence.
+    TEST_ASSERT_EQUAL_UINT8(32, view.back().prn);
+    TEST_ASSERT_EQUAL_INT16(55, *view.back().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(58, *view.back().azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(32, *view.back().cn0DbHz);
+
+    // No GSA fed → in-solution list empty and nothing flagged in-solution.
+    TEST_ASSERT_EQUAL(0u, data->satellites().size());
+    for (const auto& s : view)
+        TEST_ASSERT_FALSE(s.inSolution);
+}
+
+// ── GSV: an empty SNR field leaves C/N0 unset ───────────────────────────────
+
+static void test_satellites_gsv_empty_snr(void)
+{
+    TinyGPSPlus gps;
+    feedSentence(gps, "GPGSV,1,1,01,05,10,123,");   // trailing SNR field empty (not tracking)
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(1u, view.size());
+    TEST_ASSERT_EQUAL_UINT8(5, view.front().prn);
+    TEST_ASSERT_EQUAL_INT16(10, *view.front().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(123, *view.front().azimuthDeg);
+    TEST_ASSERT_FALSE(view.front().cn0DbHz.has_value());   // empty SNR → nullopt
+}
+
+// ── GSV: multiple constellations land in their own systems ──────────────────
+
+static void test_satellites_gsv_multi_constellation(void)
+{
+    TinyGPSPlus gps;
+    feedSentence(gps, "GPGSV,1,1,02,03,57,094,40,04,33,056,36");
+    feedSentence(gps, "GLGSV,1,1,02,65,40,100,35,66,20,200,30");
+    feedSentence(gps, "GAGSV,1,1,01,05,45,150,38");
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(5u, view.size());
+
+    int gpsN = 0, gloN = 0, galN = 0;
+    for (const auto& s : view) {
+        switch (s.systemId) {
+            case GnssSystemId::GPS:     ++gpsN; break;
+            case GnssSystemId::GLONASS: ++gloN; break;
+            case GnssSystemId::Galileo: ++galN; break;
+            default: break;
+        }
+    }
+    TEST_ASSERT_EQUAL(2, gpsN);
+    TEST_ASSERT_EQUAL(2, gloN);
+    TEST_ASSERT_EQUAL(1, galN);
+}
+
+// ── GSV: the same PRN on multiple signals is deduped, strongest C/N0 kept ────
+
+static void test_satellites_gsv_signal_dedupe(void)
+{
+    TinyGPSPlus gps;
+    // Epoch 1: PRN 7 on signal 1 (C/N0 25), then signal 5 (C/N0 42).
+    feedSentence(gps, "GPGSV,1,1,01,07,30,100,25,1");
+    feedSentence(gps, "GPGSV,1,1,01,07,30,100,42,5");
+    {
+        const auto data = gps.satellites.consume();
+        TEST_ASSERT_TRUE(data.has_value());
+        const auto view = data->inView();
+        TEST_ASSERT_EQUAL(1u, view.size());                 // one row, not two
+        TEST_ASSERT_EQUAL_UINT8(7, view.front().prn);
+        TEST_ASSERT_EQUAL_INT16(42, *view.front().cn0DbHz); // stronger signal kept
+    }
+
+    // Epoch 2 (signal IDs restart at 1): stronger comes first; a later weaker
+    // signal must not overwrite it.
+    feedSentence(gps, "GPGSV,1,1,01,07,30,100,42,1");
+    feedSentence(gps, "GPGSV,1,1,01,07,30,100,25,5");
+    {
+        const auto data = gps.satellites.consume();
+        TEST_ASSERT_TRUE(data.has_value());
+        const auto view = data->inView();
+        TEST_ASSERT_EQUAL(1u, view.size());
+        TEST_ASSERT_EQUAL_INT16(42, *view.front().cn0DbHz); // strongest still wins
+    }
+}
+
+// ── GSV: a new epoch replaces the previous in-view list (no stale build-up) ──
+
+static void test_satellites_gsv_epoch_reset(void)
+{
+    TinyGPSPlus gps;
+    feedSentence(gps, "GPGSV,1,1,02,03,57,094,40,04,33,056,36");
+    {
+        const auto data = gps.satellites.consume();
+        TEST_ASSERT_TRUE(data.has_value());
+        TEST_ASSERT_EQUAL(2u, data->inView().size());
+    }
+    // New epoch, different PRNs (NMEA 4.10, no signal ID → always replaces).
+    feedSentence(gps, "GPGSV,1,1,02,10,57,094,40,11,33,056,36");
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(2u, view.size());
+    for (const auto& s : view)
+        TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // old 3/4 are gone
+}
+
+// ── GSV ∪ GSA: in-solution sats enriched, in-view sats flagged ──────────────
+
+static void test_satellites_gsv_gsa_join(void)
+{
+    TinyGPSPlus gps;
+    // In view: PRNs 3,4,7,8 with elevation/azimuth/C/N0.
+    feedSentence(gps, "GPGSV,1,1,04,03,57,094,40,04,33,056,36,07,27,116,33,08,53,249,40");
+    TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // GSA not yet seen
+    // In solution: PRNs 3,4,7 (PRN 8 is in view only).
+    feedSentence(gps, "GPGSA,A,2,3,4,7,,,,,,,,,,1.0,1.2,1.5,1");
+    TEST_ASSERT_TRUE(gps.satellites.isUpdated());           // both sources fresh now
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // consume cleared both
+
+    // In-solution list enriched from GSV.
+    const auto sol = data->satellites();
+    TEST_ASSERT_EQUAL(3u, sol.size());
+    auto find = [&](uint8_t prn) -> const TinyGPSSatellite* {
+        for (const auto& s : sol) if (s.prn == prn) return &s;
+        return nullptr;
+    };
+    const TinyGPSSatellite* s3 = find(3);
+    TEST_ASSERT_NOT_NULL(s3);
+    TEST_ASSERT_TRUE(s3->elevationDeg.has_value());
+    TEST_ASSERT_EQUAL_INT16(57, *s3->elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(94, *s3->azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(40, *s3->cn0DbHz);
+
+    // In-view list: 4 sats, with 3/4/7 flagged in solution and 8 not.
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(4u, view.size());
+    for (const auto& s : view) {
+        const bool expectInSolution = (s.prn != 8);
+        TEST_ASSERT_EQUAL_INT(expectInSolution ? 1 : 0, s.inSolution ? 1 : 0);
+    }
+}
+
+// ── GSV: QZSS talker (GQ) is recognised (talker-suffix fix) ─────────────────
+
+static void test_satellites_gsv_qzss_talker(void)
+{
+    TinyGPSPlus gps;
+    feedSentence(gps, "GQGSV,1,1,01,01,45,180,40");
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(1u, view.size());
+    TEST_ASSERT_EQUAL_UINT8(1, view.front().prn);
+    TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::QZSS), static_cast<int>(view.front().systemId));
+}
+
+// ── GSV: a bad checksum mid-sequence is dropped, no pollution ────────────────
+
+static void test_satellites_gsv_bad_checksum_no_pollution(void)
+{
+    TinyGPSPlus gps;
+    // First sentence of a 2-part group is good; second is corrupt → never finalizes.
+    feedSentence(gps, "GPGSV,2,1,05,03,57,094,40,04,33,056,36");
+    feedSentenceBadChecksum(gps, "GPGSV,2,2,05,07,27,116,33");
+    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());    // group never completed
+
+    // A fresh, complete group must show only its own satellites.
+    feedSentence(gps, "GPGSV,1,1,02,10,40,200,30,11,20,100,28");
+    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(2u, view.size());
+    for (const auto& s : view)
+        TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // 3/4/7 never leaked in
+}
+
+// ── Freshness: isUpdated() requires BOTH GSA and GSV ────────────────────────
+
+static void test_satellites_updated_requires_gsa_and_gsv(void)
+{
+    TinyGPSPlus gps;
+
+    feedSentence(gps, "GPGSA,A,3,3,4,7,,,,,,,,,,1.0,1.2,1.5,1");
+    TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // GSV still missing
+
+    feedSentence(gps, "GPGSV,1,1,03,03,57,094,40,04,33,056,36,07,27,116,33");
+    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isUpdated());           // both fresh
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // both cleared
+    TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
+}
+
 void run_satellites_tests(void)
 {
     RUN_TEST(test_satellites_single_gpgsa_full);
@@ -407,4 +642,13 @@ void run_satellites_tests(void)
     RUN_TEST(test_satellites_used_count_from_gga);
     RUN_TEST(test_satellites_real_um980_5_constellations);
     RUN_TEST(test_satellites_real_um980_full_epoch_with_gga_rmc);
+    RUN_TEST(test_satellites_gsv_single_gps_group);
+    RUN_TEST(test_satellites_gsv_empty_snr);
+    RUN_TEST(test_satellites_gsv_multi_constellation);
+    RUN_TEST(test_satellites_gsv_signal_dedupe);
+    RUN_TEST(test_satellites_gsv_epoch_reset);
+    RUN_TEST(test_satellites_gsv_gsa_join);
+    RUN_TEST(test_satellites_gsv_qzss_talker);
+    RUN_TEST(test_satellites_gsv_bad_checksum_no_pollution);
+    RUN_TEST(test_satellites_updated_requires_gsa_and_gsv);
 }
