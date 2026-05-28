@@ -313,6 +313,7 @@ static void test_satellites_real_um980_5_constellations(void)
             case GnssSystemId::Galileo: ++galCount; break;
             case GnssSystemId::BeiDou:  ++bdsCount; break;
             case GnssSystemId::QZSS:    ++qzsCount; break;
+            case GnssSystemId::NavIC:   break;
             case GnssSystemId::Unknown: break;
         }
     }
@@ -630,6 +631,192 @@ static void test_satellites_updated_requires_gsa_and_gsv(void)
     TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
 }
 
+// ── NavIC / IRNSS: GIGSV satellites are tagged NavIC ────────────────────────
+
+static void test_satellites_gsv_navic(void)
+{
+    TinyGPSPlus gps;
+    feedSentence(gps, "GIGSV,1,1,02,40,34,209,32,41,40,170,34,6");
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(2u, view.size());
+    for (const auto& s : view)
+        TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::NavIC), static_cast<int>(s.systemId));
+    TEST_ASSERT_EQUAL_UINT8(40, view[0].prn);
+    TEST_ASSERT_EQUAL_UINT8(41, view[1].prn);
+}
+
+// ── GSA split: two consecutive same-System-ID sentences accumulate; reset replaces ──
+
+static void test_satellites_gsa_split_accumulation(void)
+{
+    TinyGPSPlus gps;
+    // Two consecutive System ID 4 (BeiDou) GSA sentences: 12 + 3 PRNs accumulate to 15.
+    feedSentence(gps, "GNGSA,M,3,01,02,03,04,05,06,07,08,09,10,11,12,1.0,0.8,0.9,4");
+    feedSentence(gps, "GNGSA,M,3,13,14,15,,,,,,,,,,1.0,0.8,0.9,4");
+    {
+        const auto data = gps.satellites.consume();
+        TEST_ASSERT_TRUE(data.has_value());
+        const auto sol = data->satellites();
+        TEST_ASSERT_EQUAL(15u, sol.size());
+        for (const auto& s : sol)
+            TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::BeiDou), static_cast<int>(s.systemId));
+    }
+
+    // A committed non-GSA sentence ends the run; the next System ID 4 GSA replaces.
+    feedSentence(gps, "GPGSV,1,1,01,05,10,100,30,1");            // ends the open GSA run
+    feedSentence(gps, "GNGSA,M,3,20,21,,,,,,,,,,,1.0,0.8,0.9,4");
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto sol = data->satellites();
+    TEST_ASSERT_EQUAL(2u, sol.size());                           // replaced, not appended (not 17)
+    TEST_ASSERT_EQUAL_UINT8(20, sol[0].prn);
+    TEST_ASSERT_EQUAL_UINT8(21, sol[1].prn);
+}
+
+// ── Real UM980 capture: one full epoch from docs/2026-04-26-sdlogger_UM980_nmea.csv ──
+// Middle-of-file cycle at t = 083621.00 UTC, all six constellations. PPPNAVA is
+// omitted (its 32-bit CRC doesn't fit feedSentence). Lat/lon scrubbed to a synthetic
+// mid-Pacific coordinate; all other fields are verbatim from the recording.
+//   In view (GSV):     GPS 9, GLONASS 8, BeiDou 16, Galileo 12, QZSS 3, NavIC 5 = 53
+//   In solution (GSA): GPS 7, GLONASS 5, Galileo 10, BeiDou 13 (12+1 split), QZSS 2 = 37
+//                      == GGA satellites-used (37)
+
+static constexpr std::array<std::string_view, 15> kEpoch0426Gsv = {
+    "GPGSV,3,1,09,05,70,058,39,11,18,078,36,26,16,310,30,21,41,050,36,1",
+    "GPGSV,3,2,09,25,25,215,36,15,25,159,34,29,78,297,41,20,30,129,37,1",
+    "GPGSV,3,3,09,18,32,280,39,1",
+    "GLGSV,2,1,08,66,50,070,37,82,53,331,36,65,15,026,20,88,06,097,24,2",
+    "GLGSV,2,2,08,80,25,262,28,81,51,063,36,73,17,320,34,67,36,156,33,2",
+    "GBGSV,4,1,16,66,30,134,35,67,41,175,33,02,41,175,36,03,30,134,36,4",
+    "GBGSV,4,2,16,01,10,108,36,38,41,104,41,42,34,051,36,06,70,060,39,4",
+    "GBGSV,4,3,16,09,79,174,40,13,67,084,40,41,22,184,36,27,31,298,36,4",
+    "GBGSV,4,4,16,14,13,037,29,08,27,127,33,33,56,132,40,28,73,328,40,4",
+    "GAGSV,3,1,12,36,34,272,37,10,56,051,37,12,33,065,30,06,14,143,31,3",
+    "GAGSV,3,2,12,25,45,235,35,16,18,186,33,11,73,345,33,04,23,118,30,3",
+    "GAGSV,3,3,12,19,21,060,27,28,,,34,02,30,304,33,18,,,40,3",
+    "GQGSV,1,1,03,03,29,083,36,07,19,119,40,55,38,160,35,5",
+    "GIGSV,2,1,05,40,34,209,32,41,40,170,34,10,16,118,39,09,19,199,40,6",
+    "GIGSV,2,2,05,02,48,213,40,6",
+};
+static constexpr std::array<std::string_view, 6> kEpoch0426Gsa = {
+    "GNGSA,M,3,05,11,21,25,29,20,18,,,,,,0.9,0.5,0.7,1",
+    "GNGSA,M,3,66,82,88,81,67,,,,,,,,0.9,0.5,0.7,2",
+    "GNGSA,M,3,36,10,12,06,25,16,11,04,19,02,,,0.9,0.5,0.7,3",
+    "GNGSA,M,3,02,03,38,42,06,09,13,41,27,14,08,33,0.9,0.5,0.7,4",
+    "GNGSA,M,3,28,,,,,,,,,,,,0.9,0.5,0.7,4",
+    "GNGSA,M,3,03,07,,,,,,,,,,,0.9,0.5,0.7,5",
+};
+// Lat/lon scrubbed to the synthetic mid-Pacific coordinate used by the other real test.
+static constexpr std::string_view kEpoch0426Rmc =
+    "GNRMC,083621.00,A,2530.12345678,N,13045.87654321,E,2.004,6.7,260426,1.8,E,P,S";
+static constexpr std::string_view kEpoch0426Gga =
+    "GNGGA,083621.00,2530.12345678,N,13045.87654321,E,5,37,0.5,2155.6685,M,-39.5669,M,9.0,9901";
+
+static void test_satellites_real_um980_epoch_2026_04_26(void)
+{
+    TinyGPSPlus gps;
+    for (const auto s : kEpoch0426Gsv)
+        feedSentence(gps, s);
+    feedSentence(gps, kEpoch0426Rmc);
+    feedSentence(gps, kEpoch0426Gga);
+    for (const auto s : kEpoch0426Gsa)   // six consecutive GSA (BeiDou split across two)
+        feedSentence(gps, s);
+
+    TEST_ASSERT_TRUE(gps.satellites.isUpdated());   // both GSA and GSV are fresh
+
+    const auto used = gps.satellitesUsedCount.consume();
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    TEST_ASSERT_TRUE(used.has_value());
+
+    // ── In view: 53 across six constellations ──
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(53u, view.size());
+    int vGps = 0, vGlo = 0, vGal = 0, vBds = 0, vQzs = 0, vNav = 0;
+    for (const auto& s : view) switch (s.systemId) {
+        case GnssSystemId::GPS:     ++vGps; break;
+        case GnssSystemId::GLONASS: ++vGlo; break;
+        case GnssSystemId::Galileo: ++vGal; break;
+        case GnssSystemId::BeiDou:  ++vBds; break;
+        case GnssSystemId::QZSS:    ++vQzs; break;
+        case GnssSystemId::NavIC:   ++vNav; break;
+        case GnssSystemId::Unknown: break;
+    }
+    TEST_ASSERT_EQUAL(9,  vGps);
+    TEST_ASSERT_EQUAL(8,  vGlo);
+    TEST_ASSERT_EQUAL(16, vBds);
+    TEST_ASSERT_EQUAL(12, vGal);
+    TEST_ASSERT_EQUAL(3,  vQzs);
+    TEST_ASSERT_EQUAL(5,  vNav);
+
+    // ── In solution: union 37, equals the GGA satellites-used field ──
+    const auto sol = data->satellites();
+    TEST_ASSERT_EQUAL(37u, sol.size());
+    TEST_ASSERT_EQUAL_UINT32(37, used->raw);
+
+    // BeiDou solution split across two GSA sentences (12 + 1) accumulates to 13.
+    int solBds = 0;
+    for (const auto& s : sol)
+        if (s.systemId == GnssSystemId::BeiDou) ++solBds;
+    TEST_ASSERT_EQUAL(13, solBds);
+
+    // ── GSV → in-solution enrichment: GPS PRN 05 carries elevation/azimuth/C/N0 ──
+    auto findSol = [&](uint8_t prn, GnssSystemId sys) -> const TinyGPSSatellite* {
+        for (const auto& s : sol)
+            if (s.prn == prn && s.systemId == sys) return &s;
+        return nullptr;
+    };
+    const TinyGPSSatellite* g5 = findSol(5, GnssSystemId::GPS);
+    TEST_ASSERT_NOT_NULL(g5);
+    TEST_ASSERT_TRUE(g5->elevationDeg.has_value());
+    TEST_ASSERT_EQUAL_INT16(70, *g5->elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(58, *g5->azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(39, *g5->cn0DbHz);
+
+    // ── NavIC PRN 40 in view with elev/azim/C/N0; not part of the solution ──
+    auto findView = [&](uint8_t prn, GnssSystemId sys) -> const TinyGPSSatellite* {
+        for (const auto& s : view)
+            if (s.prn == prn && s.systemId == sys) return &s;
+        return nullptr;
+    };
+    const TinyGPSSatellite* n40 = findView(40, GnssSystemId::NavIC);
+    TEST_ASSERT_NOT_NULL(n40);
+    TEST_ASSERT_EQUAL_INT16(34,  *n40->elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(209, *n40->azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(32,  *n40->cn0DbHz);
+    TEST_ASSERT_FALSE(n40->inSolution);
+
+    // ── GSA scalars ──
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(data->mode));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(data->fixType));
+    TEST_ASSERT_EQUAL_INT32(90, data->pdop);
+    TEST_ASSERT_EQUAL_INT32(50, data->hdop);
+    TEST_ASSERT_EQUAL_INT32(70, data->vdop);
+
+    // ── GGA quality + scrubbed location ──
+    const auto loc = gps.location.consume();
+    TEST_ASSERT_TRUE(loc.has_value());
+    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::Quality::FloatRTK),
+                      static_cast<int>(loc->fixQuality));
+    TEST_ASSERT_DOUBLE_WITHIN(1e-6, 25.50205761,  loc->latDeg());
+    TEST_ASSERT_DOUBLE_WITHIN(1e-6, 130.76460905, loc->lngDeg());
+
+    // ── Date / time from RMC: 26 Apr 2026, 08:36:21 ──
+    const auto date = gps.date.consume();
+    const auto time = gps.time.consume();
+    TEST_ASSERT_TRUE(date.has_value());
+    TEST_ASSERT_TRUE(time.has_value());
+    TEST_ASSERT_EQUAL_UINT16(2026, date->year());
+    TEST_ASSERT_EQUAL_UINT8(4,  date->month());
+    TEST_ASSERT_EQUAL_UINT8(26, date->day());
+    TEST_ASSERT_EQUAL_UINT8(8,  time->hour());
+    TEST_ASSERT_EQUAL_UINT8(36, time->minute());
+    TEST_ASSERT_EQUAL_UINT8(21, time->second());
+}
+
 void run_satellites_tests(void)
 {
     RUN_TEST(test_satellites_single_gpgsa_full);
@@ -651,4 +838,7 @@ void run_satellites_tests(void)
     RUN_TEST(test_satellites_gsv_qzss_talker);
     RUN_TEST(test_satellites_gsv_bad_checksum_no_pollution);
     RUN_TEST(test_satellites_updated_requires_gsa_and_gsv);
+    RUN_TEST(test_satellites_gsv_navic);
+    RUN_TEST(test_satellites_gsa_split_accumulation);
+    RUN_TEST(test_satellites_real_um980_epoch_2026_04_26);
 }
