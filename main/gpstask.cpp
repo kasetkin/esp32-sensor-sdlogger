@@ -345,11 +345,11 @@ bool GpsTask::processNewLocation()
     // operation. Receivers vary (some cap at 12, some report the multi-GNSS
     // sum) so the library does not enforce — log a warning so anomalies
     // surface during integration.
-    if (usedCount && usedCount->raw != satsData->satellites().size())
+    if (usedCount && usedCount->raw != satsData->inSolutionCount())
         ESP_LOGW(NEW_LOCATION_TAG,
             "GGA reports %lu satellites in use but GSA union has %zu",
             static_cast<unsigned long>(usedCount->raw),
-            satsData->satellites().size());
+            satsData->inSolutionCount());
 
     GpsInfo gpsInfo{};
     gpsInfo.fixType  = static_cast<uint8_t>(satsData->fixType);
@@ -358,15 +358,21 @@ bool GpsTask::processNewLocation()
     gpsInfo.lon      = locData->lngDeg();
     gpsInfo.altitude = altData->meters();
     gpsInfo.geoidAlt = geoData->meters();
-    for (const auto& sat : satsData->satellites())
+    const auto allSats = satsData->all();
+    for (std::size_t i = 0; i < allSats.size(); ++i)
+    {
+        if (!satsData->inSolution(i))
+            continue;
+        const auto& sat = allSats[i];
         gpsInfo.satellites.insert({
             .prn       = sat.prn,
             .systemId  = sat.systemId,
-            .elevation = sat.elevationDeg.value_or(-1),
-            .azimuth   = sat.azimuthDeg.value_or(-1),
-            .cn0       = sat.cn0DbHz.value_or(-1),
+            .elevation = sat.elevationDeg,   // -1 when not reported (from GSV)
+            .azimuth   = sat.azimuthDeg,
+            .cn0       = sat.cn0DbHz,
         });
-    gpsInfo.satellitesInView = satsData->inView().size();
+    }
+    gpsInfo.satellitesInView = satsData->inViewCount();
     ESP_LOGI(NEW_LOCATION_TAG, "satellites: %zu in solution, %zu in view",
              gpsInfo.satellites.size(), gpsInfo.satellitesInView);
 

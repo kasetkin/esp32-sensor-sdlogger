@@ -40,6 +40,36 @@ static void feedSentenceBadChecksum(TinyGPSPlus& gps, std::string_view body)
     gps.encode('\n');
 }
 
+// ── Helpers for the sats[] + bitset-flags Data layout ───────────────────────
+
+// Index of (prn, sys) in d.all(), or d.all().size() if not present.
+static std::size_t findSat(const TinyGPSSatellites::Data& d, uint8_t prn, GnssSystemId sys)
+{
+    const auto all = d.all();
+    for (std::size_t i = 0; i < all.size(); ++i)
+        if (all[i].prn == prn && all[i].systemId == sys)
+            return i;
+    return all.size();
+}
+
+static int countInView(const TinyGPSSatellites::Data& d, GnssSystemId sys)
+{
+    int n = 0;
+    const auto all = d.all();
+    for (std::size_t i = 0; i < all.size(); ++i)
+        if (d.inView(i) && all[i].systemId == sys) ++n;
+    return n;
+}
+
+static int countInSolution(const TinyGPSSatellites::Data& d, GnssSystemId sys)
+{
+    int n = 0;
+    const auto all = d.all();
+    for (std::size_t i = 0; i < all.size(); ++i)
+        if (d.inSolution(i) && all[i].systemId == sys) ++n;
+    return n;
+}
+
 // ── Single GPS GSA (NMEA 4.10) ──────────────────────────────────────────────
 
 static void test_satellites_single_gpgsa_full(void)
@@ -59,13 +89,14 @@ static void test_satellites_single_gpgsa_full(void)
     TEST_ASSERT_EQUAL_INT32(120, data->hdop);
     TEST_ASSERT_EQUAL_INT32(150, data->vdop);
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
+    TEST_ASSERT_EQUAL(12u, data->inSolutionCount());
     TEST_ASSERT_EQUAL(12u, sats.size());
     TEST_ASSERT_EQUAL_UINT8(3, sats.front().prn);
     TEST_ASSERT_EQUAL_UINT8(32, sats.back().prn);
-    for (const auto& s : sats) {
-        TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::GPS), static_cast<int>(s.systemId));
-        TEST_ASSERT_TRUE(s.inSolution);
+    for (std::size_t i = 0; i < sats.size(); ++i) {
+        TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::GPS), static_cast<int>(sats[i].systemId));
+        TEST_ASSERT_TRUE(data->inSolution(i));
     }
 }
 
@@ -83,7 +114,8 @@ static void test_satellites_gsa_partial_prns(void)
     TEST_ASSERT_TRUE(data.has_value());
     TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix2D), static_cast<int>(data->fixType));
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
+    TEST_ASSERT_EQUAL(3u, data->inSolutionCount());
     TEST_ASSERT_EQUAL(3u, sats.size());
     TEST_ASSERT_EQUAL_UINT8(3, sats[0].prn);
     TEST_ASSERT_EQUAL_UINT8(4, sats[1].prn);
@@ -103,7 +135,7 @@ static void test_satellites_gsa_legacy_no_system_id(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
     TEST_ASSERT_EQUAL(12u, sats.size());
     // Talker prefix "GP" should map to GPS even without the System ID field
     for (const auto& s : sats) {
@@ -122,7 +154,7 @@ static void test_satellites_multi_constellation_accumulation(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        TEST_ASSERT_EQUAL(5u, data->inSolutionCount);
+        TEST_ASSERT_EQUAL(5u, data->inSolutionCount());
     }
 
     // GLONASS (System ID 2): PRNs 65,66,67
@@ -130,7 +162,7 @@ static void test_satellites_multi_constellation_accumulation(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        TEST_ASSERT_EQUAL(8u, data->inSolutionCount);
+        TEST_ASSERT_EQUAL(8u, data->inSolutionCount());
     }
 
     // Galileo (System ID 3): PRNs 5,9
@@ -138,7 +170,7 @@ static void test_satellites_multi_constellation_accumulation(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
     TEST_ASSERT_EQUAL(10u, sats.size());
 
     // Each satellite carries its constellation; spot-check by PRN range.
@@ -173,7 +205,7 @@ static void test_satellites_new_epoch_clears_dropped(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        TEST_ASSERT_EQUAL(6u, data->satellites().size());   // 3 GPS + 3 GLONASS in solution
+        TEST_ASSERT_EQUAL(6u, data->inSolutionCount());   // 3 GPS + 3 GLONASS in solution
     }
 
     // Epoch 2: a new RMC clears the buffer; only GPS is reported this time.
@@ -183,7 +215,7 @@ static void test_satellites_new_epoch_clears_dropped(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
     TEST_ASSERT_EQUAL(4u, sats.size());                     // only the new GPS list
 
     bool sawOldGpsPrn3 = false;
@@ -209,7 +241,7 @@ static void test_satellites_talker_derived_system_id(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto sats = data->satellites();
+    const auto sats = data->all();
     TEST_ASSERT_EQUAL(3u, sats.size());
     for (const auto& s : sats) {
         TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::GLONASS), static_cast<int>(s.systemId));
@@ -228,7 +260,7 @@ static void test_satellites_bad_checksum_no_commit(void)
     {
         const auto primed = gps.satellites.consume(); // clears isUpdated
         TEST_ASSERT_TRUE(primed.has_value());
-        TEST_ASSERT_EQUAL(3u, primed->inSolutionCount);
+        TEST_ASSERT_EQUAL(3u, primed->inSolutionCount());
     }
     TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated());
 
@@ -293,7 +325,7 @@ static void test_satellites_real_um980_5_constellations(void)
     //  BeiDou  : 12 (01,02,03,38,41,08,32,10,34,13,07,25)
     //  QZSS    : 2  (07,03)
     //  Total   : 27 — also reported as the satellites-used field of GGA
-    const auto sats = data->satellites();
+    const auto sats = data->all();
     TEST_ASSERT_EQUAL(27u, sats.size());
 
     TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(data->mode));
@@ -355,7 +387,7 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     TEST_ASSERT_TRUE(sats.has_value());
     TEST_ASSERT_TRUE(used.has_value());
     TEST_ASSERT_EQUAL_UINT32(27, used->raw);
-    TEST_ASSERT_EQUAL(27u, sats->inSolutionCount);
+    TEST_ASSERT_EQUAL(27u, sats->inSolutionCount());
 
     // Synthetic position: 25°30.12345678'N = 25.502057..°,  130°45.87654321'E = 130.764609..°
     // The 8th fractional digit is truncated by parseDegrees (capped at 7).
@@ -411,27 +443,27 @@ static void test_satellites_gsv_single_gps_group(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto view = data->inView();
+    const auto view = data->all();
+    TEST_ASSERT_EQUAL(12u, data->inViewCount());
     TEST_ASSERT_EQUAL(12u, view.size());
 
     // First quad of the first sentence.
     TEST_ASSERT_EQUAL_UINT8(3, view.front().prn);
     TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::GPS), static_cast<int>(view.front().systemId));
-    TEST_ASSERT_TRUE(view.front().elevationDeg.has_value());
-    TEST_ASSERT_EQUAL_INT16(57, *view.front().elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(94, *view.front().azimuthDeg);
-    TEST_ASSERT_EQUAL_INT16(40, *view.front().cn0DbHz);
+    TEST_ASSERT_EQUAL_INT16(57, view.front().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(94, view.front().azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(40, view.front().cn0DbHz);
 
     // Last quad of the last sentence.
     TEST_ASSERT_EQUAL_UINT8(32, view.back().prn);
-    TEST_ASSERT_EQUAL_INT16(55, *view.back().elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(58, *view.back().azimuthDeg);
-    TEST_ASSERT_EQUAL_INT16(32, *view.back().cn0DbHz);
+    TEST_ASSERT_EQUAL_INT16(55, view.back().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(58, view.back().azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(32, view.back().cn0DbHz);
 
-    // No GSA fed → in-solution list empty and nothing flagged in-solution.
-    TEST_ASSERT_EQUAL(0u, data->satellites().size());
-    for (const auto& s : view)
-        TEST_ASSERT_FALSE(s.inSolution);
+    // No GSA fed → nothing in solution.
+    TEST_ASSERT_EQUAL(0u, data->inSolutionCount());
+    for (std::size_t i = 0; i < view.size(); ++i)
+        TEST_ASSERT_FALSE(data->inSolution(i));
 }
 
 // ── GSV: an empty SNR field leaves C/N0 unset ───────────────────────────────
@@ -444,12 +476,12 @@ static void test_satellites_gsv_empty_snr(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(1u, view.size());
     TEST_ASSERT_EQUAL_UINT8(5, view.front().prn);
-    TEST_ASSERT_EQUAL_INT16(10, *view.front().elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(123, *view.front().azimuthDeg);
-    TEST_ASSERT_FALSE(view.front().cn0DbHz.has_value());   // empty SNR → nullopt
+    TEST_ASSERT_EQUAL_INT16(10, view.front().elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(123, view.front().azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(-1, view.front().cn0DbHz);   // empty SNR → -1 (not reported)
 }
 
 // ── GSV: multiple constellations land in their own systems ──────────────────
@@ -464,7 +496,7 @@ static void test_satellites_gsv_multi_constellation(void)
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(5u, view.size());
 
     int gpsN = 0, gloN = 0, galN = 0;
@@ -492,10 +524,10 @@ static void test_satellites_gsv_signal_dedupe(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        const auto view = data->inView();
+        const auto view = data->all();
         TEST_ASSERT_EQUAL(1u, view.size());                 // one row, not two
         TEST_ASSERT_EQUAL_UINT8(7, view.front().prn);
-        TEST_ASSERT_EQUAL_INT16(42, *view.front().cn0DbHz); // stronger signal kept
+        TEST_ASSERT_EQUAL_INT16(42, view.front().cn0DbHz);  // stronger signal kept
     }
 
     // Epoch 2 (a new RMC clears the buffer): stronger comes first; a later weaker
@@ -506,9 +538,9 @@ static void test_satellites_gsv_signal_dedupe(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        const auto view = data->inView();
+        const auto view = data->all();
         TEST_ASSERT_EQUAL(1u, view.size());
-        TEST_ASSERT_EQUAL_INT16(42, *view.front().cn0DbHz); // strongest still wins
+        TEST_ASSERT_EQUAL_INT16(42, view.front().cn0DbHz);  // strongest still wins
     }
 }
 
@@ -521,14 +553,14 @@ static void test_satellites_gsv_epoch_reset(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        TEST_ASSERT_EQUAL(2u, data->inView().size());
+        TEST_ASSERT_EQUAL(2u, data->all().size());
     }
     // New epoch: a fresh RMC clears the buffer before the new GSV arrives.
     feedSentence(gps, "GNRMC,000002.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GPGSV,1,1,02,10,57,094,40,11,33,056,36");
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(2u, view.size());
     for (const auto& s : view)
         TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // old 3/4 are gone
@@ -550,26 +582,24 @@ static void test_satellites_gsv_gsa_join(void)
     TEST_ASSERT_TRUE(data.has_value());
     TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // consume cleared both
 
-    // In-solution list enriched from GSV.
-    const auto sol = data->satellites();
-    TEST_ASSERT_EQUAL(3u, sol.size());
-    auto find = [&](uint8_t prn) -> const TinyGPSSatellite* {
-        for (const auto& s : sol) if (s.prn == prn) return &s;
-        return nullptr;
-    };
-    const TinyGPSSatellite* s3 = find(3);
-    TEST_ASSERT_NOT_NULL(s3);
-    TEST_ASSERT_TRUE(s3->elevationDeg.has_value());
-    TEST_ASSERT_EQUAL_INT16(57, *s3->elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(94, *s3->azimuthDeg);
-    TEST_ASSERT_EQUAL_INT16(40, *s3->cn0DbHz);
+    // In solution: 3 PRNs; the GSV data enriched the matching record.
+    TEST_ASSERT_EQUAL(3u, data->inSolutionCount());
+    const std::size_t i3 = findSat(*data, 3, GnssSystemId::GPS);
+    TEST_ASSERT_TRUE(i3 < data->all().size());
+    TEST_ASSERT_TRUE(data->inSolution(i3));
+    const auto& s3 = data->all()[i3];
+    TEST_ASSERT_EQUAL_INT16(57, s3.elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(94, s3.azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(40, s3.cn0DbHz);
 
-    // In-view list: 4 sats, with 3/4/7 flagged in solution and 8 not.
-    const auto view = data->inView();
+    // In view: 4 sats; 3/4/7 are in solution, 8 is in view only.
+    TEST_ASSERT_EQUAL(4u, data->inViewCount());
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(4u, view.size());
-    for (const auto& s : view) {
-        const bool expectInSolution = (s.prn != 8);
-        TEST_ASSERT_EQUAL_INT(expectInSolution ? 1 : 0, s.inSolution ? 1 : 0);
+    for (std::size_t i = 0; i < view.size(); ++i) {
+        TEST_ASSERT_TRUE(data->inView(i));
+        const bool expectInSolution = (view[i].prn != 8);
+        TEST_ASSERT_EQUAL_INT(expectInSolution ? 1 : 0, data->inSolution(i) ? 1 : 0);
     }
 }
 
@@ -582,7 +612,7 @@ static void test_satellites_gsv_qzss_talker(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(1u, view.size());
     TEST_ASSERT_EQUAL_UINT8(1, view.front().prn);
     TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::QZSS), static_cast<int>(view.front().systemId));
@@ -600,7 +630,7 @@ static void test_satellites_gsv_bad_checksum_no_pollution(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(2u, view.size());
     for (const auto& s : view)
         TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // 3/4 from the bad sentence never added
@@ -637,7 +667,7 @@ static void test_satellites_gsv_navic(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(2u, view.size());
     for (const auto& s : view)
         TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::NavIC), static_cast<int>(s.systemId));
@@ -656,7 +686,7 @@ static void test_satellites_gsa_split_accumulation(void)
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        const auto sol = data->satellites();
+        const auto sol = data->all();
         TEST_ASSERT_EQUAL(15u, sol.size());
         for (const auto& s : sol)
             TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::BeiDou), static_cast<int>(s.systemId));
@@ -667,7 +697,7 @@ static void test_satellites_gsa_split_accumulation(void)
     feedSentence(gps, "GNGSA,M,3,20,21,,,,,,,,,,,1.0,0.8,0.9,4");
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto sol = data->satellites();
+    const auto sol = data->all();
     TEST_ASSERT_EQUAL(2u, sol.size());                           // cleared, not appended (not 17)
     TEST_ASSERT_EQUAL_UINT8(20, sol[0].prn);
     TEST_ASSERT_EQUAL_UINT8(21, sol[1].prn);
@@ -731,61 +761,37 @@ static void test_satellites_real_um980_epoch_2026_04_26(void)
     TEST_ASSERT_TRUE(used.has_value());
 
     // ── In view: 53 across six constellations ──
-    const auto view = data->inView();
-    TEST_ASSERT_EQUAL(53u, view.size());
-    int vGps = 0, vGlo = 0, vGal = 0, vBds = 0, vQzs = 0, vNav = 0;
-    for (const auto& s : view) switch (s.systemId) {
-        case GnssSystemId::GPS:     ++vGps; break;
-        case GnssSystemId::GLONASS: ++vGlo; break;
-        case GnssSystemId::Galileo: ++vGal; break;
-        case GnssSystemId::BeiDou:  ++vBds; break;
-        case GnssSystemId::QZSS:    ++vQzs; break;
-        case GnssSystemId::NavIC:   ++vNav; break;
-        case GnssSystemId::Unknown: break;
-    }
-    TEST_ASSERT_EQUAL(9,  vGps);
-    TEST_ASSERT_EQUAL(8,  vGlo);
-    TEST_ASSERT_EQUAL(16, vBds);
-    TEST_ASSERT_EQUAL(12, vGal);
-    TEST_ASSERT_EQUAL(3,  vQzs);
-    TEST_ASSERT_EQUAL(5,  vNav);
+    const auto sats = data->all();
+    TEST_ASSERT_EQUAL(53u, data->inViewCount());
+    TEST_ASSERT_EQUAL(9,  countInView(*data, GnssSystemId::GPS));
+    TEST_ASSERT_EQUAL(8,  countInView(*data, GnssSystemId::GLONASS));
+    TEST_ASSERT_EQUAL(16, countInView(*data, GnssSystemId::BeiDou));
+    TEST_ASSERT_EQUAL(12, countInView(*data, GnssSystemId::Galileo));
+    TEST_ASSERT_EQUAL(3,  countInView(*data, GnssSystemId::QZSS));
+    TEST_ASSERT_EQUAL(5,  countInView(*data, GnssSystemId::NavIC));
 
     // ── In solution: union 37, equals the GGA satellites-used field ──
-    const auto sol = data->satellites();
-    TEST_ASSERT_EQUAL(37u, sol.size());
+    TEST_ASSERT_EQUAL(37u, data->inSolutionCount());
     TEST_ASSERT_EQUAL_UINT32(37, used->raw);
-
     // BeiDou solution split across two GSA sentences (12 + 1) accumulates to 13.
-    int solBds = 0;
-    for (const auto& s : sol)
-        if (s.systemId == GnssSystemId::BeiDou) ++solBds;
-    TEST_ASSERT_EQUAL(13, solBds);
+    TEST_ASSERT_EQUAL(13, countInSolution(*data, GnssSystemId::BeiDou));
 
     // ── GSV → in-solution enrichment: GPS PRN 05 carries elevation/azimuth/C/N0 ──
-    auto findSol = [&](uint8_t prn, GnssSystemId sys) -> const TinyGPSSatellite* {
-        for (const auto& s : sol)
-            if (s.prn == prn && s.systemId == sys) return &s;
-        return nullptr;
-    };
-    const TinyGPSSatellite* g5 = findSol(5, GnssSystemId::GPS);
-    TEST_ASSERT_NOT_NULL(g5);
-    TEST_ASSERT_TRUE(g5->elevationDeg.has_value());
-    TEST_ASSERT_EQUAL_INT16(70, *g5->elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(58, *g5->azimuthDeg);
-    TEST_ASSERT_EQUAL_INT16(39, *g5->cn0DbHz);
+    const std::size_t iG5 = findSat(*data, 5, GnssSystemId::GPS);
+    TEST_ASSERT_TRUE(iG5 < sats.size());
+    TEST_ASSERT_TRUE(data->inSolution(iG5));
+    TEST_ASSERT_EQUAL_INT16(70, sats[iG5].elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(58, sats[iG5].azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(39, sats[iG5].cn0DbHz);
 
     // ── NavIC PRN 40 in view with elev/azim/C/N0; not part of the solution ──
-    auto findView = [&](uint8_t prn, GnssSystemId sys) -> const TinyGPSSatellite* {
-        for (const auto& s : view)
-            if (s.prn == prn && s.systemId == sys) return &s;
-        return nullptr;
-    };
-    const TinyGPSSatellite* n40 = findView(40, GnssSystemId::NavIC);
-    TEST_ASSERT_NOT_NULL(n40);
-    TEST_ASSERT_EQUAL_INT16(34,  *n40->elevationDeg);
-    TEST_ASSERT_EQUAL_INT16(209, *n40->azimuthDeg);
-    TEST_ASSERT_EQUAL_INT16(32,  *n40->cn0DbHz);
-    TEST_ASSERT_FALSE(n40->inSolution);
+    const std::size_t iN40 = findSat(*data, 40, GnssSystemId::NavIC);
+    TEST_ASSERT_TRUE(iN40 < sats.size());
+    TEST_ASSERT_TRUE(data->inView(iN40));
+    TEST_ASSERT_EQUAL_INT16(34,  sats[iN40].elevationDeg);
+    TEST_ASSERT_EQUAL_INT16(209, sats[iN40].azimuthDeg);
+    TEST_ASSERT_EQUAL_INT16(32,  sats[iN40].cn0DbHz);
+    TEST_ASSERT_FALSE(data->inSolution(iN40));
 
     // ── GSA scalars ──
     TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(data->mode));
@@ -827,19 +833,14 @@ static void test_satellites_gsv_multi_signal_hex(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(3u, view.size());   // distinct PRNs 10, 01, 02 (not 4)
 
-    auto find = [&](uint8_t prn) -> const TinyGPSSatellite* {
-        for (const auto& s : view)
-            if (s.prn == prn && s.systemId == GnssSystemId::BeiDou) return &s;
-        return nullptr;
-    };
-    const TinyGPSSatellite* p10 = find(10);
-    TEST_ASSERT_NOT_NULL(p10);
-    TEST_ASSERT_EQUAL_INT16(40, *p10->cn0DbHz);   // strongest C/N0 kept (40 > 30)
-    TEST_ASSERT_NOT_NULL(find(1));                 // PRN 1 (signal-1 only) survives
-    TEST_ASSERT_NOT_NULL(find(2));                 // PRN 2 (signal-B only) added
+    const std::size_t i10 = findSat(*data, 10, GnssSystemId::BeiDou);
+    TEST_ASSERT_TRUE(i10 < view.size());
+    TEST_ASSERT_EQUAL_INT16(40, view[i10].cn0DbHz);   // strongest C/N0 kept (40 > 30)
+    TEST_ASSERT_TRUE(findSat(*data, 1, GnssSystemId::BeiDou) < view.size());  // signal-1-only survives
+    TEST_ASSERT_TRUE(findSat(*data, 2, GnssSystemId::BeiDou) < view.size());  // signal-B-only added
 }
 
 // ── GSV: a large 21-sat, 6-sentence BeiDou group fits the buffer ────────────
@@ -857,7 +858,7 @@ static void test_satellites_gsv_large_beidou(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    const auto view = data->inView();
+    const auto view = data->all();
     TEST_ASSERT_EQUAL(21u, view.size());
     for (const auto& s : view)
         TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::BeiDou), static_cast<int>(s.systemId));
