@@ -158,44 +158,45 @@ static void test_satellites_multi_constellation_accumulation(void)
     TEST_ASSERT_EQUAL(2, galCount);
 }
 
-// ── Per-system replacement (a new GSA for system X replaces only X) ─────────
+// ── New epoch (RMC) clears constellations no longer reported ─────────────────
 
-static void test_satellites_per_system_replacement(void)
+static void test_satellites_new_epoch_clears_dropped(void)
 {
     TinyGPSPlus gps;
 
-    // Initial GPS + GLONASS snapshots
+    // Epoch 1: GPS + GLONASS reported (in solution and in view).
+    feedSentence(gps, "GNRMC,000001.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GNGSA,A,3,3,4,7,,,,,,,,,,1.1,1.2,1.3,1");
     feedSentence(gps, "GNGSA,A,3,65,66,67,,,,,,,,,,1.1,1.2,1.3,2");
+    feedSentence(gps, "GPGSV,1,1,03,03,40,100,40,04,30,110,38,07,20,120,35,1");
+    feedSentence(gps, "GLGSV,1,1,03,65,40,200,42,66,30,210,39,67,20,220,33,1");
     {
         const auto data = gps.satellites.consume();
         TEST_ASSERT_TRUE(data.has_value());
-        TEST_ASSERT_EQUAL(6u, data->inSolutionCount);
+        TEST_ASSERT_EQUAL(6u, data->satellites().size());   // 3 GPS + 3 GLONASS in solution
     }
 
-    // New GPS sentence with a different PRN list — replaces only GPS slot
+    // Epoch 2: a new RMC clears the buffer; only GPS is reported this time.
+    feedSentence(gps, "GNRMC,000002.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GNGSA,A,3,10,11,12,13,,,,,,,,,1.1,1.2,1.3,1");
+    feedSentence(gps, "GPGSV,1,1,04,10,40,100,40,11,30,110,38,12,20,120,35,13,10,130,30,1");
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
 
     const auto sats = data->satellites();
-    // 4 (new GPS) + 3 (unchanged GLONASS) = 7
-    TEST_ASSERT_EQUAL(7u, sats.size());
+    TEST_ASSERT_EQUAL(4u, sats.size());                     // only the new GPS list
 
     bool sawOldGpsPrn3 = false;
     bool sawNewGpsPrn10 = false;
-    bool sawGlonassPrn65 = false;
+    bool sawGlonass = false;
     for (const auto& s : sats) {
-        if (s.systemId == GnssSystemId::GPS && s.prn == 3)
-            sawOldGpsPrn3 = true;
-        if (s.systemId == GnssSystemId::GPS && s.prn == 10)
-            sawNewGpsPrn10 = true;
-        if (s.systemId == GnssSystemId::GLONASS && s.prn == 65)
-            sawGlonassPrn65 = true;
+        if (s.systemId == GnssSystemId::GPS && s.prn == 3)  sawOldGpsPrn3 = true;
+        if (s.systemId == GnssSystemId::GPS && s.prn == 10) sawNewGpsPrn10 = true;
+        if (s.systemId == GnssSystemId::GLONASS)            sawGlonass = true;
     }
-    TEST_ASSERT_FALSE(sawOldGpsPrn3);   // old GPS list dropped
+    TEST_ASSERT_FALSE(sawOldGpsPrn3);   // previous epoch's GPS list gone
     TEST_ASSERT_TRUE(sawNewGpsPrn10);   // new GPS list present
-    TEST_ASSERT_TRUE(sawGlonassPrn65);  // GLONASS untouched
+    TEST_ASSERT_FALSE(sawGlonass);      // GLONASS dropped (not reported this epoch)
 }
 
 // ── Talker-derived SystemID (GLGSA, no System ID field) ─────────────────────
@@ -343,10 +344,10 @@ static void test_satellites_real_um980_5_constellations(void)
 static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
 {
     TinyGPSPlus gps;
+    feedSentence(gps, kUm980EpochRmc);   // RMC leads the epoch and clears the buffer
+    feedSentence(gps, kUm980EpochGga);
     for (const auto sentence : kUm980EpochGsas)
         feedSentence(gps, sentence);
-    feedSentence(gps, kUm980EpochRmc);
-    feedSentence(gps, kUm980EpochGga);
 
     // GGA's satellites-used field matches the GSA union (sanity cross-check)
     const auto sats = gps.satellites.consume();
@@ -403,11 +404,9 @@ static void test_satellites_gsv_single_gps_group(void)
     TinyGPSPlus gps;
     // From main/fake_nmea.cpp (NMEA 4.10, no trailing signal ID).
     feedSentence(gps, "GPGSV,3,1,12,03,57,094,40,04,33,056,36,07,27,116,33,08,53,249,40");
-    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());   // group not finished yet
     feedSentence(gps, "GPGSV,3,2,12,15,68,328,32,17,46,115,34,19,05,327,39,22,11,053,39");
-    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
     feedSentence(gps, "GPGSV,3,3,12,24,52,269,31,29,46,288,36,31,88,250,38,32,55,058,32");
-    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());    // last sentence completed it
+    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());    // GSV data available (per-sentence)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
@@ -499,8 +498,9 @@ static void test_satellites_gsv_signal_dedupe(void)
         TEST_ASSERT_EQUAL_INT16(42, *view.front().cn0DbHz); // stronger signal kept
     }
 
-    // Epoch 2 (signal IDs restart at 1): stronger comes first; a later weaker
+    // Epoch 2 (a new RMC clears the buffer): stronger comes first; a later weaker
     // signal must not overwrite it.
+    feedSentence(gps, "GNRMC,000002.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GPGSV,1,1,01,07,30,100,42,1");
     feedSentence(gps, "GPGSV,1,1,01,07,30,100,25,5");
     {
@@ -523,7 +523,8 @@ static void test_satellites_gsv_epoch_reset(void)
         TEST_ASSERT_TRUE(data.has_value());
         TEST_ASSERT_EQUAL(2u, data->inView().size());
     }
-    // New epoch, different PRNs (NMEA 4.10, no signal ID → always replaces).
+    // New epoch: a fresh RMC clears the buffer before the new GSV arrives.
+    feedSentence(gps, "GNRMC,000002.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GPGSV,1,1,02,10,57,094,40,11,33,056,36");
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
@@ -587,26 +588,22 @@ static void test_satellites_gsv_qzss_talker(void)
     TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::QZSS), static_cast<int>(view.front().systemId));
 }
 
-// ── GSV: a bad checksum mid-sequence is dropped, no pollution ────────────────
+// ── GSV: a bad-checksum sentence is dropped; good sentences are kept ─────────
 
 static void test_satellites_gsv_bad_checksum_no_pollution(void)
 {
     TinyGPSPlus gps;
-    // First sentence of a 2-part group is good; second is corrupt → never finalizes.
-    feedSentence(gps, "GPGSV,2,1,05,03,57,094,40,04,33,056,36");
-    feedSentenceBadChecksum(gps, "GPGSV,2,2,05,07,27,116,33");
-    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());    // group never completed
-
-    // A fresh, complete group must show only its own satellites.
-    feedSentence(gps, "GPGSV,1,1,02,10,40,200,30,11,20,100,28");
+    // A good GSV sentence's satellites are upserted; a bad-checksum one is dropped.
+    feedSentence(gps, "GPGSV,1,1,02,10,40,200,30,11,20,100,28");           // good: PRN 10,11
     TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());
+    feedSentenceBadChecksum(gps, "GPGSV,1,1,02,03,57,094,40,04,33,056,36"); // bad: PRN 3,4 dropped
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
     const auto view = data->inView();
     TEST_ASSERT_EQUAL(2u, view.size());
     for (const auto& s : view)
-        TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // 3/4/7 never leaked in
+        TEST_ASSERT_TRUE(s.prn == 10 || s.prn == 11);       // 3/4 from the bad sentence never added
 }
 
 // ── Freshness: isUpdated() requires BOTH GSA and GSV ────────────────────────
@@ -648,12 +645,12 @@ static void test_satellites_gsv_navic(void)
     TEST_ASSERT_EQUAL_UINT8(41, view[1].prn);
 }
 
-// ── GSA split: two consecutive same-System-ID sentences accumulate; reset replaces ──
+// ── GSA split: two same-System-ID sentences accumulate; a new epoch (RMC) replaces ──
 
 static void test_satellites_gsa_split_accumulation(void)
 {
     TinyGPSPlus gps;
-    // Two consecutive System ID 4 (BeiDou) GSA sentences: 12 + 3 PRNs accumulate to 15.
+    // BeiDou solution split across two System ID 4 GSA sentences: 12 + 3 = 15.
     feedSentence(gps, "GNGSA,M,3,01,02,03,04,05,06,07,08,09,10,11,12,1.0,0.8,0.9,4");
     feedSentence(gps, "GNGSA,M,3,13,14,15,,,,,,,,,,1.0,0.8,0.9,4");
     {
@@ -665,13 +662,13 @@ static void test_satellites_gsa_split_accumulation(void)
             TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::BeiDou), static_cast<int>(s.systemId));
     }
 
-    // A committed non-GSA sentence ends the run; the next System ID 4 GSA replaces.
-    feedSentence(gps, "GPGSV,1,1,01,05,10,100,30,1");            // ends the open GSA run
+    // A new epoch (RMC) clears the buffer; the next System ID 4 GSA stands alone.
+    feedSentence(gps, "GNRMC,000002.00,A,2530.0,N,13045.0,E,0,0,240426,,,A");
     feedSentence(gps, "GNGSA,M,3,20,21,,,,,,,,,,,1.0,0.8,0.9,4");
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
     const auto sol = data->satellites();
-    TEST_ASSERT_EQUAL(2u, sol.size());                           // replaced, not appended (not 17)
+    TEST_ASSERT_EQUAL(2u, sol.size());                           // cleared, not appended (not 17)
     TEST_ASSERT_EQUAL_UINT8(20, sol[0].prn);
     TEST_ASSERT_EQUAL_UINT8(21, sol[1].prn);
 }
@@ -685,21 +682,21 @@ static void test_satellites_gsa_split_accumulation(void)
 //                      == GGA satellites-used (37)
 
 static constexpr std::array<std::string_view, 15> kEpoch0426Gsv = {
-    "GPGSV,3,1,09,05,70,058,39,11,18,078,36,26,16,310,30,21,41,050,36,1",
-    "GPGSV,3,2,09,25,25,215,36,15,25,159,34,29,78,297,41,20,30,129,37,1",
-    "GPGSV,3,3,09,18,32,280,39,1",
-    "GLGSV,2,1,08,66,50,070,37,82,53,331,36,65,15,026,20,88,06,097,24,2",
-    "GLGSV,2,2,08,80,25,262,28,81,51,063,36,73,17,320,34,67,36,156,33,2",
-    "GBGSV,4,1,16,66,30,134,35,67,41,175,33,02,41,175,36,03,30,134,36,4",
-    "GBGSV,4,2,16,01,10,108,36,38,41,104,41,42,34,051,36,06,70,060,39,4",
-    "GBGSV,4,3,16,09,79,174,40,13,67,084,40,41,22,184,36,27,31,298,36,4",
+    "GPGSV,3,1,09,05,70,058,39,11,18,078,36,26,16,310,31,21,41,050,36,1",
+    "GPGSV,3,2,09,25,25,215,38,15,25,159,37,29,78,297,40,20,30,129,35,1",
+    "GPGSV,3,3,09,18,32,280,36,1",
+    "GLGSV,2,1,08,66,50,070,38,82,53,331,35,65,15,026,22,88,06,097,24,2",
+    "GLGSV,2,2,08,80,25,262,30,81,51,063,36,73,17,320,33,67,36,156,33,2",
+    "GBGSV,4,1,16,66,30,134,35,67,41,175,33,02,41,175,36,03,30,134,35,4",
+    "GBGSV,4,2,16,01,10,108,35,38,41,104,39,42,34,051,35,06,70,060,39,4",
+    "GBGSV,4,3,16,09,79,174,38,13,67,084,40,41,22,184,38,27,31,298,37,4",
     "GBGSV,4,4,16,14,13,037,29,08,27,127,33,33,56,132,40,28,73,328,40,4",
-    "GAGSV,3,1,12,36,34,272,37,10,56,051,37,12,33,065,30,06,14,143,31,3",
-    "GAGSV,3,2,12,25,45,235,35,16,18,186,33,11,73,345,33,04,23,118,30,3",
-    "GAGSV,3,3,12,19,21,060,27,28,,,34,02,30,304,33,18,,,40,3",
+    "GAGSV,3,1,12,36,34,272,35,10,56,051,37,12,33,065,30,06,14,143,29,3",
+    "GAGSV,3,2,12,25,45,235,36,16,18,186,31,11,73,345,33,04,23,118,30,3",
+    "GAGSV,3,3,12,19,21,060,27,28,,,34,02,30,304,34,18,,,40,3",
     "GQGSV,1,1,03,03,29,083,36,07,19,119,40,55,38,160,35,5",
-    "GIGSV,2,1,05,40,34,209,32,41,40,170,34,10,16,118,39,09,19,199,40,6",
-    "GIGSV,2,2,05,02,48,213,40,6",
+    "GIGSV,2,1,05,40,34,209,32,41,40,170,34,10,16,118,40,09,19,199,33,6",
+    "GIGSV,2,2,05,02,48,213,42,6",
 };
 static constexpr std::array<std::string_view, 6> kEpoch0426Gsa = {
     "GNGSA,M,3,05,11,21,25,29,20,18,,,,,,0.9,0.5,0.7,1",
@@ -718,11 +715,12 @@ static constexpr std::string_view kEpoch0426Gga =
 static void test_satellites_real_um980_epoch_2026_04_26(void)
 {
     TinyGPSPlus gps;
-    for (const auto s : kEpoch0426Gsv)
-        feedSentence(gps, s);
+    // Real intra-epoch order: RMC -> GGA -> GSA -> GSV (RMC clears the buffer).
     feedSentence(gps, kEpoch0426Rmc);
     feedSentence(gps, kEpoch0426Gga);
-    for (const auto s : kEpoch0426Gsa)   // six consecutive GSA (BeiDou split across two)
+    for (const auto s : kEpoch0426Gsa)   // six GSA (BeiDou split across two System-ID-4)
+        feedSentence(gps, s);
+    for (const auto s : kEpoch0426Gsv)
         feedSentence(gps, s);
 
     TEST_ASSERT_TRUE(gps.satellites.isUpdated());   // both GSA and GSV are fresh
@@ -817,13 +815,61 @@ static void test_satellites_real_um980_epoch_2026_04_26(void)
     TEST_ASSERT_EQUAL_UINT8(21, time->second());
 }
 
+// ── GSV: a PRN on multiple signals (incl. a hex Signal ID) is deduped ───────
+
+static void test_satellites_gsv_multi_signal_hex(void)
+{
+    TinyGPSPlus gps;
+    // BeiDou signal 1 (PRN 10 C/N0 40, PRN 01 C/N0 45), then signal B = hex 11
+    // (PRN 10 weaker, PRN 02 new) within one epoch.
+    feedSentence(gps, "GBGSV,1,1,02,10,30,201,40,01,34,140,45,1");
+    feedSentence(gps, "GBGSV,1,1,02,10,30,201,30,02,33,224,41,B");
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(3u, view.size());   // distinct PRNs 10, 01, 02 (not 4)
+
+    auto find = [&](uint8_t prn) -> const TinyGPSSatellite* {
+        for (const auto& s : view)
+            if (s.prn == prn && s.systemId == GnssSystemId::BeiDou) return &s;
+        return nullptr;
+    };
+    const TinyGPSSatellite* p10 = find(10);
+    TEST_ASSERT_NOT_NULL(p10);
+    TEST_ASSERT_EQUAL_INT16(40, *p10->cn0DbHz);   // strongest C/N0 kept (40 > 30)
+    TEST_ASSERT_NOT_NULL(find(1));                 // PRN 1 (signal-1 only) survives
+    TEST_ASSERT_NOT_NULL(find(2));                 // PRN 2 (signal-B only) added
+}
+
+// ── GSV: a large 21-sat, 6-sentence BeiDou group fits the buffer ────────────
+
+static void test_satellites_gsv_large_beidou(void)
+{
+    TinyGPSPlus gps;
+    // From the UM980 manual (§7.1.1.9 GPGSV): BeiDou signal 1, 21 satellites in view.
+    feedSentence(gps, "GBGSV,6,1,21,36,72,016,49,19,24,172,36,39,75,082,50,30,13,111,38,1");
+    feedSentence(gps, "GBGSV,6,2,21,10,30,201,35,27,10,062,32,01,34,140,40,07,40,195,39,1");
+    feedSentence(gps, "GBGSV,6,3,21,16,78,051,49,22,59,233,48,09,69,327,45,59,38,144,43,1");
+    feedSentence(gps, "GBGSV,6,4,21,03,42,188,39,04,25,124,36,40,48,180,45,45,41,261,40,1");
+    feedSentence(gps, "GBGSV,6,5,21,60,28,227,36,02,33,224,32,46,25,059,35,21,32,308,35,1");
+    feedSentence(gps, "GBGSV,6,6,21,06,79,008,47,1");
+
+    const auto data = gps.satellites.consume();
+    TEST_ASSERT_TRUE(data.has_value());
+    const auto view = data->inView();
+    TEST_ASSERT_EQUAL(21u, view.size());
+    for (const auto& s : view)
+        TEST_ASSERT_EQUAL(static_cast<int>(GnssSystemId::BeiDou), static_cast<int>(s.systemId));
+}
+
 void run_satellites_tests(void)
 {
     RUN_TEST(test_satellites_single_gpgsa_full);
     RUN_TEST(test_satellites_gsa_partial_prns);
     RUN_TEST(test_satellites_gsa_legacy_no_system_id);
     RUN_TEST(test_satellites_multi_constellation_accumulation);
-    RUN_TEST(test_satellites_per_system_replacement);
+    RUN_TEST(test_satellites_new_epoch_clears_dropped);
     RUN_TEST(test_satellites_talker_derived_system_id);
     RUN_TEST(test_satellites_bad_checksum_no_commit);
     RUN_TEST(test_satellites_used_count_from_gga);
@@ -840,5 +886,7 @@ void run_satellites_tests(void)
     RUN_TEST(test_satellites_updated_requires_gsa_and_gsv);
     RUN_TEST(test_satellites_gsv_navic);
     RUN_TEST(test_satellites_gsa_split_accumulation);
+    RUN_TEST(test_satellites_gsv_multi_signal_hex);
+    RUN_TEST(test_satellites_gsv_large_beidou);
     RUN_TEST(test_satellites_real_um980_epoch_2026_04_26);
 }
