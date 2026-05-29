@@ -4,7 +4,8 @@ A DIY data logger for the ESP32 that records high-precision GNSS position, tempe
 
 ## What it does
 
-- Reads GNSS data from a **Unicore UM980** receiver (multi-band GPS/GLONASS/Galileo/BeiDou) over UART
+- Reads GNSS data from a **Unicore UM980** receiver (multi-band GPS/GLONASS/Galileo/BeiDou/QZSS/NavIC) over UART
+- Tracks **satellites in view and in solution** per constellation (elevation, azimuth, C/N0) parsed from GSV/GSA sentences
 - Reads **temperature and humidity** from an SHT3x sensor over I2C
 - Monitors **battery voltage** via ADC
 - Writes timestamped log entries to an **SD card** (FAT32, SPI)
@@ -90,7 +91,7 @@ Useful flags: `--no-flash` (read serial only), `--port`, `--baud`, `--timeout`, 
 ## Dependencies
 
 - **ESP-IDF v6.0.1** — do not use v5.x; the project requires v6.0.1 APIs
-- **TinyGPSPlus** (git submodule) — a [forked version](https://github.com/kasetkin/TinyGPSPlus) that extends the original library with support for Unicore proprietary NMEA sentences used for PPP/RTK positioning
+- **TinyGPSPlus** (git submodule) — a [forked version](https://github.com/kasetkin/TinyGPSPlus) that extends the original library with support for Unicore proprietary NMEA sentences used for PPP/RTK positioning, plus native GSV/GSA parsing that accumulates per-epoch satellite data (in view / in solution, elevation, azimuth, C/N0) for all six constellations including NavIC
 
 ## Architecture
 
