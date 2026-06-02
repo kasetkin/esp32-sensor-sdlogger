@@ -4,6 +4,7 @@
 #include <string_view>
 #include <memory>
 #include <chrono>
+#include <optional>
 #include <vector>
 #include <cstddef>
 #include <compare>
@@ -30,23 +31,20 @@ struct SatelliteInfo {
 
 struct GpsInfo
 {
-    static constexpr double BAD_LATLON = -999999999.0;
-    static constexpr double BAD_ALTITUDE = -12000000.0;
-    static constexpr uint32_t BAD_DOP = 666000000;
-
     std::flat_set<SatelliteInfo> satellites;   // satellites used in fix, from all GNGSA
     std::size_t satellitesInView = 0;          // count of satellites in view, from all GNGSV
-    // TinyGPSLocation location;
     std::chrono::system_clock::time_point worldTime;
-    double lat = BAD_LATLON;
-    double lon = BAD_LATLON;
-    double altitude = BAD_ALTITUDE;
-    double geoidAlt = BAD_ALTITUDE;
-    uint32_t gsaHDOP = BAD_DOP;
-    uint32_t gsaVDOP = BAD_DOP;
-    uint32_t gsaPDOP = BAD_DOP;
-    TinyGPSLocation::Quality quality = TinyGPSLocation::Quality::Invalid; // quality from GGA
-    uint8_t fixType = 0;      // fix type from GPGSA
+    std::optional<double> lat;
+    std::optional<double> lon;
+    std::optional<double> altitude;
+    std::optional<double> geoidAlt;
+    std::optional<double> fixHDOP;
+    std::optional<double> fixVDOP;
+    std::optional<double> fixPDOP;
+    std::optional<TinyGPSLocation::GnssQuality> quality;
+    std::optional<TinyGPSLocation::PositioningMode> positioningMode;
+    std::optional<TinyGPSLocation::Fix2D3DMode> fix2D3DMode;
+    std::optional<TinyGPSLocation::Fix2D3DType> fix2D3DType;
 };
 
 class GpsTask

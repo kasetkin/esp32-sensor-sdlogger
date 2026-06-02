@@ -102,7 +102,7 @@ esp_err_t GpsTask::configureUM980()
     sendStringAndWait("CONFIG ANTIJAM FORCE\r\n");
     sendStringAndWait("CONFIG PSRVELDRPOS DISABLE\r\n");
     sendStringAndWait("CONFIG UNDULATION AUTO\r\n");
-    sendStringAndWait("CONFIG NMEA0183 V411\r\n");
+    sendStringAndWait("CONFIG NMEA0183 V410\r\n"); /// IMPORTANT!!! if use "V411" => GSV message, term 17 becomes incorrect 
     sendStringAndWait("CONFIG SBAS ENABLE AUTO\r\n"); /// why not, if there is any in your region
     sendStringAndWait("CONFIG SBAS TIMEOUT 1800\r\n");
     sendStringAndWait("CONFIG STANDALONE ENABLE\r\n"); /// not sure if it's a good idea
@@ -283,20 +283,19 @@ void GpsTask::executeTask()
     }
 }
 
-using Q = TinyGPSLocation::Quality;
+using Q = TinyGPSLocation::GnssQuality;
 static constexpr std::array VALID_GPS_QUALITY{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
-// fixType: 0=no data, 2=2D fix, 3=3D fix (1=no fix excluded)
 static constexpr std::array<uint8_t, 3> VALID_FIX_TYPES{0, 2, 3};
 
 bool GpsTask::hasLock(const GpsInfo &info)
 {
-    return std::ranges::contains(VALID_GPS_QUALITY, info.quality)
-        && std::ranges::contains(VALID_FIX_TYPES, info.fixType);
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) ;
+        //&& std::ranges::contains(VALID_FIX_TYPES, info.positioningMode);
 }
 
 bool GpsTask::has3DLock(const GpsInfo &info)
 {
-    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) && info.fixType == 3;
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) ; //&& info.positioningMode == TinyGPSLocation::PositioningMode::;
 }
 
 bool GpsTask::processNewLocation()
@@ -332,6 +331,9 @@ bool GpsTask::processNewLocation()
     const auto geoData = m_gps.geoidHeight.consume();
     const auto timeData = m_gps.time.consume();
     const auto dateData = m_gps.date.consume();
+    const auto fixHDOP = m_gps.hdop.consume();
+    const auto fixVDOP = m_gps.vdop.consume();
+    const auto fixPDOP = m_gps.pdop.consume();
     const auto usedCount = m_gps.satellitesUsedCount.consume();
 
     if (!locData || !satsData || !altData || !geoData || !timeData || !dateData) {
@@ -345,24 +347,31 @@ bool GpsTask::processNewLocation()
     // operation. Receivers vary (some cap at 12, some report the multi-GNSS
     // sum) so the library does not enforce — log a warning so anomalies
     // surface during integration.
-    if (usedCount && usedCount->raw != satsData->inSolutionCount())
+    if (usedCount && *usedCount != satsData->inSolutionCount())
         ESP_LOGW(NEW_LOCATION_TAG,
             "GGA reports %lu satellites in use but GSA union has %zu",
-            static_cast<unsigned long>(usedCount->raw),
+            static_cast<unsigned long>(*usedCount),
             satsData->inSolutionCount());
 
     GpsInfo gpsInfo{};
-    gpsInfo.fixType  = static_cast<uint8_t>(satsData->fixType);
+    gpsInfo.fix2D3DType  = locData->fix2D3DType;
+    gpsInfo.fix2D3DMode  = locData->fix2D3DMode;
+    gpsInfo.positioningMode  = locData->fixMode;
     gpsInfo.quality  = locData->fixQuality;
     gpsInfo.lat      = locData->latDeg();
     gpsInfo.lon      = locData->lngDeg();
     gpsInfo.altitude = altData->meters();
     gpsInfo.geoidAlt = geoData->meters();
+    gpsInfo.fixHDOP = fixHDOP->dop();
+    gpsInfo.fixVDOP = fixVDOP->dop();
+    gpsInfo.fixPDOP = fixPDOP->dop();
+
     const auto allSats = satsData->all();
     for (std::size_t i = 0; i < allSats.size(); ++i)
     {
         if (!satsData->inSolution(i))
             continue;
+
         const auto& sat = allSats[i];
         gpsInfo.satellites.insert({
             .prn       = sat.prn,
@@ -408,12 +417,6 @@ bool GpsTask::processNewLocation()
         settimeofday(&gpsTimeNow, &myZone);
 
         ESP_LOGI(NEW_LOCATION_TAG, "timestamp generated");
-
-        gpsInfo.gsaPDOP = static_cast<uint32_t>(satsData->pdop);
-        gpsInfo.gsaHDOP = static_cast<uint32_t>(satsData->hdop);
-        gpsInfo.gsaVDOP = static_cast<uint32_t>(satsData->vdop);
-
-        ESP_LOGI(NEW_LOCATION_TAG, "GSA h/v/p DOP ok");
     }
 
     PppInfo pppInfo{};
@@ -459,8 +462,8 @@ bool GpsTask::processNewLocation()
     {
         const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
         const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
-        const double latGnss = gpsInfo.lat; //static_cast<double>(localPosition.latitude_i) * 1e-7;
-        const double lonGnss = gpsInfo.lon; //static_cast<double>(localPosition.longitude_i) * 1e-7;
+        const double latGnss = gpsInfo.lat.value_or(std::numeric_limits<double>::quiet_NaN());
+        const double lonGnss = gpsInfo.lon.value_or(std::numeric_limits<double>::quiet_NaN());
         const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
         
         const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
@@ -529,11 +532,11 @@ std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
     message += ";SATS;";
     appendNum(message, p.satellites.size());
     message += ";PDOP;";
-    dopToMeters(message, p.gsaPDOP);
+    dopToMeters(message, p.fixPDOP.value_or(-1.0));
     message += ";HDOP;";
-    dopToMeters(message, p.gsaHDOP);
+    dopToMeters(message, p.fixHDOP.value_or(-1.0));
     message += ";VDOP;";
-    dopToMeters(message, p.gsaVDOP);
+    dopToMeters(message, p.fixVDOP.value_or(-1.0));
     message += ";";
     return message;
 }
@@ -706,12 +709,15 @@ void appendRaw(std::vector<std::byte> &buf, const T &data)
 // Binary record format: Qstarz BL-1000GT, 64 bytes, little-endian
 GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
 {
+    if (!p.lat || !p.lat || !p.lon)
+        return {};
+
     const auto epoch = p.worldTime.time_since_epoch();
     const auto secs = std::chrono::duration_cast<std::chrono::seconds>(epoch);
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch) - secs;
 
-    // mode: 1=fix not available, 2=2D, 3=3D (maps directly from fixType; 0->1)
-    const uint8_t mode = (p.fixType >= 2 && p.fixType <= 3) ? p.fixType : 1;
+    const auto fix2d3dModeVal = p.fix2D3DType.value_or(TinyGPSLocation::Fix2D3DType::None);
+    const uint8_t mode = (fix2d3dModeVal == TinyGPSLocation::Fix2D3DType::Fix2D || fix2d3dModeVal == TinyGPSLocation::Fix2D3DType::Fix3D) ? static_cast<uint8_t>(fix2d3dModeVal) : 1;
     const uint8_t rcr = 'T';
     const uint16_t time_ms = static_cast<uint16_t>(ms.count());
 
@@ -723,24 +729,24 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
         const double result = deg * 100.0 + min;
         return decimal < 0.0 ? -result : result;
     };
-    const double dLat = toQstarzDeg(p.lat);
-    const double dLon = toQstarzDeg(p.lon);
+    const double dLat = toQstarzDeg(p.lat.value());
+    const double dLon = toQstarzDeg(p.lon.value());
 
     const uint32_t time_s = static_cast<uint32_t>(secs.count());
     const float speed_kmph = 0.0f;
-    const float height_m = static_cast<float>(p.altitude);
+    const float height_m = static_cast<float>(p.altitude.value());
     const float heading = 0.0f;
     const int16_t Gx = 0;
     const int16_t Gy = 0;
     const int16_t Gz = 0;
     const uint16_t maxSNR = 0;
-    const float hdop = static_cast<float>(p.gsaHDOP) / 100.0f;
-    const float vdop = static_cast<float>(p.gsaVDOP) / 100.0f;
+    const float dop = static_cast<float>(p.fixHDOP.value_or(-1.0)) / 100.0f;
+    const float vdop = static_cast<float>(p.fixVDOP.value_or(-1.0)) / 100.0f;
     const uint8_t numSatUse = static_cast<uint8_t>(
         std::min(p.satellites.size(), static_cast<size_t>(255)));
     const uint8_t numSatView = static_cast<uint8_t>(
         std::min(p.satellitesInView, static_cast<size_t>(255)));   // in-view count from GNGSV
-    const uint8_t fixQual = static_cast<uint8_t>(std::to_underlying(p.quality));
+    const uint8_t fixQual = static_cast<uint8_t>(std::to_underlying(p.quality.value_or(TinyGPSLocation::GnssQuality::Invalid)));
     const uint8_t batPerc = 0;
     const uint16_t dummy = 0;
     const uint8_t series_number = 0; /// Bluetooth GNSS expects '0'
@@ -763,7 +769,7 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     /// third
     appendRaw(buf, Gz); //  2
     appendRaw(buf, maxSNR); //  4
-    appendRaw(buf, hdop); //  8
+    appendRaw(buf, dop); //  8
     appendRaw(buf, vdop); // 12
     
     appendRaw(buf, numSatView); // 13

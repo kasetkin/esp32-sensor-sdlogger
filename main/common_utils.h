@@ -26,6 +26,7 @@ unsigned long millisFromStart();
 uint64_t getValidTime();
 
 #include <charconv>
+#include <optional>
 #include <type_traits>
 
 // Append any integer or float/double to `out` via to_chars — zero heap allocation.
@@ -40,6 +41,19 @@ template<typename T>
 inline void appendNum(std::string& out, T value) noexcept {
     char buf[28];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
+    out.append(buf, ptr);
+}
+
+template<typename T>
+    requires std::is_arithmetic_v<T>
+inline void appendNum(std::string& out, std::optional<T> value) noexcept {
+    if (!value.has_value()) {
+        out.push_back('-');
+        return;
+    }
+
+    char buf[28];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value.value());
     out.append(buf, ptr);
 }
 
