@@ -6,6 +6,11 @@
 #include <cstdio>
 #include <string_view>
 
+// GSA fix mode/type now live on TinyGPSLocation (consumed via gps.location);
+// PDOP/HDOP/VDOP live on the top-level gps.pdop/hdop/vdop DOP objects.
+using GsaFixMode = TinyGPSLocation::Fix2D3DMode;
+using GsaFixType = TinyGPSLocation::Fix2D3DType;
+
 // Feed an NMEA sentence into the parser one character at a time, with a
 // correct checksum auto-computed from the body. `body` is everything between
 // '$' and '*' (exclusive), without leading '$'.
@@ -83,11 +88,22 @@ static void test_satellites_single_gpgsa_full(void)
     TEST_ASSERT_TRUE(data.has_value());
     TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated()); // consume cleared it
 
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Auto), static_cast<int>(data->mode));
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D), static_cast<int>(data->fixType));
-    TEST_ASSERT_EQUAL_INT32(100, data->pdop);
-    TEST_ASSERT_EQUAL_INT32(120, data->hdop);
-    TEST_ASSERT_EQUAL_INT32(150, data->vdop);
+    // GSA fix mode/type land on location, which the GSA commits.
+    const auto loc = gps.location.consume();
+    TEST_ASSERT_TRUE(loc.has_value());
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Auto),  static_cast<int>(loc->fix2D3DMode));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D), static_cast<int>(loc->fix2D3DType));
+
+    // PDOP/HDOP/VDOP from terms 15/16/17 → real values 1.0 / 1.2 / 1.5.
+    const auto pdop = gps.pdop.consume();
+    const auto hdop = gps.hdop.consume();
+    const auto vdop = gps.vdop.consume();
+    TEST_ASSERT_TRUE(pdop.has_value());
+    TEST_ASSERT_TRUE(hdop.has_value());
+    TEST_ASSERT_TRUE(vdop.has_value());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.0, pdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.2, hdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.5, vdop->dop());
 
     const auto sats = data->all();
     TEST_ASSERT_EQUAL(12u, data->inSolutionCount());
@@ -112,7 +128,10 @@ static void test_satellites_gsa_partial_prns(void)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix2D), static_cast<int>(data->fixType));
+
+    const auto loc = gps.location.consume();
+    TEST_ASSERT_TRUE(loc.has_value());
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix2D), static_cast<int>(loc->fix2D3DType));
 
     const auto sats = data->all();
     TEST_ASSERT_EQUAL(3u, data->inSolutionCount());
@@ -282,7 +301,7 @@ static void test_satellites_used_count_from_gga(void)
     TEST_ASSERT_TRUE(gps.satellitesUsedCount.isUpdated());
     const auto data = gps.satellitesUsedCount.consume();
     TEST_ASSERT_TRUE(data.has_value());
-    TEST_ASSERT_EQUAL_UINT32(8, data->raw);
+    TEST_ASSERT_EQUAL_UINT32(8, *data);
 }
 
 // ── Real UM980 capture: one full epoch from a production stream ─────────────
@@ -328,11 +347,18 @@ static void test_satellites_real_um980_5_constellations(void)
     const auto sats = data->all();
     TEST_ASSERT_EQUAL(27u, sats.size());
 
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(data->mode));
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(data->fixType));
-    TEST_ASSERT_EQUAL_INT32(120, data->pdop);
-    TEST_ASSERT_EQUAL_INT32(80,  data->hdop);
-    TEST_ASSERT_EQUAL_INT32(100, data->vdop);
+    // Fix scalars are identical across the five GSAs (M / 3 / 1.2 / 0.8 / 1.0).
+    const auto loc = gps.location.consume();
+    TEST_ASSERT_TRUE(loc.has_value());
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(loc->fix2D3DMode));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(loc->fix2D3DType));
+    const auto pdop = gps.pdop.consume();
+    const auto hdop = gps.hdop.consume();
+    const auto vdop = gps.vdop.consume();
+    TEST_ASSERT_TRUE(pdop.has_value() && hdop.has_value() && vdop.has_value());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.2, pdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.8, hdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.0, vdop->dop());
 
     int gpsCount = 0;
     int gloCount = 0;
@@ -386,7 +412,7 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     const auto used = gps.satellitesUsedCount.consume();
     TEST_ASSERT_TRUE(sats.has_value());
     TEST_ASSERT_TRUE(used.has_value());
-    TEST_ASSERT_EQUAL_UINT32(27, used->raw);
+    TEST_ASSERT_EQUAL_UINT32(27, *used);
     TEST_ASSERT_EQUAL(27u, sats->inSolutionCount());
 
     // Synthetic position: 25°30.12345678'N = 25.502057..°,  130°45.87654321'E = 130.764609..°
@@ -397,8 +423,13 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     TEST_ASSERT_DOUBLE_WITHIN(1e-6, 130.76460905, loc->lngDeg());
 
     // Fix quality from GGA term 6 = '5' (FloatRTK)
-    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::Quality::FloatRTK),
+    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::GnssQuality::FloatRTK),
                       static_cast<int>(loc->fixQuality));
+
+    // Fix mode/type from the GSAs (M / 3) — committed after the GGA, so the
+    // location consumed here carries the GGA position plus the GSA fix state.
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(loc->fix2D3DMode));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(loc->fix2D3DType));
 
     // Altitude and geoid height — TinyGPSAltitude stores int32 × 100, so
     // expect 2-decimal precision (truncates 12.3400 → 12.34).
@@ -409,10 +440,14 @@ static void test_satellites_real_um980_full_epoch_with_gga_rmc(void)
     TEST_ASSERT_DOUBLE_WITHIN(0.01, 12.34, alt->meters());
     TEST_ASSERT_DOUBLE_WITHIN(0.01, -28.50, geo->meters());
 
-    // GGA term 8 HDOP = 0.8
+    // HDOP = 0.8 (GGA term 8 and GSA term 16); PDOP 1.2 / VDOP 1.0 from the GSAs.
+    const auto pdop = gps.pdop.consume();
     const auto hdop = gps.hdop.consume();
-    TEST_ASSERT_TRUE(hdop.has_value());
-    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.8, hdop->hdop());
+    const auto vdop = gps.vdop.consume();
+    TEST_ASSERT_TRUE(pdop.has_value() && hdop.has_value() && vdop.has_value());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.2, pdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.8, hdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 1.0, vdop->dop());
 
     // Date from RMC: 240426 → 24 April 2026
     const auto date = gps.date.consume();
@@ -438,7 +473,7 @@ static void test_satellites_gsv_single_gps_group(void)
     feedSentence(gps, "GPGSV,3,1,12,03,57,094,40,04,33,056,36,07,27,116,33,08,53,249,40");
     feedSentence(gps, "GPGSV,3,2,12,15,68,328,32,17,46,115,34,19,05,327,39,22,11,053,39");
     feedSentence(gps, "GPGSV,3,3,12,24,52,269,31,29,46,288,36,31,88,250,38,32,55,058,32");
-    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());    // GSV data available (per-sentence)
+    TEST_ASSERT_TRUE(gps.satellites.isGsvUpdated());    // GSV data available (per-sentence)
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
@@ -625,7 +660,7 @@ static void test_satellites_gsv_bad_checksum_no_pollution(void)
     TinyGPSPlus gps;
     // A good GSV sentence's satellites are upserted; a bad-checksum one is dropped.
     feedSentence(gps, "GPGSV,1,1,02,10,40,200,30,11,20,100,28");           // good: PRN 10,11
-    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsvUpdated());
     feedSentenceBadChecksum(gps, "GPGSV,1,1,02,03,57,094,40,04,33,056,36"); // bad: PRN 3,4 dropped
 
     const auto data = gps.satellites.consume();
@@ -644,18 +679,18 @@ static void test_satellites_updated_requires_gsa_and_gsv(void)
 
     feedSentence(gps, "GPGSA,A,3,3,4,7,,,,,,,,,,1.0,1.2,1.5,1");
     TEST_ASSERT_TRUE(gps.satellites.isGsaUpdated());
-    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isGsvUpdated());
     TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // GSV still missing
 
     feedSentence(gps, "GPGSV,1,1,03,03,57,094,40,04,33,056,36,07,27,116,33");
-    TEST_ASSERT_TRUE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_TRUE(gps.satellites.isGsvUpdated());
     TEST_ASSERT_TRUE(gps.satellites.isUpdated());           // both fresh
 
     const auto data = gps.satellites.consume();
     TEST_ASSERT_TRUE(data.has_value());
     TEST_ASSERT_FALSE(gps.satellites.isUpdated());          // both cleared
     TEST_ASSERT_FALSE(gps.satellites.isGsaUpdated());
-    TEST_ASSERT_FALSE(gps.satellites.isInViewUpdated());
+    TEST_ASSERT_FALSE(gps.satellites.isGsvUpdated());
 }
 
 // ── NavIC / IRNSS: GIGSV satellites are tagged NavIC ────────────────────────
@@ -772,7 +807,7 @@ static void test_satellites_real_um980_epoch_2026_04_26(void)
 
     // ── In solution: union 37, equals the GGA satellites-used field ──
     TEST_ASSERT_EQUAL(37u, data->inSolutionCount());
-    TEST_ASSERT_EQUAL_UINT32(37, used->raw);
+    TEST_ASSERT_EQUAL_UINT32(37, *used);
     // BeiDou solution split across two GSA sentences (12 + 1) accumulates to 13.
     TEST_ASSERT_EQUAL(13, countInSolution(*data, GnssSystemId::BeiDou));
 
@@ -793,18 +828,22 @@ static void test_satellites_real_um980_epoch_2026_04_26(void)
     TEST_ASSERT_EQUAL_INT16(32,  sats[iN40].cn0DbHz);
     TEST_ASSERT_FALSE(data->inSolution(iN40));
 
-    // ── GSA scalars ──
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(data->mode));
-    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(data->fixType));
-    TEST_ASSERT_EQUAL_INT32(90, data->pdop);
-    TEST_ASSERT_EQUAL_INT32(50, data->hdop);
-    TEST_ASSERT_EQUAL_INT32(70, data->vdop);
+    // ── GSA fix scalars (M / 3 / 0.9 / 0.5 / 0.7) ──
+    const auto pdop = gps.pdop.consume();
+    const auto hdop = gps.hdop.consume();
+    const auto vdop = gps.vdop.consume();
+    TEST_ASSERT_TRUE(pdop.has_value() && hdop.has_value() && vdop.has_value());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.9, pdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.5, hdop->dop());
+    TEST_ASSERT_DOUBLE_WITHIN(0.01, 0.7, vdop->dop());
 
-    // ── GGA quality + scrubbed location ──
+    // ── GGA quality + GSA fix mode/type + scrubbed location ──
     const auto loc = gps.location.consume();
     TEST_ASSERT_TRUE(loc.has_value());
-    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::Quality::FloatRTK),
+    TEST_ASSERT_EQUAL(static_cast<int>(TinyGPSLocation::GnssQuality::FloatRTK),
                       static_cast<int>(loc->fixQuality));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixMode::Manual), static_cast<int>(loc->fix2D3DMode));
+    TEST_ASSERT_EQUAL(static_cast<int>(GsaFixType::Fix3D),  static_cast<int>(loc->fix2D3DType));
     TEST_ASSERT_DOUBLE_WITHIN(1e-6, 25.50205761,  loc->latDeg());
     TEST_ASSERT_DOUBLE_WITHIN(1e-6, 130.76460905, loc->lngDeg());
 

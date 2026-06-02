@@ -285,17 +285,20 @@ void GpsTask::executeTask()
 
 using Q = TinyGPSLocation::GnssQuality;
 static constexpr std::array VALID_GPS_QUALITY{Q::GPS, Q::DGPS, Q::PPS, Q::RTK, Q::FloatRTK};
-static constexpr std::array<uint8_t, 3> VALID_FIX_TYPES{0, 2, 3};
 
 bool GpsTask::hasLock(const GpsInfo &info)
 {
-    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) ;
-        //&& std::ranges::contains(VALID_FIX_TYPES, info.positioningMode);
+    // A usable fix: a valid GGA quality and a GSA fix type that is not "no fix".
+    // A missing fix type (no GSA seen yet) is tolerated — this mirrors the
+    // pre-refactor {0=no data, 2=2D, 3=3D} set that excluded only 1=no fix.
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality)
+        && info.fix2D3DType != TinyGPSLocation::Fix2D3DType::None;
 }
 
 bool GpsTask::has3DLock(const GpsInfo &info)
 {
-    return std::ranges::contains(VALID_GPS_QUALITY, info.quality) ; //&& info.positioningMode == TinyGPSLocation::PositioningMode::;
+    return std::ranges::contains(VALID_GPS_QUALITY, info.quality)
+        && info.fix2D3DType == TinyGPSLocation::Fix2D3DType::Fix3D;
 }
 
 bool GpsTask::processNewLocation()
@@ -304,8 +307,9 @@ bool GpsTask::processNewLocation()
     ESP_LOGD(NEW_LOCATION_TAG, "start reading GPS location");
 
     ///first check if everything is updated
-    const bool allNew = m_gps.location.isUpdated() 
+    const bool allNew = m_gps.location.isUpdated()
         && m_gps.altitude.isUpdated()
+        && m_gps.satellites.isGsaUpdated()   // wait for this epoch's GSA (fix type / PDOP / VDOP)
         && pppnavSolStatus.isUpdated()
         && ggaEpoch.isUpdated();
 
@@ -362,9 +366,9 @@ bool GpsTask::processNewLocation()
     gpsInfo.lon      = locData->lngDeg();
     gpsInfo.altitude = altData->meters();
     gpsInfo.geoidAlt = geoData->meters();
-    gpsInfo.fixHDOP = fixHDOP->dop();
-    gpsInfo.fixVDOP = fixVDOP->dop();
-    gpsInfo.fixPDOP = fixPDOP->dop();
+    if (fixHDOP) gpsInfo.fixHDOP = fixHDOP->dop();
+    if (fixVDOP) gpsInfo.fixVDOP = fixVDOP->dop();
+    if (fixPDOP) gpsInfo.fixPDOP = fixPDOP->dop();
 
     const auto allSats = satsData->all();
     for (std::size_t i = 0; i < allSats.size(); ++i)
@@ -490,6 +494,13 @@ void GpsTask::dopToMeters(std::string& out, const uint32_t dop) noexcept
     std::format_to(std::back_inserter(out), "{}.{:02}", quot, rem);
 }
 
+// DOP fields are stored as real values (e.g. 2.34) since the TinyGPSPlus
+// refactor; dopToMeters still consumes hundredths. Absent DOP renders as "0.00".
+static uint32_t dopHundredths(const std::optional<double>& dop) noexcept
+{
+    return static_cast<uint32_t>(std::lround(dop.value_or(0.0) * 100.0));
+}
+
 double GpsTask::geoDistance(const double &lat1, const double &lon1, const double &lat2, const double &lon2)
 {
     constexpr double R          = 6371000.0;
@@ -532,11 +543,11 @@ std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
     message += ";SATS;";
     appendNum(message, p.satellites.size());
     message += ";PDOP;";
-    dopToMeters(message, p.fixPDOP.value_or(-1.0));
+    dopToMeters(message, dopHundredths(p.fixPDOP));
     message += ";HDOP;";
-    dopToMeters(message, p.fixHDOP.value_or(-1.0));
+    dopToMeters(message, dopHundredths(p.fixHDOP));
     message += ";VDOP;";
-    dopToMeters(message, p.fixVDOP.value_or(-1.0));
+    dopToMeters(message, dopHundredths(p.fixVDOP));
     message += ";";
     return message;
 }
@@ -740,8 +751,8 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     const int16_t Gy = 0;
     const int16_t Gz = 0;
     const uint16_t maxSNR = 0;
-    const float dop = static_cast<float>(p.fixHDOP.value_or(-1.0)) / 100.0f;
-    const float vdop = static_cast<float>(p.fixVDOP.value_or(-1.0)) / 100.0f;
+    const float dop = static_cast<float>(p.fixHDOP.value_or(-1.0));
+    const float vdop = static_cast<float>(p.fixVDOP.value_or(-1.0));
     const uint8_t numSatUse = static_cast<uint8_t>(
         std::min(p.satellites.size(), static_cast<size_t>(255)));
     const uint8_t numSatView = static_cast<uint8_t>(

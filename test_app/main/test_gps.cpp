@@ -2,61 +2,68 @@
 #include <chrono>
 #include "gpstask.h"
 
+// GpsInfo::fix2D3DType is std::optional<TinyGPSLocation::Fix2D3DType>:
+//   nullopt = no GSA seen (old fixType 0), None = no fix (old 1),
+//   Fix2D = 2D fix (old 2), Fix3D = 3D fix (old 3).
+using Fix = TinyGPSLocation::Fix2D3DType;
+using Quality = TinyGPSLocation::GnssQuality;
+
 // ── GpsTask::hasLock ──────────────────────────────────────────────────────────
 
 static void test_has_lock_false_when_invalid(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::Invalid;
-    info.fixType = 3;
+    info.quality = Quality::Invalid;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_FALSE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_gps_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 3;
+    info.quality = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_gps_2d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 2;
+    info.quality = Quality::GPS;
+    info.fix2D3DType = Fix::Fix2D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_gps_fixtype_0(void)
 {
+    // No GSA fix type reported (nullopt) is tolerated when quality is valid.
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 0;
+    info.quality = Quality::GPS;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_false_gps_fixtype_1(void)
 {
+    // Fix::None == "no fix" (GSA fix type 1) excludes the lock.
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 1;
+    info.quality = Quality::GPS;
+    info.fix2D3DType = Fix::None;
     TEST_ASSERT_FALSE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_rtk_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::RTK;
-    info.fixType = 3;
+    info.quality = Quality::RTK;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_floatrtk_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::FloatRTK;
-    info.fixType = 3;
+    info.quality = Quality::FloatRTK;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
@@ -65,32 +72,32 @@ static void test_has_lock_true_floatrtk_3d(void)
 static void test_has_3d_lock_true_gps_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 3;
+    info.quality = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::has3DLock(info));
 }
 
 static void test_has_3d_lock_false_gps_2d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 2;
+    info.quality = Quality::GPS;
+    info.fix2D3DType = Fix::Fix2D;
     TEST_ASSERT_FALSE(GpsTask::has3DLock(info));
 }
 
 static void test_has_3d_lock_false_fixtype_0(void)
 {
+    // No GSA fix type reported (nullopt) is not a 3D lock.
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::GPS;
-    info.fixType = 0;
+    info.quality = Quality::GPS;
     TEST_ASSERT_FALSE(GpsTask::has3DLock(info));
 }
 
 static void test_has_3d_lock_false_invalid(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::Invalid;
-    info.fixType = 3;
+    info.quality = Quality::Invalid;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_FALSE(GpsTask::has3DLock(info));
 }
 
@@ -169,9 +176,9 @@ static void test_print_gps_geo_info_keys(void)
     info.lon      = 2.0;
     info.altitude = 10.0;
     info.geoidAlt = 5.0;
-    info.gsaPDOP  = 200;
-    info.gsaHDOP  = 150;
-    info.gsaVDOP  = 250;
+    info.fixPDOP  = 2.0;
+    info.fixHDOP  = 1.5;
+    info.fixVDOP  = 2.5;
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
@@ -191,9 +198,9 @@ static void test_print_gps_geo_info_zero_coords(void)
     info.lon      = 0.0;
     info.altitude = 0.0;
     info.geoidAlt = 0.0;
-    info.gsaPDOP  = 100;
-    info.gsaHDOP  = 100;
-    info.gsaVDOP  = 100;
+    info.fixPDOP  = 1.0;
+    info.fixHDOP  = 1.0;
+    info.fixVDOP  = 1.0;
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
@@ -210,9 +217,9 @@ static void test_print_gps_geo_info_negative_coords(void)
     info.lon      = -180.0;   // Date Line west
     info.altitude = -430.0;   // Dead Sea depth
     info.geoidAlt = -110.0;   // Indian Ocean geoid low
-    info.gsaPDOP  = 200;
-    info.gsaHDOP  = 150;
-    info.gsaVDOP  = 250;
+    info.fixPDOP  = 2.0;
+    info.fixHDOP  = 1.5;
+    info.fixVDOP  = 2.5;
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
@@ -229,9 +236,9 @@ static void test_print_gps_geo_info_max_altitude(void)
     info.lon      = 86.925;
     info.altitude = 8850.0;   // Everest summit
     info.geoidAlt = -28.0;    // geoid separation near Everest
-    info.gsaPDOP  = 200;
-    info.gsaHDOP  = 150;
-    info.gsaVDOP  = 250;
+    info.fixPDOP  = 2.0;
+    info.fixHDOP  = 1.5;
+    info.fixVDOP  = 2.5;
 
     const std::string result = GpsTask::printGpsGeoInfo(info);
 
@@ -244,8 +251,8 @@ static void test_print_gps_geo_info_max_altitude(void)
 static void test_print_gps_time_empty_without_3d_lock(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 2;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix2D;
     info.worldTime = std::chrono::system_clock::from_time_t(0);
     TEST_ASSERT_EQUAL_STRING("", GpsTask::printGpsTimeInfo(info).c_str());
 }
@@ -253,8 +260,8 @@ static void test_print_gps_time_empty_without_3d_lock(void)
 static void test_print_gps_time_formats_unix_epoch(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     info.worldTime = std::chrono::system_clock::from_time_t(0);
 
     const std::string result = GpsTask::printGpsTimeInfo(info);
@@ -265,8 +272,8 @@ static void test_print_gps_time_formats_unix_epoch(void)
 static void test_print_gps_time_gps_epoch(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     info.worldTime = std::chrono::system_clock::from_time_t(315964800); // 1980-01-06
 
     const std::string result = GpsTask::printGpsTimeInfo(info);
@@ -279,8 +286,8 @@ static void test_print_gps_time_gps_epoch(void)
 static void test_emulate_qstarz_packet_sizes(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     info.lat       = 55.7558;
     info.lon       = 37.6173;
     info.altitude  = 150.0;
@@ -298,8 +305,11 @@ static void test_emulate_qstarz_packet_sizes(void)
 static void test_emulate_qstarz_mode_byte_matches_fixtype(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
+    info.lat       = 0.0;
+    info.lon       = 0.0;
+    info.altitude  = 0.0;
     info.worldTime = std::chrono::system_clock::from_time_t(1700000000);
 
     const auto packets = GpsTask::emulateQstarzBinary(info);
@@ -310,8 +320,11 @@ static void test_emulate_qstarz_mode_byte_matches_fixtype(void)
 static void test_emulate_qstarz_mode_byte_1_when_no_fix(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 1;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::None;
+    info.lat       = 0.0;
+    info.lon       = 0.0;
+    info.altitude  = 0.0;
     info.worldTime = std::chrono::system_clock::from_time_t(1700000000);
 
     const auto packets = GpsTask::emulateQstarzBinary(info);
@@ -322,8 +335,11 @@ static void test_emulate_qstarz_mode_byte_1_when_no_fix(void)
 static void test_emulate_qstarz_rcr_byte_is_T(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
+    info.lat       = 0.0;
+    info.lon       = 0.0;
+    info.altitude  = 0.0;
     info.worldTime = std::chrono::system_clock::from_time_t(1700000000);
 
     const auto packets = GpsTask::emulateQstarzBinary(info);
@@ -334,8 +350,8 @@ static void test_emulate_qstarz_rcr_byte_is_T(void)
 static void test_emulate_qstarz_equator_prime_meridian(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     info.lat       = 0.0;
     info.lon       = 0.0;
     info.altitude  = 0.0;
@@ -396,9 +412,9 @@ static void test_print_gps_geo_info_satellite_count(void)
     info.lon      = 0.0;
     info.altitude = 0.0;
     info.geoidAlt = 0.0;
-    info.gsaPDOP  = 100;
-    info.gsaHDOP  = 100;
-    info.gsaVDOP  = 100;
+    info.fixPDOP  = 1.0;
+    info.fixHDOP  = 1.0;
+    info.fixVDOP  = 1.0;
     info.satellites.insert(SatelliteInfo{.prn = 1});
     info.satellites.insert(SatelliteInfo{.prn = 2});
     info.satellites.insert(SatelliteInfo{.prn = 3});
@@ -411,66 +427,66 @@ static void test_print_gps_geo_info_satellite_count(void)
 static void test_has_lock_true_dgps_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::DGPS;
-    info.fixType = 3;
+    info.quality = Quality::DGPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_true_pps_3d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::PPS;
-    info.fixType = 3;
+    info.quality = Quality::PPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::hasLock(info));
 }
 
 static void test_has_lock_false_estimated(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::Estimated;
-    info.fixType = 3;
+    info.quality = Quality::Estimated;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_FALSE(GpsTask::hasLock(info));
 }
 
 static void test_has_3d_lock_true_dgps(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::DGPS;
-    info.fixType = 3;
+    info.quality = Quality::DGPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::has3DLock(info));
 }
 
 static void test_has_3d_lock_true_pps(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::PPS;
-    info.fixType = 3;
+    info.quality = Quality::PPS;
+    info.fix2D3DType = Fix::Fix3D;
     TEST_ASSERT_TRUE(GpsTask::has3DLock(info));
 }
 
 static void test_has_3d_lock_false_pps_2d(void)
 {
     GpsInfo info;
-    info.quality = TinyGPSLocation::Quality::PPS;
-    info.fixType = 2;
+    info.quality = Quality::PPS;
+    info.fix2D3DType = Fix::Fix2D;
     TEST_ASSERT_FALSE(GpsTask::has3DLock(info));
 }
 
-// ── GpsTask::dopToMeters — sentinel value ────────────────────────────────────
+// ── GpsTask::dopToMeters — large value ───────────────────────────────────────
 
-static void test_dop_bad_value(void)
+static void test_dop_large_value(void)
 {
-    // BAD_DOP=666000000: div(666000000,100) → quot=6660000, rem=0
+    // div(666000000,100) → quot=6660000, rem=0
     std::string r;
-    GpsTask::dopToMeters(r, GpsInfo::BAD_DOP);
+    GpsTask::dopToMeters(r, 666000000);
     TEST_ASSERT_EQUAL_STRING("6660000.00", r.c_str());
 }
 
 static void test_emulate_qstarz_south_pole_dateline(void)
 {
     GpsInfo info;
-    info.quality   = TinyGPSLocation::Quality::GPS;
-    info.fixType   = 3;
+    info.quality   = Quality::GPS;
+    info.fix2D3DType = Fix::Fix3D;
     info.lat       = -90.0;   // South Pole
     info.lon       = -180.0;  // Date Line west
     info.altitude  = -430.0;  // Dead Sea depth
@@ -522,7 +538,7 @@ void run_gps_tests(void)
     RUN_TEST(test_has_3d_lock_true_dgps);
     RUN_TEST(test_has_3d_lock_true_pps);
     RUN_TEST(test_has_3d_lock_false_pps_2d);
-    RUN_TEST(test_dop_bad_value);
+    RUN_TEST(test_dop_large_value);
     RUN_TEST(test_satellite_set_deduplicates_same_prn);
     RUN_TEST(test_satellite_set_is_sorted);
     RUN_TEST(test_satellite_set_counts_correctly);
