@@ -198,17 +198,19 @@ esp_err_t SensorsTask::initI2C()
     return ESP_OK;
 }
 
-esp_err_t SensorsTask::init()
+esp_err_t SensorsTask::init(bool readAdc)
 {
     static const char * TAG = "sensors-init";
     ESP_LOGI(TAG, "init all sensors: start");
 
-    deinitI2C();
+    m_readAdc = readAdc;
     deinitAdc();
+    if (readAdc) {
+        if (const esp_err_t adcErr = initAdc(); adcErr != ESP_OK)
+            return adcErr;
+    }
 
-    if (const esp_err_t adcErr = initAdc(); adcErr != ESP_OK)
-        return adcErr;
-
+    deinitI2C();
     if (const esp_err_t i2cErr = initI2C(); i2cErr != ESP_OK) {
         deinitAdc();
         return i2cErr;
@@ -313,21 +315,26 @@ void SensorsTask::executeTask()
 {
     static const char * TAG = "sensors-task";
     while (true) {
-        SensorsValues v;
-        if (const auto voltageResult = readBatteryVoltageMilliV(); voltageResult.has_value()) {
-            const int rawVoltage = voltageResult.value();
-            v.batteryVoltageMilliV = rawVoltage;
-            v.batteryPercent = convertVoltageToPercent(rawVoltage);
-            if (rawVoltage < LOW_DISCHARGE_VOLTAGE) {
-                ESP_LOGE(TAG, "battery voltage too low (%d), sleep", rawVoltage);
-                correctLightSleep();
 
-                /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices
+        SensorsValues v{};
+        if (m_readAdc) {
+            if (const auto voltageResult = readBatteryVoltageMilliV(); voltageResult.has_value()) {
+                const int rawVoltage = voltageResult.value();
+                v.batteryVoltageMilliV = rawVoltage;
+                v.batteryPercent = convertVoltageToPercent(rawVoltage);
+                if (rawVoltage < LOW_DISCHARGE_VOLTAGE) {
+                    ESP_LOGE(TAG, "battery voltage too low (%d), sleep", rawVoltage);
+                    correctLightSleep();
 
-                continue;
+                    /// \todo find way to disable peripherals, maybe add N-type MOSFET (like AO3400A) between 3V3 pin and devices
+
+                    continue;
+                }
+            } else {
+                ESP_LOGE(TAG, "battery ADC read error: %d", voltageResult.error());
             }
         } else {
-            ESP_LOGE(TAG, "battery ADC read error: %d", voltageResult.error());
+            ESP_LOGI(TAG, "ADC reading disabled in code");
         }
 
         float tempVal, humidVal;

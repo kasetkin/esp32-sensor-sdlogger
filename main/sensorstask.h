@@ -34,7 +34,7 @@ class SensorsTask
 {
 public:
     [[nodiscard("sensors unavailable if init failure ignored")]]
-    esp_err_t init();
+    esp_err_t init(bool readAdc);
     ~SensorsTask();
     void executeTask();
     [[nodiscard("output params undefined on failure")]]
@@ -69,6 +69,7 @@ private:
     static constexpr gpio_num_t I2C_MASTER_SCL = GPIO_NUM_23;
     static constexpr i2c_port_t SHT3X_I2C_PORT = I2C_NUM_0;
     
+    bool m_readAdc = true;
     adc_oneshot_unit_handle_t adc1_handle = nullptr;
     adc_cali_handle_t adc1_cali_chan0_handle = nullptr;
     bool m_i2cInitialized = false;
