@@ -6,6 +6,8 @@
 #include <vector>
 #include <functional>
 #include <shared_mutex>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "sdcard.h"
 
 class LoggerTask
@@ -24,7 +26,7 @@ class LoggerTask
 
     void configureSdCard(const std::shared_ptr<SdCard> &card);
     void executeTask();
-    void doLogging();
+    void doLogging(uint64_t rtcSec);
     void addNmeaLog(std::string_view nmeaMessage);
     void setGnssLog(std::string_view gpsMessage);
     void setSensorsLog(std::string_view sensorsMessage);
@@ -34,9 +36,15 @@ class LoggerTask
     LoggerTask &operator=(const LoggerTask &) = delete("LoggerTask holds an SdCard reference and shared state — copying is not meaningful");
 
   private:
-    static const unsigned long LOG_PERIOD_MS = 1 * 1000;
+    // We log exactly once per wall-clock second. Within a second we wait for
+    // that second's GNSS epoch (which wakes us via setGnssLog); if it has not
+    // arrived by LOG_HEARTBEAT_DEADLINE_MS we log without GNSS data so the line
+    // still carries device info + sensors. The state is polled this often.
+    static constexpr uint32_t LOG_POLL_INTERVAL_MS = 100;
+    static constexpr uint64_t LOG_HEARTBEAT_DEADLINE_MS = 900;
 
-    unsigned long lastLogTime = 0;
+    TaskHandle_t m_loggerTaskHandle = nullptr;
+    uint64_t m_lastLoggedSecond = 0;
     mutable std::shared_mutex m_mutex;
     std::shared_ptr<SdCard> m_sdCard;
     LogReadyEvent m_readyEvent;
@@ -45,8 +53,8 @@ class LoggerTask
     std::string m_gnssLog;
     std::string m_sensorsLog;
 
-    void logCurrentState();
+    void logCurrentState(uint64_t rtcSec);
     void logNmeaStream();
     void resetState();
-    std::string generateDeviceInfoLog() const;
+    std::string generateDeviceInfoLog(uint64_t rtcSec) const;
 };

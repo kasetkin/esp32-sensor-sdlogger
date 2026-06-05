@@ -17,8 +17,14 @@ static constexpr std::string_view ownerFullName = "sdlogger_UM980"; // &ownerFul
 
 void LoggerTask::setGnssLog(std::string_view gpsMessage)
 {
+    ESP_LOGI("LogTask", "Logger: ReadyEnevt - GNSS");
     std::unique_lock oneModuleLock(m_mutex);
     m_gnssLog = gpsMessage;
+    // Wake the logger immediately: a complete GNSS epoch (GNSS + PPP) just
+    // arrived, so log it now instead of on a free-running timer that beats
+    // against the epoch cadence.
+    if (m_loggerTaskHandle)
+        xTaskNotifyGive(m_loggerTaskHandle);
 }
 
 void LoggerTask::setSensorsLog(std::string_view sensorsMessage)
@@ -48,30 +54,51 @@ void LoggerTask::executeTask()
 {
     static const char * LOGTASKTAG = "LogTask";
 
-    lastLogTime = millisFromStart();
+    // We want exactly one log line per wall-clock second, with or without GNSS:
+    //  - fire as soon as this second's GNSS epoch arrives (setGnssLog notifies us);
+    //  - if no epoch has arrived by LOG_HEARTBEAT_DEADLINE_MS into the second,
+    //    fire anyway without GNSS data;
+    //  - never fire twice in the same second (m_lastLoggedSecond guards it).
+    // We poll a few times per second and also wake immediately on the GNSS
+    // notification, so a fresh epoch is logged promptly.
+    m_loggerTaskHandle = xTaskGetCurrentTaskHandle();
     while (true) {
-        /// write-lock inside
-        doLogging();
+        const uint32_t epochReady = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(LOG_POLL_INTERVAL_MS));
+        const bool haveGnss = (epochReady != 0);
+        // ESP_LOGI("Logger", "task cycle, epochReady = %lu, haveGnss = %d, message.size() = %zu", epochReady, static_cast<int>(haveGnss ? 1 : 0), m_gnssLog.size());
 
-        lastLogTime += LOG_PERIOD_MS;
-        const unsigned long now = millisFromStart();
-        const unsigned long timeToSleep = lastLogTime - now; // unsigned: valid while on schedule
-        if (now <= lastLogTime && timeToSleep < LOG_PERIOD_MS * 3600 * 24) {
-            ESP_LOGI(LOGTASKTAG, "SdLoggerModule | next log in %lu ms", timeToSleep);
-            vTaskDelay(pdMS_TO_TICKS(timeToSleep));
-        } else {
-            // logging overran a whole period (or millis wrapped): drop the
-            // backlog and realign instead of bursting to catch up
-            ESP_LOGW(LOGTASKTAG, "SdLoggerModule | logging overran the period, resync");
-            lastLogTime = now;
+        const auto nowTp = std::chrono::system_clock::now();
+        const uint64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(nowTp.time_since_epoch()).count();
+        const uint64_t nowSec = nowMs / 1000;
+        const uint64_t msInSec = nowMs % 1000;
+        // ESP_LOGI(LOGTASKTAG, "last_logged_sec = %llu, this sec = %llu, ms = %llu", m_lastLoggedSecond, nowSec, msInSec);
+
+        if (nowSec == m_lastLoggedSecond)
+            continue;
+
+
+        const bool deadlinePassed = (msInSec >= LOG_HEARTBEAT_DEADLINE_MS);
+        if (!haveGnss && !deadlinePassed) {
+            // ESP_LOGI(LOGTASKTAG, "second %llu: waiting for GNSS data (%llu ms elapsed)", nowSec, msInSec);
+            continue;
         }
+
+        if (haveGnss)
+            ESP_LOGI(LOGTASKTAG, "second %llu: GNSS epoch ready at %llu ms -> logging WITH GNSS", nowSec, msInSec);
+        else
+            ESP_LOGW(LOGTASKTAG, "second %llu: no GNSS by %llu ms -> heartbeat log (no GNSS)", nowSec, msInSec);
+
+        /// write-lock inside
+        doLogging(nowSec);
+        m_lastLoggedSecond = nowSec;
+        ESP_LOGI(LOGTASKTAG, "second %llu logged", nowSec);
     }
 }
 
-void LoggerTask::doLogging()
+void LoggerTask::doLogging(uint64_t rtcSec)
 {
     std::unique_lock fullLock(m_mutex);
-    logCurrentState();
+    logCurrentState(rtcSec);
     logNmeaStream();
     resetState();
 }
@@ -85,7 +112,7 @@ void LoggerTask::resetState()
 }
 
 /// lock messages before!
-void LoggerTask::logCurrentState()
+void LoggerTask::logCurrentState(uint64_t rtcSec)
 {
     static const char * LOGSTATETAG = "LogState";
 
@@ -93,7 +120,7 @@ void LoggerTask::logCurrentState()
     // createSDDir(logsPath);
 
     const std::string filename = generateFilename() + ".csv";
-    const std::string deviceLog = generateDeviceInfoLog();
+    const std::string deviceLog = generateDeviceInfoLog(rtcSec);
 
     const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gnssLog + std::string("\n");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - end");
@@ -131,13 +158,14 @@ void LoggerTask::logNmeaStream()
         ESP_LOGE(LOGNMEATAG, "appendFile failed: %d", err);
 }
 
-std::string LoggerTask::generateDeviceInfoLog() const
+std::string LoggerTask::generateDeviceInfoLog(uint64_t rtcSec) const
 {
     // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate device info - start");
 
-    // const bool requestLocalTime = false;
-    // uint32_t rtc_sec = getValidTime(RTCQuality::RTCQualityDevice, requestLocalTime);
-    const uint64_t rtc_sec = getValidTime();
+    // RTCSEC is the wall-clock second the logger task decided to fire on, so it
+    // matches the GNSS epoch's GNSSSEC (and never drifts by re-reading the clock
+    // a moment later, which could land on the next second at a boundary).
+    const uint64_t rtc_sec = rtcSec;
     std::string message;
     message.reserve(80);
     message += std::string_view("ID;");
