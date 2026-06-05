@@ -633,18 +633,28 @@ void BleSppServerTask::transmitQstarzPackets(const std::array<std::vector<std::b
 
 int BleSppServerTask::bleTx(std::span<const std::byte> data, uint16_t connHandle, uint16_t valueHandle)
 {
-    struct os_mbuf *txom;
-    txom = ble_hs_mbuf_from_flat(data.data(), static_cast<uint16_t>(data.size_bytes()));
-    if (txom == nullptr) {
-        MODLOG_DFLT(ERROR, "can not allocate buffer, length %zu", data.size_bytes());
-        return ESP_FAIL;
+    constexpr int MAX_TX_ATTEMPTS = 20;
+    for (int attempt = 0; attempt < MAX_TX_ATTEMPTS; ++attempt) {
+        struct os_mbuf *txom = ble_hs_mbuf_from_flat(data.data(), static_cast<uint16_t>(data.size_bytes()));
+        if (txom == nullptr) {
+            // host mbuf pool exhausted; wait for it to drain, then retry
+            vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MS));
+            continue;
+        }
+
+        const int rc = ble_gatts_notify_custom(connHandle, valueHandle, txom);
+        if (rc == BLE_HS_ENOMEM) {
+            // controller TX buffers full; give them time to drain, then retry
+            vTaskDelay(pdMS_TO_TICKS(TX_DELAY_MS));
+            continue;
+        }
+
+        return rc;
     }
 
-    const int rc = ble_gatts_notify_custom(connHandle, valueHandle, txom);
-    /// wait 1 millisec, not sure it's necessary 
-    // constexpr size_t txDelay = 1; 
-    // vTaskDelay(pdMS_TO_TICKS(txDelay));
-    return rc;
+    MODLOG_DFLT(ERROR, "bleTx: dropped %zu-byte chunk after %d attempts (conn=%d handle=%d)",
+                data.size_bytes(), MAX_TX_ATTEMPTS, connHandle, valueHandle);
+    return BLE_HS_ENOMEM;
 }
 
 void BleSppServerTask::transmitBuffer(std::span<const std::byte> buffer, uint16_t value_handle)
@@ -796,29 +806,32 @@ void BleSppServerTask::sendAllData()
     if (!m_serverIsReady)
         return;
 
-    std::unique_lock readLock(m_dataMutex);
+    std::vector<std::string> logStream;
+    std::vector<std::string> nmeaStream;
+    {
+        std::unique_lock readLock(m_dataMutex);
 
-    for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
-        if (conn_handle_subs[i]) {
-            transmitBatteryLevel(i);
-            transmitEnvTemperature(i);
-            transmitEnvHumidity(i);
+        for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
+            if (conn_handle_subs[i]) {
+                transmitBatteryLevel(i);
+                transmitEnvTemperature(i);
+                transmitEnvHumidity(i);
+            }
         }
-    }
-    
-    {
-        for (const auto &line : m_logStream)
-            transmitBuffer(std::as_bytes(std::span{line}), ble_full_log_read_val_handle);
 
-        m_logStream.clear();
+        // Move the bulk streams out and release the lock before transmitting:
+        // chunked transmits now retry on buffer exhaustion (see bleTx) and may
+        // block for a few ms, and we must not stall the GPS/logger tasks that
+        // call appendNmea()/appendLog() while that happens.
+        logStream.swap(m_logStream);
+        nmeaStream.swap(m_nmeaStream);
     }
 
-    {
-        for (const auto &line : m_nmeaStream)
-            transmitBuffer(std::as_bytes(std::span{line}), ble_nmea_read_val_handle);
+    for (const auto &line : logStream)
+        transmitBuffer(std::as_bytes(std::span{line}), ble_full_log_read_val_handle);
 
-        m_nmeaStream.clear();
-    }
+    for (const auto &line : nmeaStream)
+        transmitBuffer(std::as_bytes(std::span{line}), ble_nmea_read_val_handle);
 }
 
 void BleSppServerTask::bleSenderTask()
