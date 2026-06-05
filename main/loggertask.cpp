@@ -53,25 +53,24 @@ void LoggerTask::configureLogReadyEvent(LogReadyEvent readyEvent)
 void LoggerTask::executeTask()
 {
     static const char * LOGTASKTAG = "LogTask";
-    while (true) {
-        const unsigned long thisMoment = millisFromStart();
-        ESP_LOGI(LOGTASKTAG, "SdLoggerModule | runOnce, time is %lu", thisMoment);
 
-        if (thisMoment < lastLogTime + LOG_PERIOD_MS) {
-            const unsigned long timeToSleep = LOG_PERIOD_MS + lastLogTime - thisMoment + 1;
-            if (timeToSleep < 1000 * 3600 * 24) {
-                ESP_LOGI(LOGTASKTAG, "too early, sleep for %lu millisec", timeToSleep);
-                vTaskDelay(pdMS_TO_TICKS(timeToSleep));
-            } else {
-                ESP_LOGI(LOGTASKTAG, "timer value overflow, ignore and reset lastLogTime");
-            }
-        }
-        
+    lastLogTime = millisFromStart();
+    while (true) {
         /// write-lock inside
         doLogging();
-            
-        lastLogTime = millisFromStart();
-        vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
+
+        lastLogTime += LOG_PERIOD_MS;
+        const unsigned long now = millisFromStart();
+        const unsigned long timeToSleep = lastLogTime - now; // unsigned: valid while on schedule
+        if (now <= lastLogTime && timeToSleep < LOG_PERIOD_MS * 3600 * 24) {
+            ESP_LOGI(LOGTASKTAG, "SdLoggerModule | next log in %lu ms", timeToSleep);
+            vTaskDelay(pdMS_TO_TICKS(timeToSleep));
+        } else {
+            // logging overran a whole period (or millis wrapped): drop the
+            // backlog and realign instead of bursting to catch up
+            ESP_LOGW(LOGTASKTAG, "SdLoggerModule | logging overran the period, resync");
+            lastLogTime = now;
+        }
     }
 }
 
