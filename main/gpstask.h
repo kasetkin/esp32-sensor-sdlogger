@@ -79,12 +79,10 @@ public:
     using QStarZPackets = std::array<std::vector<std::byte>, 4>;
     using NmeaStringReadyEvent = std::function<void(std::string_view nmea)>;
     using GnssLogReadyEvent = std::function<void(std::string_view gnssLog)>;
-    using PppLogReadyEvent = std::function<void(std::string_view pppLog)>;
     using QStarZPacketsReadyEvent = std::function<void(const QStarZPackets &packets)>;
 
     void configureNmeaEvent(NmeaStringReadyEvent event);
     void configureGnssEvent(GnssLogReadyEvent event);
-    void configurePppEvent(PppLogReadyEvent event);
     void configureQStarZEvent(QStarZPacketsReadyEvent event);
 
     void executeTask();
@@ -115,7 +113,6 @@ private:
     std::atomic<bool> m_terminateASAP{false};
     NmeaStringReadyEvent m_nmeaEvent;
     GnssLogReadyEvent m_gnssEvent;
-    PppLogReadyEvent m_pppEvent;
     QStarZPacketsReadyEvent m_qstarzEvent;
     TinyGPSPlus m_gps;
 

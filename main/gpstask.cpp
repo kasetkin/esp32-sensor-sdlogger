@@ -301,11 +301,6 @@ void GpsTask::configureGnssEvent(GnssLogReadyEvent event)
     m_gnssEvent = std::move(event);
 }
 
-void GpsTask::configurePppEvent(PppLogReadyEvent event)
-{
-    m_pppEvent = std::move(event);
-}
-
 void GpsTask::configureQStarZEvent(QStarZPacketsReadyEvent event)
 {
     m_qstarzEvent = std::move(event);
@@ -524,22 +519,18 @@ bool GpsTask::processNewLocation()
     }
 
     {
-        const std::string gpsLog = printGpsTimeInfo(gpsInfo) + printGpsGeoInfo(gpsInfo);
-        if (m_gnssEvent)
-            m_gnssEvent(gpsLog);
-    }
-
-    {
+   
         const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
         const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
         const double latGnss = gpsInfo.lat.value_or(std::numeric_limits<double>::quiet_NaN());
         const double lonGnss = gpsInfo.lon.value_or(std::numeric_limits<double>::quiet_NaN());
         const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
 
-        const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
-        if (m_pppEvent)
-            m_pppEvent(pppLog);
-    }
+        const std::string gnssLog = printGpsTimeInfo(gpsInfo) + printGpsGeoInfo(gpsInfo) 
+                                    + printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
+        if (m_gnssEvent)
+                m_gnssEvent(gnssLog);
+        }
 
     {
         const auto emulatedQstarz = emulateQstarzBinary(gpsInfo);

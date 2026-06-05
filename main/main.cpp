@@ -123,12 +123,7 @@ extern "C" void app_main(void)
     gpsTask->configureGnssEvent([](std::string_view gnss) static
     {
         if (loggerTask)
-            loggerTask->setGpsLog(gnss);
-    });
-    gpsTask->configurePppEvent([](std::string_view ppp) static
-    {
-        if (loggerTask)
-            loggerTask->setPppLog(ppp);
+            loggerTask->setGnssLog(gnss);
     });
     gpsTask->configureQStarZEvent([](const GpsTask::QStarZPackets &packets) static
     {

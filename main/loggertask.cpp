@@ -15,16 +15,10 @@ static constexpr std::string_view ownerId = "54321"; // &ownerId = devicestate.o
 static constexpr std::string_view ownerShortName = "sdlogger"; // &ownerShortName = devicestate.owner.short_name;
 static constexpr std::string_view ownerFullName = "sdlogger_UM980"; // &ownerFullName = devicestate.owner.long_name;
 
-void LoggerTask::setGpsLog(std::string_view gpsMessage)
+void LoggerTask::setGnssLog(std::string_view gpsMessage)
 {
     std::unique_lock oneModuleLock(m_mutex);
-    m_gpsLog = gpsMessage;
-}
-
-void LoggerTask::setPppLog(std::string_view pppMessage)
-{
-    std::unique_lock oneModuleLock(m_mutex);
-    m_pppLog = pppMessage;
+    m_gnssLog = gpsMessage;
 }
 
 void LoggerTask::setSensorsLog(std::string_view sensorsMessage)
@@ -85,8 +79,7 @@ void LoggerTask::doLogging()
 /// lock messages before!
 void LoggerTask::resetState()
 {
-    m_gpsLog.clear();
-    m_pppLog.clear();
+    m_gnssLog.clear();
     m_sensorsLog.clear();
     m_nmeaLog.clear();
 }
@@ -102,12 +95,11 @@ void LoggerTask::logCurrentState()
     const std::string filename = generateFilename() + ".csv";
     const std::string deviceLog = generateDeviceInfoLog();
 
-    const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gpsLog + m_pppLog + std::string("\n");
+    const std::string fullLogMessage = deviceLog + m_sensorsLog + m_gnssLog + std::string("\n");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | message generation - end");
     ESP_LOGI(LOGSTATETAG, "SdLoggerModule | full message: \\");
     ESP_LOGI(LOGSTATETAG, "%s \\", deviceLog.c_str());
-    ESP_LOGI(LOGSTATETAG, "%s \\", m_gpsLog.c_str());
-    ESP_LOGI(LOGSTATETAG, "%s \\", m_pppLog.c_str());
+    ESP_LOGI(LOGSTATETAG, "%s \\", m_gnssLog.c_str());
     ESP_LOGI(LOGSTATETAG, "%s \\", m_sensorsLog.c_str());
     ESP_LOGI(LOGSTATETAG, "filename: %s", filename.c_str());
     ESP_LOGI(LOGSTATETAG, "END-OF-LINE");

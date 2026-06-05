@@ -26,8 +26,7 @@ class LoggerTask
     void executeTask();
     void doLogging();
     void addNmeaLog(std::string_view nmeaMessage);
-    void setGpsLog(std::string_view gpsMessage);
-    void setPppLog(std::string_view pppMessage);
+    void setGnssLog(std::string_view gpsMessage);
     void setSensorsLog(std::string_view sensorsMessage);
 
     LoggerTask() = default;
@@ -43,8 +42,7 @@ class LoggerTask
     LogReadyEvent m_readyEvent;
     std::string currentDate;
     std::string m_nmeaLog;
-    std::string m_gpsLog;
-    std::string m_pppLog;
+    std::string m_gnssLog;
     std::string m_sensorsLog;
 
     void logCurrentState();
