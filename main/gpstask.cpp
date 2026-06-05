@@ -530,23 +530,23 @@ bool GpsTask::processNewLocation()
     }
 
     {
-        const auto emulatedQstarz = emulateQstarzBinary(gpsInfo);
-        if (m_qstarzEvent)
-            m_qstarzEvent(emulatedQstarz);
-    }
-
-    {
         const double latPpp = static_cast<double>(pppInfo.lat) * 1e-7;
         const double lonPpp = static_cast<double>(pppInfo.lon) * 1e-7;
         const double latGnss = gpsInfo.lat.value_or(std::numeric_limits<double>::quiet_NaN());
         const double lonGnss = gpsInfo.lon.value_or(std::numeric_limits<double>::quiet_NaN());
         const double gnssToPppDistance = geoDistance(latPpp, lonPpp, latGnss, lonGnss);
-        
+
         const std::string pppLog = printPppTimeInfo(pppInfo) + printPppGeoInfo(pppInfo, gnssToPppDistance);
         if (m_pppEvent)
             m_pppEvent(pppLog);
     }
-    
+
+    {
+        const auto emulatedQstarz = emulateQstarzBinary(gpsInfo);
+        if (m_qstarzEvent)
+            m_qstarzEvent(emulatedQstarz);
+    }
+
     return true;
 }
 
