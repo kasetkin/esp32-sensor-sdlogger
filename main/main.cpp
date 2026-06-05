@@ -128,7 +128,7 @@ extern "C" void app_main(void)
     gpsTask->configurePppEvent([](std::string_view ppp) static
     {
         if (loggerTask)
-            loggerTask->setGpsLog(ppp);
+            loggerTask->setPppLog(ppp);
     });
     gpsTask->configureQStarZEvent([](const GpsTask::QStarZPackets &packets) static
     {
