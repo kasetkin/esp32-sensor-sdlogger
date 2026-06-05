@@ -826,7 +826,7 @@ void BleSppServerTask::bleSenderTask()
     MODLOG_DFLT(INFO, "BLE server DataSender started\n");
     while (!m_terminateASAP) {
         sendAllData();
-        const uint32_t sleepTimeMilliSec = 1000; // 1 sec
+        const uint32_t sleepTimeMilliSec = 100; //0.1 sec
         vTaskDelay(pdMS_TO_TICKS(sleepTimeMilliSec));
     }
 }

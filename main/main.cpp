@@ -17,7 +17,7 @@
 
 static const char *TAG = "main-body";
 constexpr uint32_t DEFAULT_TASK_STACK_SIZE = 16384;
-#define EXAMPLE_MAX_CHAR_SIZE    64
+constexpr bool ADC_READING_ENABLE = false;
 
 static std::shared_ptr<GpsTask> gpsTask;
 static std::shared_ptr<SensorsTask> sensorTask;
@@ -62,13 +62,6 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "start BLE task");
     bleTask->startServer();
 
-    ESP_LOGI(TAG, "configure GPS module UART");
-    ret = gpsTask->configureUart();
-    if (ret != ESP_OK) {
-        startErrorTask(ErrorTask::ErrorCode::ecGpsUartFail);
-        return;
-    }
-
     ESP_LOGI(TAG, "configure TinyGPS");
     ret = gpsTask->configureTinyGps();
     if (ret != ESP_OK) {
@@ -84,7 +77,7 @@ extern "C" void app_main(void)
     }
 
     ESP_LOGI(TAG, "configure sensors");
-    ret = sensorTask->init();
+    ret = sensorTask->init(ADC_READING_ENABLE);
     if (ret != ESP_OK) {
         startErrorTask(ErrorTask::ErrorCode::ecSensorsFail);
         return;

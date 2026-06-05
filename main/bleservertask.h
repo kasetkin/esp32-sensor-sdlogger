@@ -98,7 +98,7 @@ private:
     static uint16_t ble_tx_write_val_handle;
     static BleSppServerTask *s_instance;
 
-    static constexpr uint32_t TX_DELAY_MS = 10;
+    static constexpr uint32_t TX_DELAY_MS = 1;
 
     static constexpr char BLE_DEVICE_NAME[] = "QSTARZ_EMULATOR"; // so 'Bluetooth GNSS' app will try to connect
 
