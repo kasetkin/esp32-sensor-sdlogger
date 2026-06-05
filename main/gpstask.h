@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <string_view>
 #include <memory>
@@ -56,13 +57,15 @@ public:
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
     static constexpr int UART_TX_GPIO_PIN = GPIO_NUM_16;
     static constexpr int UART_RX_GPIO_PIN = GPIO_NUM_17;
-    static constexpr int UM980_UART_BAUDRATE = 115200;
+    static constexpr int CONFIGS_MAX_ITERATIONS = 1000;
+    static constexpr std::array<int, 8> UM980_BAUD_RATES = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
+    static constexpr int UM980_UART_BAUDRATE = 460800;
     static constexpr int RX_BUF_SIZE = 1024;
     static constexpr uart_port_t GPS_UART_PORT = UART_NUM_1;
 
     /// init UART and structures
     [[nodiscard("GPS UART misconfigured if unchecked")]]
-    esp_err_t configureUart();
+    esp_err_t configureUart(int uart_speed);
 
     /// configure GPS module (internal settings, modes, etc.)
     /// call AFTER task start to see UART output
@@ -134,6 +137,12 @@ private:
     TinyGPSCustom pppnavStationId; /// can be converted to System (B2b, E6-HAS, etc)
     
     static void logNmeaMessageToSd(std::string_view msg);
+
+    [[nodiscard("UART misconfigured if unchecked")]]
+    esp_err_t setupUartToUM980();
+
+    [[nodiscard("UART misconfigured if unchecked")]]
+    esp_err_t testGnssBaudRate(int uart_speed);
 
     /// default delay between send and receive
     void gpsUartDelay();

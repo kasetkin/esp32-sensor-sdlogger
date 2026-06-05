@@ -1,6 +1,7 @@
 #include "gpstask.h"
 
 #include <charconv>
+#include <atomic>
 #include <format>
 #include <cmath>
 #include <numbers>
@@ -19,12 +20,14 @@
 #include "unicore.h"
 // #include "fake_nmea.h"
 
-static constexpr const char LOGTASKTAG[] = "gps logger";
+static constexpr const char GPSTASKTAG[] = "gps logger";
 
-esp_err_t GpsTask::configureUart()
+esp_err_t GpsTask::configureUart(int uart_speed)
 {
+    static std::atomic<bool> uartInUse {false};
+
     const uart_config_t uart_config = {
-        .baud_rate = UM980_UART_BAUDRATE,
+        .baud_rate = uart_speed,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -34,10 +37,21 @@ esp_err_t GpsTask::configureUart()
         .flags = {}
     };
 
-    // We won't use a buffer for sending data.
-    if (const esp_err_t driverRet = uart_driver_install(GPS_UART_PORT, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
-        driverRet != ESP_OK)
-        return driverRet;
+    if (uartInUse) {
+        if (const esp_err_t driverDeleteRet = uart_driver_delete(GPS_UART_PORT);
+            driverDeleteRet != ESP_OK)
+            return driverDeleteRet;
+
+        uartInUse = false;
+    }
+
+    if (!uartInUse) {
+        if (const esp_err_t driverRet = uart_driver_install(GPS_UART_PORT, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+            driverRet != ESP_OK)
+            return driverRet;
+
+        uartInUse = true;
+    }
 
     if (const esp_err_t uartConfigRet = uart_param_config(GPS_UART_PORT, &uart_config); uartConfigRet != ESP_OK)
         return uartConfigRet;
@@ -55,38 +69,91 @@ void GpsTask::gpsUartDelay()
     vTaskDelay(pdMS_TO_TICKS(GPS_TASK_TX2RX_DELAY_MICROSEC));
 }
 
-esp_err_t GpsTask::configureUM980()
+esp_err_t GpsTask::testGnssBaudRate(int uart_speed)
 {
-    ESP_LOGI(LOGTASKTAG, "UM980 configuration: start");
+    ESP_LOGI(GPSTASKTAG, "configure GPS module UART, speed %d", uart_speed);
+
+    const esp_err_t uartConfigureRes = configureUart(uart_speed);
+    if (uartConfigureRes != ESP_OK)
+        return ESP_FAIL;
+
+    gpsUartDelay();
 
     sendStringAndWait("UNLOG\r\n");
+    gpsUartDelay();
+    gpsUartDelay();
 
-    /// check for receiver
-    bool hasCorrectAnswer = false;
-    while (!hasCorrectAnswer) {
-        gpsUartDelay();
+    const auto versionResult = sendStringAndWait("VERSION\r\n");
+    if (versionResult && versionResult->contains("UM980")) {
+        ESP_LOGI(GPSTASKTAG, "UM980 detected, VERSION reply: %s", versionResult->c_str());
+        return ESP_OK;
+    }
 
-        const auto versionResult = sendStringAndWait("VERSION\r\n");
-        if (versionResult && versionResult->contains("UM980")) {
-            ESP_LOGI(LOGTASKTAG, "UM980 detected, VERSION reply: %s", versionResult->c_str());
-            hasCorrectAnswer = true;
-            break;
+    //! \todo check for UM980 firmware version
+    //! \todo log UM980 config to SD card
+
+    ESP_LOGI(GPSTASKTAG, "UM980 not detected, VERSION reply: %s",
+            versionResult ? versionResult->c_str() : "(UART error)");
+    return ESP_FAIL;
+}
+
+esp_err_t GpsTask::setupUartToUM980()
+{
+    for (size_t iteration = 0; iteration < CONFIGS_MAX_ITERATIONS; ++iteration) {
+        {
+            /// first test expected uart speed, if it fails -> try other values
+            const esp_err_t defaultSpeedRes = testGnssBaudRate(UM980_UART_BAUDRATE);
+            if (defaultSpeedRes == ESP_OK) {
+                ESP_LOGI(GPSTASKTAG, "iteration %d, communication with DEFAULT uart speed %d SUCSESS", iteration, UM980_UART_BAUDRATE);
+                return ESP_OK;
+            }
+
+            ESP_LOGE(GPSTASKTAG, "iteration %d, communication with DEFAULT uart speed %d FAIL", iteration, UM980_UART_BAUDRATE);
         }
 
-        //! \todo try different UART speed (9600 ... 460800)
-        ESP_LOGI(LOGTASKTAG, "UM980 not detected, VERSION reply: %s",
-                 versionResult ? versionResult->c_str() : "(UART error)");
-        gpsUartDelay();
+        /// we need to reconfigure UM980 after we determine at what speed to communicate with it
+        for (auto baudRate: UM980_BAUD_RATES) {
+            ESP_LOGI(GPSTASKTAG, "iteration %d, try use UART speed %d", iteration, baudRate);
+            const esp_err_t thisSpeedRes = testGnssBaudRate(baudRate);
+            if (thisSpeedRes == ESP_OK) {
+                ESP_LOGI(GPSTASKTAG, "iteration %d, communication with uart speed %d SUCSESS", iteration, baudRate);
+                const std::string UM980_UART_BAUDRATE_STR = std::to_string(UM980_UART_BAUDRATE);
+                sendStringAndWait("CONFIG COM1 " + UM980_UART_BAUDRATE_STR + "\r\n");
+                sendStringAndWait("CONFIG COM2 " + UM980_UART_BAUDRATE_STR + "\r\n");
+                sendStringAndWait("CONFIG COM3 " + UM980_UART_BAUDRATE_STR + "\r\n");
+                sendStringAndWait("SAVECONFIG\r\n");
+
+                /// and now try again with correct speed
+                const esp_err_t afterReconfigureRes = testGnssBaudRate(UM980_UART_BAUDRATE);
+                if (afterReconfigureRes == ESP_OK) {
+                    ESP_LOGI(GPSTASKTAG, "iteration %d, after RECONFIGURATION communication with DEFAULT uart speed %d SUCSESS", iteration, UM980_UART_BAUDRATE);
+                    return ESP_OK;
+                } else {
+                    ESP_LOGI(GPSTASKTAG, "iteration %d, after RECONFIGURATION communication with DEFAULT uart speed %d SUCSESS", iteration, UM980_UART_BAUDRATE);
+                }
+            } else {
+                ESP_LOGE(GPSTASKTAG, "iteration %d, communication with uart speed %d FAIL", iteration, baudRate);
+            }
+        }
     }
+
+    ESP_LOGE(GPSTASKTAG, "UART communications with UM980 failed after %d attempts", CONFIGS_MAX_ITERATIONS);
+    return ESP_FAIL;
+}
+
+esp_err_t GpsTask::configureUM980()
+{
+    ESP_LOGI(GPSTASKTAG, "UM980 configuration: start");
+
+    const esp_err_t uartResult = setupUartToUM980();
+    if (uartResult == ESP_FAIL)
+        return ESP_FAIL;
+
+    /// just in case, disable all NMEA stream
+    sendStringAndWait("UNLOG\r\n");
 
     /// request config, only for debug
     sendStringAndWait("CONFIG\r\n");
-
-    // /// setup baudrate (needed if it is different and we want to switch it)
-    // sendStringAndWait("CONFIG COM1 115200\r\n");
-    // sendStringAndWait("CONFIG COM2 115200\r\n");
-    // sendStringAndWait("CONFIG COM3 115200\r\n");
-    // sendStringAndWait("SAVECONFIG\r\n");
 
     sendStringAndWait("MODE ROVER SURVEY DEFAULT\r\n");
     sendStringAndWait("CONFIG RTK TIMEOUT 0\r\n");
@@ -137,11 +204,11 @@ esp_err_t GpsTask::configureUM980()
     /// nice to have, but it will reboot UM980 module =( and it's not
     const auto signalResult = sendStringAndWait("CONFIG SIGNALGROUP 2\r\n");
     if (signalResult && signalResult->contains("system is rebooting")) {
-        ESP_LOGI(LOGTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %u ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
+        ESP_LOGI(GPSTASKTAG, "UM980 is rebooting after SIGNALGROUP change, wait for %u ms", GPS_TASK_REBOOT_DELAY_MICROSEC);
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_REBOOT_DELAY_MICROSEC));
     }
 
-    ESP_LOGI(LOGTASKTAG, "UM980 configuration: success");
+    ESP_LOGI(GPSTASKTAG, "UM980 configuration: success");
     return ESP_OK;
 }
 
@@ -184,8 +251,12 @@ std::expected<std::string, esp_err_t> GpsTask::sendStringAndWait(std::string_vie
 {
     static constexpr const char TX_TASK_TAG[] = "TX_TASK2";
     const int txBytes = uart_write_bytes(GPS_UART_PORT, data.data(), data.size());
-    if (txBytes != static_cast<int>(data.size())) {
-        ESP_LOGE(TX_TASK_TAG, "wrong string size");
+    const int expectedBytes = static_cast<int>(data.size());
+    if (txBytes != expectedBytes) {
+        ESP_LOGE(TX_TASK_TAG, "wrong string size, expected %d, real TX size %d", expectedBytes, txBytes);
+        const std::string dataAsStr {data};
+        ESP_LOGE(TX_TASK_TAG, "string for TX: %s", dataAsStr.c_str());
+
         return std::unexpected(ESP_FAIL);
     }
 
@@ -252,7 +323,8 @@ void GpsTask::executeTask()
     while (!m_terminateASAP) {
         readFromUart(dataAsString);
         if (dataAsString.size() > 0) {
-            ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes: '%s'", dataAsString.size(), dataAsString.c_str());
+            ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
+            ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
             for (const auto c : dataAsString) {
@@ -554,10 +626,10 @@ std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
 
 std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
 {
-    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule generate GPS info - start");
+    // ESP_LOGI(GPSTASKTAG, "SdLoggerModule generate GPS info - start");
     
     if (!has3DLock(p)) {
-        ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate GPS info - end | no fix");
+        ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate GPS info - end | no fix");
         return "";
     }
 
@@ -568,15 +640,15 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
     // const bool correctTime = std::abs(deltaInSeconds) <= MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC;
 
     // if (!correctTime) {
-    //     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate GPS info - end | too old coordinates!!! ");
-    //     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | delta %lld", deltaInSeconds);
+    //     ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate GPS info - end | too old coordinates!!! ");
+    //     ESP_LOGI(GPSTASKTAG, "SdLoggerModule | delta %lld", deltaInSeconds);
     //     std::cout << "rtc_time " << rtc_time << std::endl;
     //     std::cout << "gnss time " << p.worldTime << std::endl;
     //     return "";
     // }
  
 
-    ESP_LOGI(LOGTASKTAG, "try to get GNSS seconds timestamp");
+    ESP_LOGI(GPSTASKTAG, "try to get GNSS seconds timestamp");
 
     const std::time_t stampT = std::chrono::system_clock::to_time_t(p.worldTime);
     const auto gpsSecs = std::chrono::duration_cast<std::chrono::seconds>(p.worldTime.time_since_epoch()).count();
@@ -606,13 +678,13 @@ std::string GpsTask::printGpsTimeInfo(const GpsInfo &p)
 
 std::string GpsTask::printPppTimeInfo(const PppInfo &p)
 {
-    // ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP Time info - start");
+    // ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate PPP Time info - start");
     // uint32_t rtc_sec = getValidTime();
     // const bool correctTime = (rtc_sec >= p.utxSeconds - MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC)
     //     && (rtc_sec <= p.utxSeconds + MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC);
     // if (!correctTime) {
-    //     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP info - end | too old coordinates!!!");
-    //     ESP_LOGI(LOGTASKTAG, "SdLoggerModule | solution age %d, rtc time %d, GPS time %d", p.solutionAge, rtc_sec, p.utxSeconds);
+    //     ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate PPP info - end | too old coordinates!!!");
+    //     ESP_LOGI(GPSTASKTAG, "SdLoggerModule | solution age %d, rtc time %d, GPS time %d", p.solutionAge, rtc_sec, p.utxSeconds);
     //     return "";
     // }
 
@@ -638,12 +710,12 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
                        gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
                        gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec);
 
-    ESP_LOGI(LOGTASKTAG, "date from PPP: %d-%d-%dT%d:%d:%d.%dZ",
+    ESP_LOGI(GPSTASKTAG, "date from PPP: %d-%d-%dT%d:%d:%d.%dZ",
         gmTime.tm_year, gmTime.tm_mon, gmTime.tm_mday,
         gmTime.tm_hour, gmTime.tm_min, gmTime.tm_sec,
         p.millisecs
     );
-    ESP_LOGI(LOGTASKTAG, "date formatted by code: %s", dateTimeStringFull.c_str());
+    ESP_LOGI(GPSTASKTAG, "date formatted by code: %s", dateTimeStringFull.c_str());
 
     std::string message;
     message.reserve(200);
@@ -662,13 +734,13 @@ std::string GpsTask::printPppTimeInfo(const PppInfo &p)
     message += ";PPP_AGE;";
     appendNum(message, p.solutionAge);
 
-    ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP Time info - end");
+    ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate PPP Time info - end");
     return message;
 }
 
 std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDistance)
 {
-    ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP GEO info - start");
+    ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate PPP GEO info - start");
 
 
     const double latPpp = static_cast<double>(p.lat) * 1e-7;
@@ -705,7 +777,7 @@ std::string GpsTask::printPppGeoInfo(const PppInfo &p, const double &gnssToPppDi
     appendNum(message, p.altStdDev);
     message += ";";
 
-    ESP_LOGI(LOGTASKTAG, "SdLoggerModule | generate PPP GEO info - end");
+    ESP_LOGI(GPSTASKTAG, "SdLoggerModule | generate PPP GEO info - end");
     return message;
 }
 
@@ -807,13 +879,13 @@ GpsTask::QStarZPackets GpsTask::emulateQstarzBinary(const GpsInfo &p)
     packets[2].assign_range(view.subspan(40, 20));
     packets[3].assign_range(view.subspan(60,  4));
 
-    ESP_LOGD(LOGTASKTAG, "first packet.length: %zu", packets[0].size());
-    ESP_LOGD(LOGTASKTAG, "first packet[0]: %d, should be 1, 2, 3", std::to_integer<int>(packets[0][0]));
-    ESP_LOGD(LOGTASKTAG, "third packet.length: %zu", packets[2].size());
-    ESP_LOGD(LOGTASKTAG, "third packet[16]: %d", std::to_integer<int>(packets[2][16]));
-    ESP_LOGD(LOGTASKTAG, "third packet[17]: %d", std::to_integer<int>(packets[2][17]));
-    ESP_LOGD(LOGTASKTAG, "third packet[18]: %d", std::to_integer<int>(packets[2][18]));
-    ESP_LOGD(LOGTASKTAG, "third packet[19]: %d", std::to_integer<int>(packets[2][19]));
+    ESP_LOGD(GPSTASKTAG, "first packet.length: %zu", packets[0].size());
+    ESP_LOGD(GPSTASKTAG, "first packet[0]: %d, should be 1, 2, 3", std::to_integer<int>(packets[0][0]));
+    ESP_LOGD(GPSTASKTAG, "third packet.length: %zu", packets[2].size());
+    ESP_LOGD(GPSTASKTAG, "third packet[16]: %d", std::to_integer<int>(packets[2][16]));
+    ESP_LOGD(GPSTASKTAG, "third packet[17]: %d", std::to_integer<int>(packets[2][17]));
+    ESP_LOGD(GPSTASKTAG, "third packet[18]: %d", std::to_integer<int>(packets[2][18]));
+    ESP_LOGD(GPSTASKTAG, "third packet[19]: %d", std::to_integer<int>(packets[2][19]));
     
 
 
