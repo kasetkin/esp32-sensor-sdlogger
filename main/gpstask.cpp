@@ -375,8 +375,11 @@ bool GpsTask::processNewLocation()
 
     ///first check if everything is updated
     const bool allNew = m_gps.location.isUpdated()
+        && m_gps.date.isUpdated()
+        && m_gps.time.isUpdated()
         && m_gps.altitude.isUpdated()
         && m_gps.satellites.isGsaUpdated()   // wait for this epoch's GSA (fix type / PDOP / VDOP)
+        && m_gps.satellites.isGsvUpdated()
         && pppnavSolStatus.isUpdated()
         && ggaEpoch.isUpdated();
 
@@ -603,7 +606,9 @@ std::string GpsTask::printGpsGeoInfo(const GpsInfo &p)
     /// and result sould be ~ "-28.7422" in meters
     message += ";UNDUL;";
     appendNum(message, p.geoidAlt);
-    message += ";SATS;";
+    message += ";SATS-In-VIEW;";
+    appendNum(message, p.satellitesInView);
+    message += ";SATS-USED;";
     appendNum(message, p.satellites.size());
     message += ";PDOP;";
     dopToMeters(message, dopHundredths(p.fixPDOP));
