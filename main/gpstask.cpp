@@ -486,9 +486,25 @@ bool GpsTask::processNewLocation()
 
         const int32_t microsec = static_cast<int32_t>(timeData->centisecond()) * 10000;
         struct timeval gpsTimeNow = { .tv_sec = timestamp, .tv_usec = microsec };
-        //! \todo read TimeZone from SDCard or internal memory
-        struct timezone myZone = { .tz_minuteswest = -300, .tz_dsttime = DST_NONE };
-        settimeofday(&gpsTimeNow, &myZone);
+
+        // Only discipline the system clock when it has drifted more than 
+        /// RTC_RESYNC_MIN_DELTA_SEC
+        /// from GPS
+        struct timeval systemNow{};
+        gettimeofday(&systemNow, nullptr);
+        const int64_t gpsMs    = static_cast<int64_t>(gpsTimeNow.tv_sec) * 1000 + gpsTimeNow.tv_usec / 1000;
+        const int64_t systemMs = static_cast<int64_t>(systemNow.tv_sec) * 1000 + systemNow.tv_usec / 1000;
+        const int64_t rawDeltaMs = gpsMs - systemMs;
+        const int64_t deltaMs = rawDeltaMs < 0 ? -rawDeltaMs : rawDeltaMs;
+
+        if (deltaMs > RTC_RESYNC_MIN_DELTA_SEC * 1000) {
+            //! \todo read TimeZone from SDCard or internal memory
+            struct timezone myZone = { .tz_minuteswest = -300, .tz_dsttime = DST_NONE };
+            settimeofday(&gpsTimeNow, &myZone);
+            ESP_LOGI(NEW_LOCATION_TAG, "system clock resynced from GPS, drift was %lld ms", deltaMs);
+        } else {
+            ESP_LOGD(NEW_LOCATION_TAG, "system clock within %lld ms of GPS, no resync", deltaMs);
+        }
 
         ESP_LOGI(NEW_LOCATION_TAG, "timestamp generated");
     }

@@ -55,6 +55,7 @@ public:
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
     static constexpr uint32_t GPS_TASK_REBOOT_DELAY_MICROSEC = 6 * 1000;
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
+    static constexpr int64_t RTC_RESYNC_MIN_DELTA_SEC = 3;
     static constexpr int UART_TX_GPIO_PIN = GPIO_NUM_16;
     static constexpr int UART_RX_GPIO_PIN = GPIO_NUM_17;
     static constexpr int CONFIGS_MAX_ITERATIONS = 1000;
