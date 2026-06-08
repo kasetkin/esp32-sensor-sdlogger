@@ -2,8 +2,8 @@
   "name": "ESP32 Sensor SD Logger",
   "image": "espressif/idf:v6.0.1",
   "runArgs": [
-    "--group-add=dialout",
-    "--device=/dev/ttyACM0"
+    "--device=/dev/ttyACM0",
+    "--group-add=dialout"
   ],
   "remoteEnv": {
     "IDF_PATH": "/opt/esp/idf",
