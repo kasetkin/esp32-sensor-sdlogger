@@ -212,7 +212,7 @@ esp_err_t SensorsTask::init(bool readAdc)
 
     deinitI2C();
     if (const esp_err_t i2cErr = initI2C(); i2cErr != ESP_OK) {
-        deinitAdc();
+        deinitI2C();
         return i2cErr;
     }
 
