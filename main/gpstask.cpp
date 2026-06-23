@@ -18,7 +18,7 @@
 #include <driver/gpio.h>
 #include "common_utils.h"
 #include "unicore.h"
-// #include "fake_nmea.h"
+#include "fake_nmea.h"
 
 static constexpr const char GPSTASKTAG[] = "gps logger";
 
@@ -316,7 +316,14 @@ void GpsTask::executeTask()
     static constexpr const char GPS_TASK_TAG[] = "GPS_TASK";
     std::string dataAsString;
     while (!m_terminateASAP) {
-        readFromUart(dataAsString);
+        
+        //! read fake NMEA stream for debugging
+        //! \todo create FakeNmeaTask and provide only necessary lines per epoch,
+        //!     i.e. in the begining of the second provide rmc-gga-gsa-gsv-pppnav then wait for next second
+        fakeNmeaLine(dataAsString);
+
+        // readFromUart(dataAsString);
+        
         if (dataAsString.size() > 0) {
             ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
             ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());

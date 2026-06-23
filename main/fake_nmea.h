@@ -2,4 +2,4 @@
 
 #include <string>
 
-std::string fakeNmeaLine();
+void fakeNmeaLine(std::string &line);
