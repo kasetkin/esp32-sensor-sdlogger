@@ -14,6 +14,7 @@
 #include <span>
 #include <iostream>
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <driver/uart.h>
 #include <driver/gpio.h>
 #include "common_utils.h"
@@ -315,18 +316,44 @@ void GpsTask::executeTask()
 {
     static constexpr const char GPS_TASK_TAG[] = "GPS_TASK";
     std::string dataAsString;
+
+    uint64_t epochHardwareSecond = -1;
+    bool epochDone = false;
+
     while (!m_terminateASAP) {
         
         //! read fake NMEA stream for debugging
-        //! \todo create FakeNmeaTask and provide only necessary lines per epoch,
-        //!     i.e. in the begining of the second provide rmc-gga-gsa-gsv-pppnav then wait for next second
-        fakeNmeaLine(dataAsString);
+        {
+            dataAsString.clear();
+            const int64_t hardwareTime = esp_timer_get_time();
+            const int64_t hardwareSecond = hardwareTime / 1000000;
+            if (epochHardwareSecond != hardwareSecond) {
+                epochDone = false;
+                ESP_LOGI(GPS_TASK_TAG, "new hardware epoch: %lli -> %lli; hardware time %lli", epochHardwareSecond, hardwareSecond, hardwareTime);
+                epochHardwareSecond = hardwareSecond;
+            }
 
+            if (!epochDone) {
+                fakeNmeaLine(dataAsString);
+
+                /// epoch end
+                if (dataAsString.contains("PPPNAV")) {
+                    ESP_LOGI(GPS_TASK_TAG, "PPPNAV epoch end message, hardware time %lli", hardwareTime);
+                    epochDone = true;
+                }
+            } else {
+                ESP_LOGI(GPS_TASK_TAG, "all epoch data received, skip");
+            }
+        }
+
+        /// real UART reading code
         // readFromUart(dataAsString);
         
+
+
         if (dataAsString.size() > 0) {
-            ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
-            ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
+            // ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
+            // ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
             feed(dataAsString);
@@ -336,11 +363,12 @@ void GpsTask::executeTask()
 
             dataAsString.clear();
             
-            if (m_gps.location.age() != ULONG_MAX)
-                ESP_LOGI(GPS_TASK_TAG, "Valid location from GPS");
+            /// without long sleep, just 1 tick for possible thread switching
+            vTaskDelay(1);
+        } else {
+            /// no input, sleep a bit more
+            vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
         }
-
-        vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
     }
 }
 

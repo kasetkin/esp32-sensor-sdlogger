@@ -51,7 +51,7 @@ struct GpsInfo
 class GpsTask
 {
 public:
-    static constexpr uint32_t GPS_TASK_DELAY_MS = 30;
+    static constexpr uint32_t GPS_TASK_DELAY_MS = 20;
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
     static constexpr uint32_t GPS_TASK_REBOOT_DELAY_MICROSEC = 6 * 1000;
     static constexpr int64_t MAX_GPS_TO_RTC_MAX_TIME_DELTA_SEC = 20;
