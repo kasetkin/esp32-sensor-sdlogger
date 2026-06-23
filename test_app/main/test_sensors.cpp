@@ -182,7 +182,7 @@ static bool g_sensorsInitialized = false;
 static void ensureSensorsInit(void)
 {
     if (!g_sensorsInitialized) {
-        const esp_err_t err = g_sensorsTask.init();
+        const esp_err_t err = g_sensorsTask.init(false);  // match main.cpp: ADC reading disabled
         TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, err,
             "SensorsTask::init() failed - check ADC wiring and I2C/SHT3x connection");
         g_sensorsInitialized = true;

@@ -12,6 +12,7 @@ extern void run_sdcard_tests(void);
 extern void run_geodistance_tests(void);
 extern void run_tinygps_tests(void);
 extern void run_satellites_tests(void);
+extern void run_nmea_profile_tests(void);
 
 extern "C" void app_main(void)
 {
@@ -26,6 +27,7 @@ extern "C" void app_main(void)
     run_geodistance_tests();
     run_tinygps_tests();
     run_satellites_tests();
+    run_nmea_profile_tests();
     UNITY_END();
 
     while (true) {

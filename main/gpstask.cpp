@@ -322,20 +322,7 @@ void GpsTask::executeTask()
             ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
-            for (const auto c : dataAsString) {
-                m_gps.encode(c);
-
-                const bool allNew = m_gps.location.isUpdated()
-                    && m_gps.altitude.isUpdated()
-                    && m_gps.satellites.isUpdated()
-                    && pppnavSolStatus.isUpdated()
-                    && ggaEpoch.isUpdated();
-                if (allNew) [[unlikely]] {
-                    const bool newLocation = processNewLocation();
-                    if (newLocation)
-                        ESP_LOGI(GPS_TASK_TAG, "new location reported");
-                }
-            }
+            feed(dataAsString);
 
             if (m_nmeaEvent)
                 m_nmeaEvent(dataAsString);
@@ -348,6 +335,31 @@ void GpsTask::executeTask()
 
         vTaskDelay(pdMS_TO_TICKS(GPS_TASK_DELAY_MS));
     }
+}
+
+void GpsTask::feed(std::string_view data)
+{
+    static constexpr const char GPS_TASK_TAG[] = "GPS_TASK";
+    for (const char c : data) {
+        m_gps.encode(c);
+
+        const bool allNew = m_gps.location.isUpdated()
+            && m_gps.altitude.isUpdated()
+            && m_gps.satellites.isUpdated()
+            && pppnavSolStatus.isUpdated()
+            && ggaEpoch.isUpdated();
+        if (allNew) [[unlikely]] {
+            const bool newLocation = processNewLocation();
+            if (newLocation)
+                ESP_LOGI(GPS_TASK_TAG, "new location reported");
+        }
+    }
+}
+
+void GpsTask::encodeOnly(std::string_view data)
+{
+    for (const char c : data)
+        m_gps.encode(c);
 }
 
 using Q = TinyGPSLocation::GnssQuality;

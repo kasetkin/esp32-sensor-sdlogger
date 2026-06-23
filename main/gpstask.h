@@ -89,6 +89,18 @@ public:
     void executeTask();
     void terminate();
 
+    /// Drive the production per-epoch pipeline (encode + processNewLocation)
+    /// over an in-memory NMEA buffer, bypassing the UART. Used by profiling and
+    /// for offline testing of the parse pipeline.
+    void feed(std::string_view data);
+
+    /// Parse-only variant of feed(): encodes characters without running the
+    /// downstream processNewLocation() work. Used to isolate parse cost.
+    void encodeOnly(std::string_view data);
+
+    /// Number of characters fed into the NMEA parser so far.
+    uint32_t charsProcessed() const { return m_gps.charsProcessed(); }
+
     static bool hasLock(const GpsInfo &info);
     static bool has3DLock(const GpsInfo &info);
     bool processNewLocation();

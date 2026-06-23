@@ -12,6 +12,7 @@ set(srcs
     test_geodistance.cpp
     test_tinygps.cpp
     test_satellites.cpp
+    test_nmea_profile.cpp
     ${MAIN_SRC}/sensorstask.cpp
     ${MAIN_SRC}/loggertask.cpp
     ${MAIN_SRC}/gpstask.cpp
@@ -27,6 +28,7 @@ idf_component_register(SRCS ${srcs}
                        REQUIRES sht3x fatfs sdmmc nvs_flash esp_timer esp_driver_gpio
                                 esp_driver_uart esp_adc bt unity
                        PRIV_REQUIRES TinyGPSPlus
+                       EMBED_TXTFILES "../../docs/large_nmea_stream_example_16_epochs.txt"
                        WHOLE_ARCHIVE)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 26)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD_REQUIRED ON)

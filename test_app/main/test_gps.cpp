@@ -419,7 +419,7 @@ static void test_print_gps_geo_info_satellite_count(void)
     info.satellites.insert(SatelliteInfo{.prn = 2});
     info.satellites.insert(SatelliteInfo{.prn = 3});
     const std::string result = GpsTask::printGpsGeoInfo(info);
-    TEST_ASSERT_TRUE(result.contains("SATS;3"));
+    TEST_ASSERT_TRUE(result.contains("SATS-USED;3"));
 }
 
 // ── GpsTask::hasLock / has3DLock — untested Quality values ───────────────────
