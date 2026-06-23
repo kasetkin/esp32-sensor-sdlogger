@@ -24,6 +24,7 @@ static std::shared_ptr<SensorsTask> sensorTask;
 static std::shared_ptr<LoggerTask> loggerTask;
 static std::shared_ptr<ErrorTask> errorTask;
 static std::shared_ptr<BleSppServerTask> bleTask;
+static bool bleNmeaStream = true;
 
 void startErrorTask(ErrorTask::ErrorCode code)
 {
@@ -114,8 +115,10 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "configure GpsTask events - begin");
     gpsTask->configureNmeaEvent([](std::string_view nmea) static
     {
-        if (bleTask)
-            bleTask->appendNmea(nmea);
+        if (bleNmeaStream) {
+            if (bleTask)
+                bleTask->appendNmea(nmea);
+        }
 
         if (loggerTask)
             loggerTask->addNmeaLog(nmea);
@@ -160,14 +163,18 @@ extern "C" void app_main(void)
 
         ESP_LOGI(TAG, "BLE command received: [%s]", trimmed.c_str());
 
-        if (trimmed == "wifi=enable") {
-            ESP_LOGI(TAG, "wifi=enable: not yet implemented");
-        } else if (trimmed == "wifi=disable") {
-            ESP_LOGI(TAG, "wifi=disable: not yet implemented");
+        if (trimmed == "wifi=on") {
+            ESP_LOGI(TAG, "wifi=on: not yet implemented");
+        } else if (trimmed == "wifi=off") {
+            ESP_LOGI(TAG, "wifi=off: not yet implemented");
         } else if (trimmed == "led=on") {
             enableUserLED(true);
         } else if (trimmed == "led=off") {
             enableUserLED(false);
+        } else if (trimmed == "ble-nmea=on") {
+            bleNmeaStream = true;
+        } else if (trimmed == "ble-nmea=off") {
+            bleNmeaStream = false;
         } else if (!trimmed.empty() && gpsTask) {
             gpsTask->sendData(trimmed);
             gpsTask->sendData("\r\n");
