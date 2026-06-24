@@ -317,39 +317,39 @@ void GpsTask::executeTask()
     static constexpr const char GPS_TASK_TAG[] = "GPS_TASK";
     std::string dataAsString;
 
-    // uint64_t epochHardwareSecond = -1;
-    // bool epochDone = false;
+    uint64_t epochHardwareSecond = -1;
+    bool epochDone = false;
 
     while (!m_terminateASAP) {
         
         //! read fake NMEA stream for debugging
-        // {
-        //     dataAsString.clear();
-        //     const int64_t hardwareTime = esp_timer_get_time();
-        //     const int64_t hardwareSecond = hardwareTime / 1000000;
-        //     if (epochHardwareSecond != hardwareSecond) {
-        //         epochDone = false;
-        //         ESP_LOGI(GPS_TASK_TAG, "new hardware epoch: %lli -> %lli; hardware time %lli", epochHardwareSecond, hardwareSecond, hardwareTime);
-        //         epochHardwareSecond = hardwareSecond;
-        //     }
-        //     if (!epochDone) {
-        //         fakeNmeaLine(dataAsString);
-        //         /// epoch end
-        //         if (dataAsString.contains("PPPNAV")) {
-        //             ESP_LOGI(GPS_TASK_TAG, "PPPNAV epoch end message, hardware time %lli", hardwareTime);
-        //             epochDone = true;
-        //         }
-        //     } else {
-        //         ESP_LOGI(GPS_TASK_TAG, "all epoch data received, skip");
-        //     }
-        // }
-
-        /// real UART reading code
-        readFromUart(dataAsString);
+        if (!USE_FAKE_NMEA_STREAM) {
+            /// real UART reading code
+            readFromUart(dataAsString);
+        } else {
+            dataAsString.clear();
+            const int64_t hardwareTime = esp_timer_get_time();
+            const int64_t hardwareSecond = hardwareTime / 1000000;
+            if (epochHardwareSecond != hardwareSecond) {
+                epochDone = false;
+                ESP_LOGI(GPS_TASK_TAG, "new hardware epoch: %lli -> %lli; hardware time %lli", epochHardwareSecond, hardwareSecond, hardwareTime);
+                epochHardwareSecond = hardwareSecond;
+            }
+            if (!epochDone) {
+                fakeNmeaLine(dataAsString);
+                /// epoch end
+                if (dataAsString.contains(FAKE_STREAM_EPOCH_END_MARKER)) {
+                    ESP_LOGI(GPS_TASK_TAG, "epoch end message, hardware time %lli", hardwareTime);
+                    epochDone = true;
+                }
+            } else {
+                ESP_LOGD(GPS_TASK_TAG, "all epoch data received, skip");
+            }
+        }
         
         if (dataAsString.size() > 0) {
-            ESP_LOGI(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
-            // ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
+            ESP_LOGD(GPS_TASK_TAG, "Read %zu bytes", dataAsString.size());
+            ESP_LOGD(GPS_TASK_TAG, "UART DATA: %s", dataAsString.c_str());
             // ESP_LOG_BUFFER_HEXDUMP(GPS_TASK_TAG, data.data(), rxBytes, ESP_LOG_INFO);
 
             feed(dataAsString);

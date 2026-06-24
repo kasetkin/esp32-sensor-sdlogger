@@ -51,6 +51,8 @@ struct GpsInfo
 class GpsTask
 {
 public:
+    static constexpr bool USE_FAKE_NMEA_STREAM = false; /// 'false' for real data from UART
+    static constexpr std::string_view FAKE_STREAM_EPOCH_END_MARKER = "PPPNAV";
     static constexpr uint32_t GPS_TASK_DELAY_MS = 20;
     static constexpr uint32_t GPS_TASK_TX2RX_DELAY_MICROSEC = 100;
     static constexpr uint32_t GPS_TASK_REBOOT_DELAY_MICROSEC = 6 * 1000;
