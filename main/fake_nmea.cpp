@@ -4,8 +4,10 @@
 #include <string_view>
 #include <esp_log.h>
 
-extern const char s_nmea_start[] asm("_binary_large_nmea_stream_example_16_epochs_txt_start");
-extern const char s_nmea_end[]   asm("_binary_large_nmea_stream_example_16_epochs_txt_end");
+// extern const char s_nmea_start[] asm("_binary_large_nmea_stream_example_16_epochs_txt_start");
+// extern const char s_nmea_end[]   asm("_binary_large_nmea_stream_example_16_epochs_txt_end");
+extern const char s_nmea_start[] asm("_binary_sats_in_view_nmea_txt_start");
+extern const char s_nmea_end[] asm("_binary_sats_in_view_nmea_txt_end");
 
 static const size_t len = static_cast<size_t>(s_nmea_end - s_nmea_start - 1);
 static const std::string_view fakeNmeaLog{s_nmea_start, len};

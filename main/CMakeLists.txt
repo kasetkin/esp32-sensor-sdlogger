@@ -14,7 +14,10 @@ idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "."
                        REQUIRES sht3x fatfs sdmmc nvs_flash esp_timer esp_driver_gpio esp_driver_uart esp_adc bt
                        PRIV_REQUIRES TinyGPSPlus
-                       EMBED_TXTFILES "../docs/large_nmea_stream_example_16_epochs.txt"
+                       EMBED_TXTFILES 
+                          "../docs/sats_in_view_nmea.txt"
                        WHOLE_ARCHIVE)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 26)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD_REQUIRED ON)
+
+#                          "../docs/large_nmea_stream_example_16_epochs.txt"
